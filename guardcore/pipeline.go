@@ -112,10 +112,81 @@ func (c *ipSecurityCheck) checkRouteIPAccess(state *RequestState, ip string, rou
 	} else if len(route.IPWhitelist) > 0 && !ipMatchesList(ip, route.IPWhitelist) {
 		ipBlocked = true
 	}
-	if ipBlocked || routeCountryAccess(ip, route, c.cfg.GeoIPHandler) == countryDenied {
+	verdict, country, ruleType := routeCountryAccessDetail(ip, route, c.cfg.GeoIPHandler)
+	if verdict == countryDenied {
+		// The reference emits country_blocked from IPInfoManager
+		// .check_country_access (guard_core/handlers/ipinfo_handler.py) with
+		// the matched rule's reason, action and rule_type.
+		reason := fmt.Sprintf("Country %s is blocked", country)
+		if ruleType == "country_whitelist" {
+			reason = fmt.Sprintf("Country %s not in allowed list", country)
+		}
+		fireGeoEvent(c.cfg, GeoEvent{
+			EventType:   EventCountryBlocked,
+			IPAddress:   ip,
+			ActionTaken: "request_blocked",
+			Reason:      reason,
+			Country:     country,
+			RuleType:    ruleType,
+			HandlerName: ipinfoHandlerName,
+		})
+		ipBlocked = true
+	}
+	if ipBlocked {
+		// The reference ip_security route-denial path emits
+		// decorator_violation (ip_security.py _classify_route_ip_denial plus
+		// emit_access_denied_event) before the 403.
+		decoratorType, violationType := classifyRouteIPDenial(route, c.cfg.GeoIPHandler, ip)
+		fireGeoEvent(c.cfg, GeoEvent{
+			EventType:   EventDecoratorViolation,
+			IPAddress:   ip,
+			ActionTaken: "request_blocked",
+			Reason:      fmt.Sprintf("IP %s blocked", ip),
+			HandlerName: ipinfoHandlerName,
+			Metadata: map[string]any{
+				"decorator_type": decoratorType,
+				"violation_type": violationType,
+				"passive_mode":   c.cfg.PassiveMode,
+			},
+		})
 		return c.denyRoute(state, ip)
 	}
 	return nil
+}
+
+// classifyRouteIPDenial mirrors _classify_route_ip_denial
+// (guard_core/core/checks/implementations/ip_security.py): an IP-list deny
+// or a non-country route deny reports access_control/ip_restriction; a
+// country-only deny reports block_countries or allow_countries with the
+// country_restriction violation type.
+func classifyRouteIPDenial(route *RouteConfig, resolver CountryResolver, ip string) (string, string) {
+	verdict, _, _ := routeCountryAccessDetail(ip, route, resolver)
+	if verdict != countryDenied || len(route.IPWhitelist) > 0 || len(route.IPBlacklist) > 0 {
+		return "access_control", "ip_restriction"
+	}
+	if len(route.BlockedCountries) > 0 {
+		if country, ok := resolver.GetCountry(ip); ok && country != "" && containsCountry(route.BlockedCountries, country) {
+			return "block_countries", "country_restriction"
+		}
+	}
+	return "allow_countries", "country_restriction"
+}
+
+// fireGeoEvent dispatches a GeoEvent to the config's OnGeoEvent hook (the Go
+// stand-in for the reference event bus), recovering from a panicking hook
+// like fireBlockHook does.
+func fireGeoEvent(cfg *SecurityConfig, ev GeoEvent) {
+	if cfg == nil || cfg.OnGeoEvent == nil {
+		return
+	}
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("on_geo_event hook raised: %v", r)
+			}
+		}()
+		cfg.OnGeoEvent(ev)
+	}()
 }
 
 func (c *ipSecurityCheck) denyRoute(state *RequestState, ip string) *Response {
@@ -138,15 +209,25 @@ const (
 	countryAllowed
 )
 
-// routeCountryAccess mirrors check_country_access
+// routeCountryAccess answers the plain verdict of routeCountryAccessDetail.
+func routeCountryAccess(ip string, route *RouteConfig, resolver CountryResolver) countryVerdict {
+	verdict, _, _ := routeCountryAccessDetail(ip, route, resolver)
+	return verdict
+}
+
+// routeCountryAccessDetail mirrors check_country_access
 // (guard_core/core/checks/helpers.py): the route blocked_countries list
 // denies its match, a route whitelist_countries list answers membership
 // outright (an unresolved country denies), anything else stays neutral.
 // Unlike the global country stage there is no loopback exemption here,
-// exactly like the reference.
-func routeCountryAccess(ip string, route *RouteConfig, resolver CountryResolver) countryVerdict {
+// exactly like the reference. The extra returns carry the country and the
+// matched rule type ("country_blacklist" / "country_whitelist") the
+// reference country_blocked event reports; the unresolved-country deny
+// under an allowlist reports no rule type (the reference check_country_access
+// returns False there without emitting).
+func routeCountryAccessDetail(ip string, route *RouteConfig, resolver CountryResolver) (countryVerdict, string, string) {
 	if resolver == nil || route == nil {
-		return countryNoRules
+		return countryNoRules, "", ""
 	}
 	country := ""
 	resolved := false
@@ -154,7 +235,7 @@ func routeCountryAccess(ip string, route *RouteConfig, resolver CountryResolver)
 		if code, ok := resolver.GetCountry(ip); ok {
 			country, resolved = code, true
 			if code != "" && containsCountry(route.BlockedCountries, code) {
-				return countryDenied
+				return countryDenied, code, "country_blacklist"
 			}
 		}
 	}
@@ -163,14 +244,14 @@ func routeCountryAccess(ip string, route *RouteConfig, resolver CountryResolver)
 			country, resolved = resolver.GetCountry(ip)
 		}
 		if !resolved || country == "" {
-			return countryDenied
+			return countryDenied, "", ""
 		}
 		if containsCountry(route.WhitelistCountries, country) {
-			return countryAllowed
+			return countryAllowed, country, ""
 		}
-		return countryDenied
+		return countryDenied, country, "country_whitelist"
 	}
-	return countryNoRules
+	return countryNoRules, "", ""
 }
 
 // checkGlobal mirrors the reference _resolve_global_ip_access plus
