@@ -406,7 +406,20 @@ func (c *suspiciousActivityCheck) Check(req Request) *Response {
 	if state.HasBypass("penetration") {
 		return nil
 	}
-	categories, reason := detectThreat(req, cfg)
+	// The per-route enable_suspicious_detection decorator wins over the
+	// global flag for routed requests (_get_effective_penetration_setting,
+	// guard_core/core/checks/helpers.py): route true enables detection on
+	// this route even when the global flag is off, route false disables it
+	// even when the global flag is on.
+	route := state.RouteConfig
+	penetrationEnabled := cfg.EnablePenetrationDetection
+	if route != nil {
+		penetrationEnabled = route.EnableSuspiciousDetection
+	}
+	if !penetrationEnabled {
+		return nil
+	}
+	categories, reason := detectThreat(req, cfg, resolveDetectionExclusions(cfg, route))
 	if len(categories) == 0 {
 		return nil
 	}
@@ -462,11 +475,8 @@ func (c *suspiciousActivityCheck) registerViolations(cfg *SecurityConfig, ip str
 	return false
 }
 
-func detectThreat(req Request, cfg *SecurityConfig) ([]string, string) {
-	enabled := map[string]bool{}
-	for _, category := range cfg.EnabledDetectionCategories {
-		enabled[category] = true
-	}
+func detectThreat(req Request, cfg *SecurityConfig, exclusions routeDetectionExclusions) ([]string, string) {
+	enabled := exclusions.enabledCategories
 	type value struct {
 		content        string
 		context        string
@@ -478,7 +488,7 @@ func detectThreat(req Request, cfg *SecurityConfig) ([]string, string) {
 		values = append(values, value{path, "url_path", "", nil})
 	}
 	for key, v := range req.QueryParams() {
-		if cfg.ExcludedDetectionParams[strings.ToLower(key)] {
+		if exclusions.excludedParams[strings.ToLower(key)] {
 			continue
 		}
 		values = append(values, value{v, "query_param", "", nil})
@@ -489,7 +499,7 @@ func detectThreat(req Request, cfg *SecurityConfig) ([]string, string) {
 	// enabled category except the ones their value is known to
 	// false-positive (ssrf for address-carrying headers and for address
 	// chain values), so an attack payload in the same header still detects.
-	excludedHeaders := mergedExcludedDetectionHeaders(cfg)
+	excludedHeaders := exclusions.excludedHeaders
 	headers := req.Headers()
 	for name := range headers.Map() {
 		if hv, ok := headers.Get(name); ok && hv != "" {
@@ -504,10 +514,14 @@ func detectThreat(req Request, cfg *SecurityConfig) ([]string, string) {
 	// into form fields, multipart parts (binary-dense file parts reduced to
 	// printable islands), JSON walk leaves, or one whole-value blob and each
 	// value is scanned with its context, after the whole request surface
-	// exactly like the reference.
-	bodyValues := extractRequestBodyValues(req, cfg)
-	for _, v := range bodyValues {
-		values = append(values, value{v.content, v.context, v.forcedCategory, nil})
+	// exactly like the reference. detection_scan_body=false (the reference
+	// _resolve_scan_body / _scan_body_surface gate) skips the surface
+	// entirely while headers, params, and the URL path still scan.
+	if exclusions.scanBody {
+		bodyValues := extractRequestBodyValues(req, cfg, exclusions.excludedBodyFields)
+		for _, v := range bodyValues {
+			values = append(values, value{v.content, v.context, v.forcedCategory, nil})
+		}
 	}
 	for _, v := range values {
 		if v.forcedCategory != "" {
@@ -542,7 +556,7 @@ func detectThreat(req Request, cfg *SecurityConfig) ([]string, string) {
 // once, caps it at the inspection budget, and routes it through the body
 // extraction. A body read error leaves the body unscanned, like the
 // reference's failed body read reporting a detection miss.
-func extractRequestBodyValues(req Request, cfg *SecurityConfig) []bodyScanValue {
+func extractRequestBodyValues(req Request, cfg *SecurityConfig, excludedBodyFields map[string]bool) []bodyScanValue {
 	if cfg == nil {
 		return nil
 	}
@@ -554,7 +568,7 @@ func extractRequestBodyValues(req Request, cfg *SecurityConfig) []bodyScanValue 
 		body = body[:budget]
 	}
 	contentType, _ := req.Headers().Get("content-type")
-	return extractBodyScanValues(string(body), contentType, cfg)
+	return extractBodyScanValues(string(body), contentType, cfg, excludedBodyFields)
 }
 
 func stashBlock(state *RequestState, reason, triggerInfo string) {
@@ -963,7 +977,13 @@ func buildChecks(cfg *SecurityConfig, ban *IPBanManager, rateLimit *RateLimitMan
 		{"rate_limit", true, func(cfg *SecurityConfig) bool { return cfg.EnableRateLimiting || len(cfg.EndpointRateLimits) > 0 }, func(cfg *SecurityConfig) SecurityCheck {
 			return &rateLimitCheck{cfg: cfg, manager: rateLimit}
 		}},
-		{"suspicious_activity", false, func(cfg *SecurityConfig) bool { return cfg.EnablePenetrationDetection }, func(cfg *SecurityConfig) SecurityCheck {
+		{"suspicious_activity", false, func(cfg *SecurityConfig) bool {
+			// Reference SuspiciousActivityCheck.applies_to: the global flag
+			// or any route's enable_suspicious_detection decorator forces
+			// the check into the pipeline (the per-request route verdict
+			// then decides).
+			return cfg.EnablePenetrationDetection || anyRoute(routeConfigs, func(rc *RouteConfig) bool { return rc.EnableSuspiciousDetection })
+		}, func(cfg *SecurityConfig) SecurityCheck {
 			return &suspiciousActivityCheck{cfg: cfg, ban: ban, counts: counts}
 		}},
 		{"custom_request", false, func(cfg *SecurityConfig) bool { return cfg.CustomRequestCheck != nil }, func(cfg *SecurityConfig) SecurityCheck {
