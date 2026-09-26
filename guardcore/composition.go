@@ -2,6 +2,7 @@ package guardcore
 
 import (
 	"errors"
+	"io"
 	"log"
 	"slices"
 	"sync"
@@ -65,11 +66,13 @@ func (e *Engine) Initialize() error {
 
 func (e *Engine) startup() error {
 	if !e.Config.EnableRedis {
+		e.initializeGeoLifecycle(nil)
 		return e.refreshCloudRangesWithoutRedis()
 	}
 	if err := e.Redis.Initialize(); err != nil {
 		if e.Config.RedisFailOpen {
 			log.Printf("Redis unavailable during initialization, failing open: %v", err)
+			e.initializeGeoLifecycle(nil)
 			return e.refreshCloudRangesWithoutRedis()
 		}
 		return err
@@ -83,7 +86,18 @@ func (e *Engine) startup() error {
 		return err
 	}
 	e.RateLimit.InitializeRedis(e.Redis)
+	e.initializeGeoLifecycle(e.Redis)
 	return nil
+}
+
+// initializeGeoLifecycle runs the reference geo_ip_handler initialization at
+// middleware startup (handler_initializer steps: initialize_redis when Redis
+// is up, plain initialize otherwise): the IPInfo download/refresh lifecycle
+// executes here, and the first lookup only falls back to it lazily.
+func (e *Engine) initializeGeoLifecycle(redis *RedisManager) {
+	if lifecycle, ok := e.Config.GeoIPHandler.(GeoIPLifecycle); ok && e.Config.IPInfoToken != "" {
+		lifecycle.InitializeGeo(redis)
+	}
 }
 
 func (e *Engine) refreshCloudRangesWithoutRedis() error {
@@ -179,6 +193,14 @@ func (e *Engine) CORSResponseHeaders(req Request) map[string]string {
 }
 
 func (e *Engine) Close() error {
+	if closer, ok := e.Config.GeoIPHandler.(io.Closer); ok {
+		// The built-in manager's Close only releases the MMDB handle; its
+		// error must not mask the Redis shutdown.
+		if err := closer.Close(); err != nil {
+			_ = e.Redis.Close()
+			return err
+		}
+	}
 	return e.Redis.Close()
 }
 

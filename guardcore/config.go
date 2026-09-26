@@ -161,6 +161,25 @@ type SecurityConfig struct {
 	GeoIPDBPath  string
 	GeoIPHandler CountryResolver
 
+	// IPInfo lifecycle surface, mirrored from the reference IPInfoManager
+	// (guard_core/handlers/ipinfo_handler.py): a non-empty IPInfoToken turns
+	// the built-in GeoIPManager into the full download/refresh lifecycle
+	// (bearer-authenticated download of the free country_asn database with
+	// exponential-backoff retries, an atomic temp-file write, the Redis
+	// ("ipinfo","database") cache copy with the max-age TTL, and mtime-based
+	// staleness refresh). GeoIPDBPath overrides the default
+	// data/ipinfo/country_asn.mmdb location, and IPInfoMaxAge overrides the
+	// reference default of 86400 seconds. An empty token keeps the
+	// local-file-only mode of the GeoIPDBPath contract.
+	IPInfoToken  string
+	IPInfoMaxAge int
+
+	// OnGeoEvent is the engine-level geo event hook, the Go stand-in for the
+	// reference event-bus subscribers: it receives every country_blocked,
+	// geo_lookup_failed and decorator_violation event with the reference
+	// event names and fields (see GeoEvent). Nil means no subscriber.
+	OnGeoEvent func(GeoEvent)
+
 	// Behavior-rules surface, mirrored from the reference
 	// _security_config_fields.py: GlobalBehaviorRules applies to every
 	// route in addition to any route-specific rules (RouteConfig.BehaviorRules);
@@ -288,11 +307,26 @@ func (c *SecurityConfig) Validate() error {
 	}
 	c.WhitelistCountries = normalizeCountryList(c.WhitelistCountries)
 	c.BlockedCountries = normalizeCountryList(c.BlockedCountries)
+	if c.IPInfoToken == "" && c.IPInfoMaxAge != 0 {
+		return fmt.Errorf("ipinfo_max_age is set but ipinfo_token is empty: the download lifecycle needs an IPInfo token (the reference IPInfoManager raises ValueError: 'IPInfo token is required!')")
+	}
+	if c.IPInfoToken != "" {
+		if c.IPInfoMaxAge < 0 {
+			return fmt.Errorf("ipinfo_max_age: must be >= 1, got %d", c.IPInfoMaxAge)
+		}
+		if c.IPInfoMaxAge == 0 {
+			c.IPInfoMaxAge = DefaultIPInfoMaxAge
+		}
+	}
 	if (len(c.BlockedCountries) > 0 || len(c.WhitelistCountries) > 0) && c.GeoIPHandler == nil {
-		if c.GeoIPDBPath == "" {
+		if c.GeoIPDBPath == "" && c.IPInfoToken == "" {
 			return fmt.Errorf("geo_ip_handler is required if blocked_countries or whitelist_countries is set (set GeoIPDBPath to an MMDB database or inject a GeoIPHandler)")
 		}
-		c.GeoIPHandler = NewGeoIPManager(c.GeoIPDBPath)
+		maxAge := c.IPInfoMaxAge
+		if maxAge <= 0 {
+			maxAge = DefaultIPInfoMaxAge
+		}
+		c.GeoIPHandler = NewIPInfoManager(c.IPInfoToken, c.GeoIPDBPath, maxAge, c)
 	}
 	for _, selector := range c.BlockCloudProviders {
 		provider, _, _ := strings.Cut(selector, ":!")
