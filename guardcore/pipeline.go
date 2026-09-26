@@ -808,20 +808,26 @@ func RateLimitConfigFromSecurityConfig(cfg *SecurityConfig) RateLimitConfig {
 	}
 }
 
-func BuildDefaultPipeline(cfg *SecurityConfig, ban *IPBanManager, rateLimit *RateLimitManager, routes *RouteRegistry) (*SecurityCheckPipeline, error) {
+// BuildDefaultPipeline assembles the fixed slot order. The
+// suspicious-count store is owned by the caller (the Engine) so the
+// behavioral processor's correlate_with_detection reads the same per-IP
+// category counts the suspicious_activity check writes, mirroring the
+// reference reading middleware.suspicious_request_counts.
+func BuildDefaultPipeline(cfg *SecurityConfig, ban *IPBanManager, rateLimit *RateLimitManager, routes *RouteRegistry) (*SecurityCheckPipeline, *suspiciousCountStore) {
 	if cfg == nil {
-		return nil, fmt.Errorf("config must not be nil")
+		return nil, nil
 	}
 	if routes == nil {
 		routes = NewRouteRegistry()
 	}
-	build := func() []SecurityCheck { return buildChecks(cfg, ban, rateLimit, routes) }
+	counts := &suspiciousCountStore{m: map[string]map[string]int{}}
+	build := func() []SecurityCheck { return buildChecks(cfg, ban, rateLimit, routes, counts) }
 	pipeline := NewSecurityCheckPipeline(build(), cfg, build)
 	pipeline.SetRouteRevisionSource(routes.Revision)
-	return pipeline, nil
+	return pipeline, counts
 }
 
-func buildChecks(cfg *SecurityConfig, ban *IPBanManager, rateLimit *RateLimitManager, routes *RouteRegistry) []SecurityCheck {
+func buildChecks(cfg *SecurityConfig, ban *IPBanManager, rateLimit *RateLimitManager, routes *RouteRegistry, counts *suspiciousCountStore) []SecurityCheck {
 	routeConfigs := routes.RouteConfigs()
 	specs := []struct {
 		name     string
@@ -877,7 +883,7 @@ func buildChecks(cfg *SecurityConfig, ban *IPBanManager, rateLimit *RateLimitMan
 			return &rateLimitCheck{cfg: cfg, manager: rateLimit}
 		}},
 		{"suspicious_activity", false, func(cfg *SecurityConfig) bool { return cfg.EnablePenetrationDetection }, func(cfg *SecurityConfig) SecurityCheck {
-			return &suspiciousActivityCheck{cfg: cfg, ban: ban, counts: &suspiciousCountStore{m: map[string]map[string]int{}}}
+			return &suspiciousActivityCheck{cfg: cfg, ban: ban, counts: counts}
 		}},
 		{"custom_request", false, func(cfg *SecurityConfig) bool { return cfg.CustomRequestCheck != nil }, func(cfg *SecurityConfig) SecurityCheck {
 			return &customRequestCheck{cfg: cfg, logger: log.Default()}

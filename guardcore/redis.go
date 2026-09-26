@@ -2,6 +2,8 @@ package guardcore
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
@@ -253,4 +255,31 @@ func (m *RedisManager) DeleteKeys(keys ...string) (int64, error) {
 		return 0, err
 	}
 	return deleted, nil
+}
+
+// RecordSlidingWindowHit mirrors
+// redis_handler.record_sliding_window_hit: one ZADD with a random member,
+// prune entries strictly older than window_start (exclusive lower bound,
+// like Python's "(window_start"), then return the ZCARD. The full key
+// layout is prefix + namespace + ":" + key, matching the Python handler's
+// composition so the two engines share keys.
+func (m *RedisManager) RecordSlidingWindowHit(namespace, key string, now, windowStart float64, window int) (int64, error) {
+	client, err := m.ensureRateLimitClient()
+	if err != nil {
+		return 0, err
+	}
+	fullKey := m.fullKey(namespace, key)
+	member := make([]byte, 16)
+	if _, err := rand.Read(member); err != nil {
+		return 0, err
+	}
+	pipe := client.TxPipeline()
+	pipe.ZAdd(m.ctx, fullKey, redis.Z{Score: now, Member: hex.EncodeToString(member)})
+	pipe.ZRemRangeByScore(m.ctx, fullKey, "-inf", "("+formatExpiry(windowStart))
+	card := pipe.ZCard(m.ctx, fullKey)
+	pipe.Expire(m.ctx, fullKey, time.Duration(window)*time.Second)
+	if _, err := pipe.Exec(m.ctx); err != nil {
+		return 0, err
+	}
+	return card.Val(), nil
 }

@@ -280,10 +280,7 @@ func TestBuildDefaultPipelineImplementedSlots(t *testing.T) {
 	cfg := testConfig(t)
 	ban := NewIPBanManager(nil, nil)
 	rl := NewRateLimitManager(RateLimitConfigFromSecurityConfig(cfg), nil, ban)
-	p, err := BuildDefaultPipeline(cfg, ban, rl, nil)
-	if err != nil {
-		t.Fatalf("BuildDefaultPipeline: %v", err)
-	}
+	p, _ := BuildDefaultPipeline(cfg, ban, rl, nil)
 	names := p.CheckNames()
 	want := []string{"route_config", "ip_security", "rate_limit", "suspicious_activity"}
 	if strings.Join(names, ",") != strings.Join(want, ",") {
@@ -308,7 +305,6 @@ func TestUnsupportedConfigFeaturesFailClosed(t *testing.T) {
 	}{
 		{"enable_dynamic_rules", func(c *SecurityConfig) { c.EnableDynamicRules = true }},
 		{"enable_agent", func(c *SecurityConfig) { c.EnableAgent = true }},
-		{"global_behavior_rules", func(c *SecurityConfig) { c.GlobalBehaviorRules = []string{"rule"} }},
 	}
 	for _, tc := range cases {
 		_, err := NewSecurityConfig(tc.mutate)

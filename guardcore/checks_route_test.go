@@ -732,10 +732,7 @@ func TestRoutePipelineEndToEnd(t *testing.T) {
 	cfg := testConfig(t)
 	ban := NewIPBanManager(nil, nil)
 	rl := NewRateLimitManager(RateLimitConfigFromSecurityConfig(cfg), nil, ban)
-	pipeline, err := BuildDefaultPipeline(cfg, ban, rl, registry)
-	if err != nil {
-		t.Fatalf("BuildDefaultPipeline: %v", err)
-	}
+	pipeline, _ := BuildDefaultPipeline(cfg, ban, rl, registry)
 	names := pipeline.CheckNames()
 	if names[0] != "route_config" {
 		t.Fatalf("route_config must be slot 1, got %v", names)
@@ -781,10 +778,7 @@ func TestRoutePipelineNoRouteConfigPasses(t *testing.T) {
 	cfg := testConfig(t)
 	ban := NewIPBanManager(nil, nil)
 	rl := NewRateLimitManager(RateLimitConfigFromSecurityConfig(cfg), nil, ban)
-	pipeline, err := BuildDefaultPipeline(cfg, ban, rl, registry)
-	if err != nil {
-		t.Fatalf("BuildDefaultPipeline: %v", err)
-	}
+	pipeline, _ := BuildDefaultPipeline(cfg, ban, rl, registry)
 	req := routeTestRequest(t, func(opts *RequestOptions, state *RequestState) {
 		state.GuardRouteID = "/other"
 	})
@@ -798,10 +792,7 @@ func TestRouteRevisionTriggersRebuild(t *testing.T) {
 	cfg := testConfig(t)
 	ban := NewIPBanManager(nil, nil)
 	rl := NewRateLimitManager(RateLimitConfigFromSecurityConfig(cfg), nil, ban)
-	pipeline, err := BuildDefaultPipeline(cfg, ban, rl, registry)
-	if err != nil {
-		t.Fatalf("BuildDefaultPipeline: %v", err)
-	}
+	pipeline, _ := BuildDefaultPipeline(cfg, ban, rl, registry)
 	before := pipeline.CheckNames()
 	registry.Register("/api", func(rc *RouteConfig) { rc.RequireHTTPS = true })
 	if !pipeline.IsStale() {
@@ -824,10 +815,7 @@ func TestExclusionScopedSkipsRouteGuardChecks(t *testing.T) {
 	cfg := testConfig(t)
 	ban := NewIPBanManager(nil, nil)
 	rl := NewRateLimitManager(RateLimitConfigFromSecurityConfig(cfg), nil, ban)
-	pipeline, err := BuildDefaultPipeline(cfg, ban, rl, registry)
-	if err != nil {
-		t.Fatalf("BuildDefaultPipeline: %v", err)
-	}
+	pipeline, _ := BuildDefaultPipeline(cfg, ban, rl, registry)
 	req := routeTestRequest(t, func(opts *RequestOptions, state *RequestState) {
 		state.GuardRouteID = "/api"
 		state.ExclusionScoped = true

@@ -30,10 +30,7 @@ func newPipelineIntegration(t *testing.T, mutate func(*SecurityConfig)) *Securit
 	ban := NewIPBanManager(redis, nil)
 	rl := NewRateLimitManager(RateLimitConfigFromSecurityConfig(cfg), redis, ban)
 	rl.InitializeRedis(redis)
-	pipeline, err := BuildDefaultPipeline(cfg, ban, rl, nil)
-	if err != nil {
-		t.Fatalf("pipeline: %v", err)
-	}
+	pipeline, _ := BuildDefaultPipeline(cfg, ban, rl, nil)
 	return pipeline
 }
 

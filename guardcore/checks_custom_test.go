@@ -181,10 +181,7 @@ func pipelineWithManagers(t *testing.T, cfg *SecurityConfig, registry *RouteRegi
 	t.Helper()
 	ban := NewIPBanManager(nil, nil)
 	rl := NewRateLimitManager(RateLimitConfigFromSecurityConfig(cfg), nil, ban)
-	pipeline, err := BuildDefaultPipeline(cfg, ban, rl, registry)
-	if err != nil {
-		t.Fatalf("BuildDefaultPipeline: %v", err)
-	}
+	pipeline, _ := BuildDefaultPipeline(cfg, ban, rl, registry)
 	return pipeline
 }
 

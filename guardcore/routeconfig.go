@@ -48,6 +48,13 @@ type RouteConfig struct {
 	AuthorizationHeaderRequired string
 	GeoRateLimits               map[string]RateLimitEntry
 	CustomValidators            []func(req Request) *Response
+
+	// BehaviorRules carries the route's behavior rules (the reference
+	// route_config.behavior_rules list the behavioral decorators append
+	// to). Rules must be validated with ValidateBehaviorRuleConfig; the
+	// processor drops invalid rules with a warning instead of running
+	// them.
+	BehaviorRules []BehaviorRuleConfig
 }
 
 func (r *RouteConfig) HasBypass(name string) bool {
