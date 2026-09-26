@@ -9,7 +9,7 @@ func runDetectThreatHeaders(t *testing.T, cfg *SecurityConfig, headers map[strin
 	req := newTestRequest(t, func(opts *RequestOptions, state *RequestState) {
 		opts.Header = headers
 	})
-	categories, _ := detectThreat(req, cfg)
+	categories, _ := detectThreat(req, cfg, resolveDetectionExclusions(cfg, nil))
 	return categories
 }
 

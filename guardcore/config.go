@@ -111,6 +111,11 @@ type SecurityConfig struct {
 	ExcludedDetectionHeaders    map[string]bool
 	ExcludedDetectionParams     map[string]bool
 	ExcludedDetectionBodyFields map[string]bool
+	// DetectionScanBody mirrors the reference detection_scan_body
+	// SecurityConfig field (default true; nil is the default): when false
+	// the body surface is not scanned at all. A route's DetectionScanBody
+	// overrides it per route (see RouteConfig).
+	DetectionScanBody           *bool
 	DetectionBinaryMinRunLength int
 	Detection                   Config
 

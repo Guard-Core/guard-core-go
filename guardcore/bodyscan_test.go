@@ -17,7 +17,7 @@ import (
 func base64StdEncode(b []byte) string { return base64.StdEncoding.EncodeToString(b) }
 
 func extractValuePairs(rawBody, contentType string, cfg *SecurityConfig) [][2]string {
-	values := extractBodyScanValues(rawBody, contentType, cfg)
+	values := extractBodyScanValues(rawBody, contentType, cfg, cfg.ExcludedDetectionBodyFields)
 	out := make([][2]string, 0, len(values))
 	for _, v := range values {
 		out = append(out, [2]string{v.context, v.content})
@@ -106,7 +106,7 @@ func TestFormFieldEmbeddedJSONCleanParseStillScansRawValue(t *testing.T) {
 		opts.Header = map[string]string{"content-type": "application/x-www-form-urlencoded"}
 		opts.Body = []byte(`data={"comment":"<script>alert(1)</script>","comment":"safe"}`)
 	})
-	categories, _ := detectThreat(req, testConfig(t))
+	categories, _ := detectThreat(req, testConfig(t), resolveDetectionExclusions(testConfig(t), nil))
 	assertCategoryPresent(t, categories, "xss")
 }
 
@@ -129,7 +129,7 @@ func TestEmbeddedJSONLeafReparseCleanParseStillScansRawLeaf(t *testing.T) {
 		opts.Header = map[string]string{"content-type": "application/x-www-form-urlencoded"}
 		opts.Body = []byte(`data={"outer":"` + inner + `"}`)
 	})
-	categories, _ := detectThreat(req, testConfig(t))
+	categories, _ := detectThreat(req, testConfig(t), resolveDetectionExclusions(testConfig(t), nil))
 	assertCategoryPresent(t, categories, "xss")
 }
 
@@ -209,7 +209,7 @@ func TestJSONBodyMongoOperatorKeyForcesNosqlHit(t *testing.T) {
 		opts.Header = map[string]string{"content-type": "application/json"}
 		opts.Body = []byte(`{"$where": "1 OR 1=1"}`)
 	})
-	categories, _ := detectThreat(req, testConfig(t))
+	categories, _ := detectThreat(req, testConfig(t), resolveDetectionExclusions(testConfig(t), nil))
 	assertCategoryPresent(t, categories, "nosql")
 }
 
@@ -229,7 +229,7 @@ func TestFormBodySQLIDetected(t *testing.T) {
 		}
 		opts.Body = []byte("q=1+OR+1%3D1")
 	})
-	categories, _ := detectThreat(req, testConfig(t))
+	categories, _ := detectThreat(req, testConfig(t), resolveDetectionExclusions(testConfig(t), nil))
 	assertCategoryPresent(t, categories, "sqli")
 }
 

@@ -167,7 +167,7 @@ func bodyDetectCategories(t *testing.T, cfg *SecurityConfig, contentType string,
 		}
 		opts.Body = body
 	})
-	categories, _ := detectThreat(req, cfg)
+	categories, _ := detectThreat(req, cfg, resolveDetectionExclusions(cfg, nil))
 	return categories
 }
 

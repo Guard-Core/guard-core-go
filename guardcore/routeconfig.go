@@ -55,6 +55,27 @@ type RouteConfig struct {
 	// processor drops invalid rules with a warning instead of running
 	// them.
 	BehaviorRules []BehaviorRuleConfig
+
+	// Per-route detection exclusion surface, mirrored from the reference
+	// route_config.detection_exclusion decorator
+	// (guard_core/decorators/content_filtering.py) and resolved with the
+	// _resolve_* helpers of guard_core/_utils/detection_config.py. A nil
+	// field means "inherit the global config" for that surface; a non-nil
+	// value replaces the global one (the header exclusion set is the
+	// exception: it always merges the hardcoded defaults with the config
+	// set and the route set). Entries are matched lowercased like the
+	// reference.
+	ExcludedDetectionHeaders    map[string]bool
+	ExcludedDetectionParams     map[string]bool
+	ExcludedDetectionBodyFields map[string]bool
+	// EnabledDetectionCategories, when non-nil, replaces the global enabled
+	// category set for this route (an empty slice disables every category,
+	// like the reference's empty frozenset).
+	EnabledDetectionCategories []string
+	// DetectionScanBody, when non-nil, overrides the reference
+	// detection_scan_body default (true): a false skips the body surface
+	// while headers, params, and the URL path still scan.
+	DetectionScanBody *bool
 }
 
 func (r *RouteConfig) HasBypass(name string) bool {
