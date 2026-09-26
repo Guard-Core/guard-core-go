@@ -37,6 +37,13 @@ const (
 	// (_security_config_fields.py); a configured 0 falls back to it like
 	// the reference `config.cors_max_age or 600`.
 	DefaultCORSMaxAge = 600
+
+	// DefaultBehaviorMaxResponseBodyInspectBytes mirrors the
+	// behavior_max_response_body_inspect_bytes default
+	// (_security_config_fields.py); a configured 0 falls back to it, and
+	// configured values must stay within [1024, 10485760] like the
+	// reference ge/le bounds.
+	DefaultBehaviorMaxResponseBodyInspectBytes = 262144
 )
 
 var AllDetectionCategories = []string{
@@ -154,10 +161,24 @@ type SecurityConfig struct {
 	GeoIPDBPath  string
 	GeoIPHandler CountryResolver
 
-	GlobalBehaviorRules []string
-	CustomRequestCheck  func(req Request) *Response
-	LogRequestLevel     string
-	LogSuspiciousLevel  string
+	// Behavior-rules surface, mirrored from the reference
+	// _security_config_fields.py: GlobalBehaviorRules applies to every
+	// route in addition to any route-specific rules (RouteConfig.BehaviorRules);
+	// BehaviorScanResponseBody gates reading response bodies for
+	// return_pattern rules whose pattern is not a status: pattern (default
+	// off: zero behavior change unless enabled, and Validate rejects such
+	// rules while it is off, mirroring the reference's fail-closed
+	// _validate_return_pattern_requires_scan); the inspect-bytes cap bounds
+	// how much of the leading response body is held for pattern inspection.
+	// Both rule sets and the scan flag are validated together by
+	// validateBehaviorRulesAgainstScanFlag, mirroring
+	// _validate_global_behavior_rule_assignment.
+	GlobalBehaviorRules                 []BehaviorRuleConfig
+	BehaviorScanResponseBody            bool
+	BehaviorMaxResponseBodyInspectBytes int
+	CustomRequestCheck                  func(req Request) *Response
+	LogRequestLevel                     string
+	LogSuspiciousLevel                  string
 
 	CloudIPRefreshInterval int
 
@@ -168,38 +189,39 @@ func DefaultSecurityConfig() *SecurityConfig {
 	categories := make([]string, len(AllDetectionCategories))
 	copy(categories, AllDetectionCategories)
 	return &SecurityConfig{
-		TrustedProxyDepth:           DefaultTrustedProxyDepth,
-		EnableRedis:                 true,
-		RedisURL:                    DefaultRedisURL,
-		RedisPrefix:                 DefaultRedisPrefix,
-		EnableIPBanning:             true,
-		AutoBanThreshold:            DefaultAutoBanThreshold,
-		AutoBanDuration:             DefaultAutoBanDuration,
-		ThreatBanConfig:             map[string]ThreatBanEntry{},
-		EnableRateLimiting:          true,
-		RateLimit:                   DefaultRateLimit,
-		RateLimitWindow:             DefaultRateLimitWindow,
-		EndpointRateLimits:          map[string]RateLimitEntry{},
-		EnablePenetrationDetection:  true,
-		EnabledDetectionCategories:  categories,
-		ExcludedDetectionHeaders:    map[string]bool{},
-		ExcludedDetectionParams:     map[string]bool{},
-		ExcludedDetectionBodyFields: map[string]bool{},
-		DetectionBinaryMinRunLength: DefaultDetectionBinaryMinRunLength,
-		Detection:                   DefaultConfig(),
-		FailSecure:                  true,
-		ExcludePaths:                append([]string(nil), DefaultExcludePaths...),
-		CustomErrorResponses:        map[int]string{},
-		SecurityHeaders:             DefaultSecurityHeaders(),
-		MutedCheckLogs:              map[string]bool{},
-		LogSensitiveHeaders:         map[string]bool{},
-		LogSensitiveParams:          map[string]bool{},
-		LogSensitiveBodyFields:      map[string]bool{},
-		CORSAllowOrigins:            []string{"*"},
-		CORSAllowMethods:            []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		CORSAllowHeaders:            []string{"*"},
-		CORSMaxAge:                  DefaultCORSMaxAge,
-		CloudIPRefreshInterval:      DefaultCloudIPRefreshInterval,
+		TrustedProxyDepth:                   DefaultTrustedProxyDepth,
+		EnableRedis:                         true,
+		RedisURL:                            DefaultRedisURL,
+		RedisPrefix:                         DefaultRedisPrefix,
+		EnableIPBanning:                     true,
+		AutoBanThreshold:                    DefaultAutoBanThreshold,
+		AutoBanDuration:                     DefaultAutoBanDuration,
+		ThreatBanConfig:                     map[string]ThreatBanEntry{},
+		EnableRateLimiting:                  true,
+		RateLimit:                           DefaultRateLimit,
+		RateLimitWindow:                     DefaultRateLimitWindow,
+		EndpointRateLimits:                  map[string]RateLimitEntry{},
+		EnablePenetrationDetection:          true,
+		EnabledDetectionCategories:          categories,
+		ExcludedDetectionHeaders:            map[string]bool{},
+		ExcludedDetectionParams:             map[string]bool{},
+		ExcludedDetectionBodyFields:         map[string]bool{},
+		DetectionBinaryMinRunLength:         DefaultDetectionBinaryMinRunLength,
+		Detection:                           DefaultConfig(),
+		FailSecure:                          true,
+		ExcludePaths:                        append([]string(nil), DefaultExcludePaths...),
+		CustomErrorResponses:                map[int]string{},
+		SecurityHeaders:                     DefaultSecurityHeaders(),
+		MutedCheckLogs:                      map[string]bool{},
+		LogSensitiveHeaders:                 map[string]bool{},
+		LogSensitiveParams:                  map[string]bool{},
+		LogSensitiveBodyFields:              map[string]bool{},
+		CORSAllowOrigins:                    []string{"*"},
+		CORSAllowMethods:                    []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		CORSAllowHeaders:                    []string{"*"},
+		CORSMaxAge:                          DefaultCORSMaxAge,
+		BehaviorMaxResponseBodyInspectBytes: DefaultBehaviorMaxResponseBodyInspectBytes,
+		CloudIPRefreshInterval:              DefaultCloudIPRefreshInterval,
 	}
 }
 
@@ -222,15 +244,39 @@ func (c *SecurityConfig) unsupported(feature, reason string) error {
 	return &UnsupportedFeatureError{Feature: feature, Reason: reason}
 }
 
-func (c *SecurityConfig) Validate() error {
-	if len(c.GlobalBehaviorRules) > 0 {
-		return c.unsupported("global_behavior_rules", "behavioral rules are not implemented in this port yet")
+// validateBehaviorRules mirrors the BehaviorRuleConfig constraints and the
+// global-rule assignment validation: each rule is normalized (window and
+// action defaults) and checked against the pydantic bounds, and any
+// return_pattern rule needing the response body fails construction while
+// behavior_scan_response_body is off (_validate_global_behavior_rule_assignment
+// runs against both fields' final values, which a whole-config Validate
+// covers in one pass).
+func (c *SecurityConfig) validateBehaviorRules() error {
+	for i := range c.GlobalBehaviorRules {
+		if err := ValidateBehaviorRuleConfig(&c.GlobalBehaviorRules[i]); err != nil {
+			return fmt.Errorf("global_behavior_rules[%d]: %w", i, err)
+		}
 	}
+	if err := validateBehaviorRulesAgainstScanFlag(c.GlobalBehaviorRules, c.BehaviorScanResponseBody, "global_behavior_rules"); err != nil {
+		return err
+	}
+	if c.BehaviorMaxResponseBodyInspectBytes == 0 {
+		c.BehaviorMaxResponseBodyInspectBytes = DefaultBehaviorMaxResponseBodyInspectBytes
+	} else if c.BehaviorMaxResponseBodyInspectBytes < 1024 || c.BehaviorMaxResponseBodyInspectBytes > 10485760 {
+		return fmt.Errorf("behavior_max_response_body_inspect_bytes: must be between 1024 and 10485760, got %d", c.BehaviorMaxResponseBodyInspectBytes)
+	}
+	return nil
+}
+
+func (c *SecurityConfig) Validate() error {
 	if c.EnableDynamicRules {
 		return c.unsupported("enable_dynamic_rules", "dynamic rules are not implemented in this port yet")
 	}
 	if c.EnableAgent {
 		return c.unsupported("enable_agent", "Guard Agent telemetry is not implemented in this port yet")
+	}
+	if err := c.validateBehaviorRules(); err != nil {
+		return err
 	}
 	if err := validateCORS(c); err != nil {
 		return err

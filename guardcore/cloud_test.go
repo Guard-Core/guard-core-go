@@ -882,10 +882,7 @@ func TestBuildDefaultPipelineCloudSlots(t *testing.T) {
 	cfg := cloudTestConfig(t, func(c *SecurityConfig) { c.BlockCloudProviders = []string{"AWS"} })
 	ban := NewIPBanManager(nil, nil)
 	rl := NewRateLimitManager(RateLimitConfigFromSecurityConfig(cfg), nil, ban)
-	p, err := BuildDefaultPipeline(cfg, ban, rl, nil)
-	if err != nil {
-		t.Fatalf("BuildDefaultPipeline: %v", err)
-	}
+	p, _ := BuildDefaultPipeline(cfg, ban, rl, nil)
 	want := []string{"route_config", "cloud_ip_refresh", "ip_security", "cloud_provider", "rate_limit", "suspicious_activity"}
 	if got := p.CheckNames(); strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("cloud checks must land at the spec-03 slots, want %v got %v", want, got)
@@ -898,10 +895,7 @@ func TestBuildDefaultPipelineCloudSlotsFromRouteOnly(t *testing.T) {
 	registry.Register("/api", func(rc *RouteConfig) { rc.BlockCloudProviders = []string{"AWS"} })
 	ban := NewIPBanManager(nil, nil)
 	rl := NewRateLimitManager(RateLimitConfigFromSecurityConfig(cfg), nil, ban)
-	p, err := BuildDefaultPipeline(cfg, ban, rl, registry)
-	if err != nil {
-		t.Fatalf("BuildDefaultPipeline: %v", err)
-	}
+	p, _ := BuildDefaultPipeline(cfg, ban, rl, registry)
 	names := strings.Join(p.CheckNames(), ",")
 	if !strings.Contains(names, "cloud_ip_refresh") || !strings.Contains(names, "cloud_provider") {
 		t.Fatalf("a route-level provider list must enable both cloud checks: %v", names)

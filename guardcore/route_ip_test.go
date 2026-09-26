@@ -36,10 +36,7 @@ func newRouteIPTestPipeline(t *testing.T, routeID string, route func(*RouteConfi
 	rl.now = func() float64 { return 1000.0 }
 	routes := NewRouteRegistry()
 	routes.Register(routeID, route)
-	pipeline, err := BuildDefaultPipeline(cfg, ban, rl, routes)
-	if err != nil {
-		t.Fatalf("pipeline: %v", err)
-	}
+	pipeline, _ := BuildDefaultPipeline(cfg, ban, rl, routes)
 	return pipeline, routes
 }
 

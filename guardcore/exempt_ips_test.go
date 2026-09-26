@@ -28,10 +28,7 @@ func newExemptTestPipeline(t *testing.T, mutate func(*SecurityConfig)) (*Securit
 	ban := NewIPBanManager(nil, nil)
 	rl := NewRateLimitManager(RateLimitConfigFromSecurityConfig(cfg), nil, ban)
 	rl.now = func() float64 { return 1000.0 }
-	pipeline, err := BuildDefaultPipeline(cfg, ban, rl, nil)
-	if err != nil {
-		t.Fatalf("pipeline: %v", err)
-	}
+	pipeline, _ := BuildDefaultPipeline(cfg, ban, rl, nil)
 	return pipeline, ban
 }
 

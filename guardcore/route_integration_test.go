@@ -33,10 +33,7 @@ func newRouteIntegrationPipeline(t *testing.T, mutate func(*SecurityConfig), reg
 	if register != nil {
 		register(registry)
 	}
-	pipeline, err := BuildDefaultPipeline(cfg, ban, rl, registry)
-	if err != nil {
-		t.Fatalf("pipeline: %v", err)
-	}
+	pipeline, _ := BuildDefaultPipeline(cfg, ban, rl, registry)
 	return pipeline, registry
 }
 

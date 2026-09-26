@@ -27,10 +27,7 @@ func blockedHeaderResponse(t *testing.T, cfg *SecurityConfig) *Response {
 	t.Helper()
 	ban := NewIPBanManager(nil, nil)
 	rl := NewRateLimitManager(RateLimitConfigFromSecurityConfig(cfg), nil, ban)
-	pipeline, err := BuildDefaultPipeline(cfg, ban, rl, nil)
-	if err != nil {
-		t.Fatalf("pipeline: %v", err)
-	}
+	pipeline, _ := BuildDefaultPipeline(cfg, ban, rl, nil)
 	req := newTestRequest(t, func(opts *RequestOptions, state *RequestState) {
 		opts.ClientHost = headerTestIP
 	})

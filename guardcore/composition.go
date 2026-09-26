@@ -5,6 +5,7 @@ import (
 	"log"
 	"slices"
 	"sync"
+	"time"
 )
 
 type Engine struct {
@@ -15,8 +16,10 @@ type Engine struct {
 	RateLimit *RateLimitManager
 	Cloud     *CloudManager
 	CORS      *CORSPolicy
+	Behavior  *BehaviorTracker
 
 	pipeline       *SecurityCheckPipeline
+	behaviorProc   *BehavioralProcessor
 	exclusions     exclusionMatcher
 	initializeOnce sync.Once
 	initializeErr  error
@@ -33,19 +36,20 @@ func NewEngine(cfg *SecurityConfig) (*Engine, error) {
 	redisManager := NewRedisManager(RedisConfig{URL: cfg.RedisURL, Prefix: cfg.RedisPrefix, EnableRedis: cfg.EnableRedis})
 	ban := NewIPBanManager(redisManager, cfg.TrustedProxies)
 	rateLimit := NewRateLimitManager(RateLimitConfigFromSecurityConfig(cfg), redisManager, ban)
-	pipeline, err := BuildDefaultPipeline(cfg, ban, rateLimit, routes)
-	if err != nil {
-		return nil, err
-	}
+	pipeline, counts := BuildDefaultPipeline(cfg, ban, rateLimit, routes)
+	tracker := NewBehaviorTracker(cfg, redisManager, ban, log.Default())
+	behavioral := NewBehavioralProcessor(cfg, tracker, counts, log.Default())
 	return &Engine{
-		Config:    cfg,
-		Routes:    routes,
-		Redis:     redisManager,
-		Ban:       ban,
-		RateLimit: rateLimit,
-		Cloud:     DefaultCloudManager,
-		CORS:      newCORSPolicy(cfg),
-		pipeline:  pipeline,
+		Config:       cfg,
+		Routes:       routes,
+		Redis:        redisManager,
+		Ban:          ban,
+		RateLimit:    rateLimit,
+		Behavior:     tracker,
+		behaviorProc: behavioral,
+		Cloud:        DefaultCloudManager,
+		CORS:         newCORSPolicy(cfg),
+		pipeline:     pipeline,
 		exclusions: exclusionMatcher{
 			cfg: cfg,
 		},
@@ -114,11 +118,38 @@ func (e *Engine) Check(req Request) *Response {
 		return nil
 	}
 	resp := e.pipeline.Execute(req)
+	if resp == nil {
+		// The request passed the pipeline: usage/frequency behavior rules
+		// track it (the reference runs process_usage_rules from the
+		// adapter middleware on requests the checks did not block).
+		e.behaviorProc.ProcessUsageRules(req, resolveClientIP(req), state.RouteConfig, behaviorClock())
+	}
 	if resp != nil && e.CORS != nil {
 		e.CORS.injectResponseHeaders(resp, req.Headers())
 	}
 	return resp
 }
+
+// ProcessResponse mirrors the reference response factory's behavioral phase
+// (guard_core/core/responses/factory.py process_response): after the adapter
+// produced its response, the route's return_pattern rules run first, then
+// the global ones. Return rules never modify the response; a matched rule
+// dispatches its configured action (ban/log/throttle/alert). The adapter
+// calls this on every pass-through response it sends.
+func (e *Engine) ProcessResponse(req Request, resp *Response) {
+	if e.behaviorProc == nil || resp == nil {
+		return
+	}
+	now := behaviorClock()
+	clientIP := resolveClientIP(req)
+	state := req.State()
+	e.behaviorProc.ProcessReturnRules(req, resp, clientIP, state.RouteConfig, now)
+	e.behaviorProc.ProcessGlobalReturnRules(req, resp, clientIP, now)
+}
+
+// behaviorClock is time.Now as a float Unix timestamp, matching the
+// reference's time.time() sliding-window arithmetic.
+func behaviorClock() float64 { return float64(time.Now().UnixNano()) / 1e9 }
 
 func (e *Engine) CreateErrorResponse(statusCode int, defaultMessage string) *Response {
 	return createErrorResponse(e.Config, statusCode, defaultMessage)
