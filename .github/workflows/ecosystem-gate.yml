@@ -66,7 +66,7 @@ jobs:
           ref: ${{ github.event.inputs.consumer_ref }}
           path: ${{ matrix.consumer.path }}
 
-      # No host Go toolchain: run the consumer suite inside golang:1.25-alpine,
+      # No host Go toolchain: run the consumer suite inside golang:1.26-alpine,
       # pointing the adapter's guard-core-go/v4 dependency at this checkout.
       - name: Run the consumer test suite against this guard-core-go checkout
         run: |
@@ -75,7 +75,7 @@ jobs:
             -e GOCACHE=/tmp/gocache \
             -e REDIS_HOST=127.0.0.1 \
             -e CONSUMER_PATH=${{ matrix.consumer.path }} \
-            golang:1.25-alpine sh -c '
+            golang:1.26-alpine sh -c '
               set -e
               cd "$CONSUMER_PATH"
               go mod edit -replace github.com/rennf93/guard-core-go/v4=/work/guard-core-go
