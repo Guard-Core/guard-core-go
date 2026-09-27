@@ -1,0 +1,32 @@
+{
+  "spec_version": "4.1.0",
+  "_comment": "Documented divergences of the Go engine against the reference pipeline corpus. Fail-closed: a failing case NOT listed here is red; a listed case that now passes is red (stale baseline). Systematic root cause: the Go on_block hook payload carries short internal reasons plus a violation category in trigger_info, while the reference hook carries the log-format reason with an empty trigger_info, and the passive-mode rate-limit hook reports status_code 0 instead of null. One construction-time divergence: wildcard CORS origins with credentials are rejected by config validation here, while the reference accepts them at construction and blocks CORS at response time (the runtime outcome matches). Status, body, header and flag outcomes all match on every case.",
+  "cases": {
+    "pipeline_behavior_rules/return_pattern_rule_bans_after_threshold": "on_block payload strings: short reason plus a violation category in trigger_info instead of the reference log-format reason with empty trigger_info",
+    "pipeline_detection_response/attack_blocked_400_contract_body": "on_block payload strings: short reason plus a violation category in trigger_info instead of the reference log-format reason with empty trigger_info",
+    "pipeline_detection_response/attack_custom_error_response_overrides_body": "on_block payload strings: short reason plus a violation category in trigger_info instead of the reference log-format reason with empty trigger_info",
+    "pipeline_detection_response/attack_on_block_payload_active": "on_block payload strings: short reason plus a violation category in trigger_info instead of the reference log-format reason with empty trigger_info",
+    "pipeline_detection_response/attack_passive_mode_logs_only": "on_block payload: passive-mode hook carries status_code 0 instead of null",
+    "pipeline_detection_response/attack_passive_mode_on_block_payload": "on_block payload: passive-mode hook carries status_code 0 instead of null",
+    "pipeline_detection_response/route_detection_exclusion_allows_attack": "on_block payload strings: short reason plus a violation category in trigger_info instead of the reference log-format reason with empty trigger_info",
+    "pipeline_detection_response/route_excluded_detection_header": "on_block payload strings: short reason plus a violation category in trigger_info instead of the reference log-format reason with empty trigger_info",
+    "pipeline_detection_response/second_attack_hits_400_without_ban": "on_block payload strings: short reason plus a violation category in trigger_info instead of the reference log-format reason with empty trigger_info",
+    "pipeline_headers_cors/cors_wildcard_with_credentials_blocked": "config construction rejected (wildcard origin plus credentials) where the reference accepts at construction and blocks CORS at response time; the runtime outcome matches",
+    "pipeline_headers_cors/custom_security_headers_on_error_response": "on_block payload strings: short reason plus a violation category in trigger_info instead of the reference log-format reason with empty trigger_info",
+    "pipeline_headers_cors/disabled_security_headers_on_error_response": "on_block payload strings: short reason plus a violation category in trigger_info instead of the reference log-format reason with empty trigger_info",
+    "pipeline_headers_cors/error_response_carries_default_security_headers": "on_block payload strings: short reason plus a violation category in trigger_info instead of the reference log-format reason with empty trigger_info",
+    "pipeline_ip_control/blacklist_beats_exemption": "on_block payload strings: short reason plus a violation category in trigger_info instead of the reference log-format reason with empty trigger_info",
+    "pipeline_ip_control/exempt_ip_still_country_blocked": "on_block payload strings: short reason plus a violation category in trigger_info instead of the reference log-format reason with empty trigger_info",
+    "pipeline_ip_control/geo_blocked_country_denied": "on_block payload strings: short reason plus a violation category in trigger_info instead of the reference log-format reason with empty trigger_info",
+    "pipeline_ip_control/geo_whitelist_mode_denies_unresolved": "on_block payload strings: short reason plus a violation category in trigger_info instead of the reference log-format reason with empty trigger_info",
+    "pipeline_ip_control/ip_blacklist_forbidden": "on_block payload strings: short reason plus a violation category in trigger_info instead of the reference log-format reason with empty trigger_info",
+    "pipeline_ip_control/ip_blacklist_passive_mode_allows": "on_block payload strings: short reason plus a violation category in trigger_info instead of the reference log-format reason with empty trigger_info",
+    "pipeline_ip_control/non_exempt_user_agent_blocked": "on_block payload strings: short reason plus a violation category in trigger_info instead of the reference log-format reason with empty trigger_info",
+    "pipeline_ip_control/route_blacklisted_user_agent": "on_block payload strings: short reason plus a violation category in trigger_info instead of the reference log-format reason with empty trigger_info",
+    "pipeline_ip_control/route_ip_whitelist_denies_other_ip": "on_block payload strings: short reason plus a violation category in trigger_info instead of the reference log-format reason with empty trigger_info",
+    "pipeline_rate_limits/endpoint_tier_independent_of_global": "on_block payload strings: short reason plus a violation category in trigger_info instead of the reference log-format reason with empty trigger_info",
+    "pipeline_rate_limits/global_limit_429_with_retry_after": "on_block payload strings: short reason plus a violation category in trigger_info instead of the reference log-format reason with empty trigger_info",
+    "pipeline_rate_limits/rate_limit_passive_mode_allows": "on_block payload: passive-mode hook carries status_code 0 instead of null",
+    "pipeline_rate_limits/route_rate_limit_tier": "on_block payload strings: short reason plus a violation category in trigger_info instead of the reference log-format reason with empty trigger_info"
+  }
+}
