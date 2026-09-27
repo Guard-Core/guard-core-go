@@ -1368,8 +1368,10 @@ than silently ignoring them:</p>
 <ul>
 <li><code>EnableDynamicRules</code></li>
 <li><code>EnableAgent</code></li>
-<li><code>GlobalBehaviorRules</code></li>
 </ul>
+<p><code>GlobalBehaviorRules</code> is implemented: rules are validated at config time
+(<code>validateBehaviorRules</code>) and drive the in-memory behavior ban through the
+pipeline's behavioral processor.</p>
 <p>Each returns an <code>*UnsupportedFeatureError</code> from <code>Validate()</code>. See
 <a href="../roadmap/">Roadmap</a> for the full divergence list.</p>
 <h2 id="cors">CORS</h2>
@@ -1411,7 +1413,7 @@ than silently ignoring them:</p>
 <td><code>CORSAllowCredentials</code></td>
 <td><code>bool</code></td>
 <td><code>false</code></td>
-<td>Incompatible with the <code>*</code> origin: that combination fails config construction</td>
+<td>Accepted together with the <code>*</code> origin, but downgraded at policy resolution: the wildcard policy answers without the allow-credentials header, like the reference <code>_compute_cors_config</code></td>
 </tr>
 <tr>
 <td><code>CORSExposeHeaders</code></td>
