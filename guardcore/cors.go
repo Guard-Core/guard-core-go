@@ -172,6 +172,17 @@ func (p *CORSPolicy) buildResponseHeaders(headers Headers) map[string]string {
 		return nil
 	}
 
+	// The reference get_cors_headers always composes the full CORS surface
+	// on a CORS-enabled response (guard_core/handlers/_security_headers_cors.py
+	// _build_cors_headers): methods, headers and a hardcoded 3600 max-age.
+	result["Access-Control-Allow-Methods"] = strings.Join(p.allowMethods, ", ")
+	if p.allowAllHeaders {
+		result["Access-Control-Allow-Headers"] = "*"
+	} else {
+		result["Access-Control-Allow-Headers"] = strings.Join(p.allowHeaders, ", ")
+	}
+	result["Access-Control-Max-Age"] = "3600"
+
 	if p.allowCredentials {
 		result["Access-Control-Allow-Credentials"] = "true"
 	}

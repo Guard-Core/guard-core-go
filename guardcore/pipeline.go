@@ -360,7 +360,7 @@ func (c *rateLimitCheck) Check(req Request) *Response {
 		return nil
 	}
 	cfg := c.cfg
-	outcome, err := c.manager.CheckRateLimit(ip, req.URLPath(), nil, nil)
+	outcome, err := c.manager.CheckRateLimit(ip, req.URLPath(), routeRateConfigFrom(state.RouteConfig), nil)
 	if err != nil {
 		panic(err)
 	}
@@ -373,7 +373,26 @@ func (c *rateLimitCheck) Check(req Request) *Response {
 		firePassiveBlockHook(cfg, req, "rate_limit", reason, "rate_limit")
 		return nil
 	}
-	return createErrorResponse(cfg, 429, "Too many requests")
+	resp := createErrorResponse(cfg, 429, "Too many requests")
+	// The reference pins Retry-After on the 429 body from the tier window
+	// that tripped (guard_core/handlers/ratelimit_handler.py).
+	resp.SetHeader("Retry-After", outcome.RetryAfter())
+	return resp
+}
+
+// routeRateConfigFrom adapts the resolved RouteConfig rate-limit tier into
+// the manager's RouteRateConfig (the reference passes route_config.rate_limit
+// / rate_limit_window into the tiered check).
+func routeRateConfigFrom(route *RouteConfig) *RouteRateConfig {
+	if route == nil || route.RateLimit == 0 {
+		return nil
+	}
+	cfg := &RouteRateConfig{RateLimit: &route.RateLimit}
+	if route.RateLimitWindow != 0 {
+		cfg.RateLimitWindow = &route.RateLimitWindow
+	}
+	cfg.GeoRateLimits = route.GeoRateLimits
+	return cfg
 }
 
 type suspiciousActivityCheck struct {
