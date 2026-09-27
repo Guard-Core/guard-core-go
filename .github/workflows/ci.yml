@@ -87,7 +87,7 @@ jobs:
           govulncheck ./...
 
   gates:
-    name: Gates (docker golang:1.25-alpine)
+    name: Gates (docker golang:1.26-alpine)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -97,7 +97,7 @@ jobs:
         with:
           persist-credentials: false
 
-      # No host Go: gofmt, go vet, and go build run inside golang:1.25-alpine.
+      # No host Go: gofmt, go vet, and go build run inside golang:1.26-alpine.
       # ./... covers the engine and the examples/ apps, which live in the
       # root module (see examples/advanced_app/README.md).
       - name: gofmt, go vet, go build (engine + examples)
@@ -105,7 +105,7 @@ jobs:
           docker run --rm \
             -v "$PWD":/work -w /work \
             -e GOCACHE=/tmp/gocache \
-            golang:1.25-alpine sh -c '
+            golang:1.26-alpine sh -c '
               set -e
               unformatted=$(gofmt -l .)
               if [ -n "$unformatted" ]; then

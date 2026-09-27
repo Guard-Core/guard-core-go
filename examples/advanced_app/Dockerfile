@@ -1,6 +1,6 @@
 # Build context is the repository root (see docker-compose.yml):
 #   docker build -f examples/advanced_app/Dockerfile .
-FROM golang:1.25-alpine AS build
+FROM golang:1.26-alpine AS build
 
 WORKDIR /src
 
