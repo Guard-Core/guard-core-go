@@ -42,9 +42,9 @@ func (c *requestSizeContentCheck) Check(req Request) *Response {
 			}
 			if int64(size) > routeConfig.MaxRequestSize {
 				reason := fmt.Sprintf("Request size %s exceeds limit: %d", contentLength, routeConfig.MaxRequestSize)
-				stashBlock(req.State(), reason, "max_request_size")
+				stashBlock(req.State(), reason, "")
 				if cfg.PassiveMode {
-					firePassiveBlockHook(cfg, req, "request_size_content", reason, "max_request_size")
+					firePassiveBlockHook(cfg, req, "request_size_content", reason, "")
 					return nil
 				}
 				return createErrorResponse(cfg, 413, "Request too large")
@@ -65,9 +65,9 @@ func (c *requestSizeContentCheck) Check(req Request) *Response {
 		}
 		if !allowed {
 			reason := fmt.Sprintf("Invalid content type: %s", contentType)
-			stashBlock(req.State(), reason, "content_type")
+			stashBlock(req.State(), reason, "")
 			if cfg.PassiveMode {
-				firePassiveBlockHook(cfg, req, "request_size_content", reason, "content_type")
+				firePassiveBlockHook(cfg, req, "request_size_content", reason, "")
 				return nil
 			}
 			return createErrorResponse(cfg, 415, "Unsupported content type")
@@ -108,9 +108,9 @@ func (c *requiredHeadersCheck) Check(req Request) *Response {
 }
 
 func (c *requiredHeadersCheck) reportViolation(cfg *SecurityConfig, req Request, header, reason, headerField string) *Response {
-	stashBlock(req.State(), reason, headerField)
+	stashBlock(req.State(), reason, "")
 	if cfg.PassiveMode {
-		firePassiveBlockHook(cfg, req, "required_headers", reason, headerField)
+		firePassiveBlockHook(cfg, req, "required_headers", reason, "")
 		return nil
 	}
 	return createErrorResponse(cfg, 400, reason)
@@ -152,9 +152,9 @@ func extractCredential(authHeader, authType string) (string, string) {
 
 func (c *authenticationCheck) handleAuthFailure(cfg *SecurityConfig, req Request, routeConfig *RouteConfig, authReason, violationType string) *Response {
 	reason := fmt.Sprintf("Authentication failure: %s", authReason)
-	stashBlock(req.State(), reason, violationType)
+	stashBlock(req.State(), reason, "")
 	if cfg.PassiveMode {
-		firePassiveBlockHook(cfg, req, "authentication", reason, violationType)
+		firePassiveBlockHook(cfg, req, "authentication", reason, "")
 		return nil
 	}
 	return createErrorResponse(cfg, 401, "Authentication required")
@@ -267,18 +267,18 @@ func (c *referrerCheck) Check(req Request) *Response {
 	referrer, _ := req.Headers().Get("Referer")
 	if referrer == "" {
 		reason := "Missing referrer header"
-		stashBlock(req.State(), reason, "require_referrer")
+		stashBlock(req.State(), reason, "")
 		if cfg.PassiveMode {
-			firePassiveBlockHook(cfg, req, "referrer", reason, "require_referrer")
+			firePassiveBlockHook(cfg, req, "referrer", reason, "")
 			return nil
 		}
 		return createErrorResponse(cfg, 403, "Referrer required")
 	}
 	if !isReferrerDomainAllowed(referrer, routeConfig.RequireReferrer) {
 		reason := fmt.Sprintf("Invalid referrer: %s", referrer)
-		stashBlock(req.State(), reason, "require_referrer")
+		stashBlock(req.State(), reason, "")
 		if cfg.PassiveMode {
-			firePassiveBlockHook(cfg, req, "referrer", reason, "require_referrer")
+			firePassiveBlockHook(cfg, req, "referrer", reason, "")
 			return nil
 		}
 		return createErrorResponse(cfg, 403, "Invalid referrer")
@@ -335,9 +335,9 @@ func (c *timeWindowCheck) Check(req Request) *Response {
 	}
 	if !c.checkTimeWindow(routeConfig.TimeRestrictions) {
 		reason := "Access outside allowed time window"
-		stashBlock(req.State(), reason, "time_restriction")
+		stashBlock(req.State(), reason, "")
 		if cfg.PassiveMode {
-			firePassiveBlockHook(cfg, req, "time_window", reason, "time_restriction")
+			firePassiveBlockHook(cfg, req, "time_window", reason, "")
 			return nil
 		}
 		return createErrorResponse(cfg, 403, "Access not allowed at this time")
@@ -399,9 +399,9 @@ func (c *userAgentCheck) Check(req Request) *Response {
 		return nil
 	}
 	reason := fmt.Sprintf("Blocked user agent: %s", userAgent)
-	stashBlock(state, reason, "user_agent")
+	stashBlock(state, reason, "")
 	if cfg.PassiveMode {
-		firePassiveBlockHook(cfg, req, "user_agent", reason, "user_agent")
+		firePassiveBlockHook(cfg, req, "user_agent", reason, "")
 		return nil
 	}
 	return createErrorResponse(cfg, 403, "User-Agent not allowed")

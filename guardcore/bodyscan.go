@@ -60,7 +60,16 @@ const (
 type bodyScanValue struct {
 	content        string
 	context        string
+	label          string
 	forcedCategory string
+}
+
+// bodyFieldLabel renders the reference _scan_body_field trigger prefix for a
+// named body field ("Request body field 'x': "); an empty label (the
+// whole-body blob or a top-level JSON leaf) scans as the plain
+// "Request body: " component.
+func bodyFieldLabel(label string) string {
+	return "Request body field '" + label + "': "
 }
 
 // mongoOperatorKeyRE mirrors _MONGO_OPERATOR_KEY_RE from
@@ -100,8 +109,8 @@ func appendFormBodyValues(values []bodyScanValue, rawBody string, excluded map[s
 		if excluded[strings.ToLower(pair.name)] {
 			continue
 		}
-		values = append(values, bodyScanValue{content: pair.name, context: requestBodyCtx})
-		values = appendFieldBodyValue(values, pair.value, formFieldContext, excluded)
+		values = append(values, bodyScanValue{content: pair.name, context: requestBodyCtx, label: "Form field name '" + pair.name + "': "})
+		values = appendFieldBodyValue(values, pair.value, formFieldContext, pair.name, excluded)
 	}
 	return values
 }
@@ -113,11 +122,11 @@ func appendFormBodyValues(values []bodyScanValue, rawBody string, excluded map[s
 // short-circuits the raw scan only when a leaf hits, and a clean walk that
 // reports nothing falls through to the raw-value detect (payloads hidden in
 // structural text or duplicate-key remnants still hit).
-func appendFieldBodyValue(values []bodyScanValue, content, context string, excluded map[string]bool) []bodyScanValue {
+func appendFieldBodyValue(values []bodyScanValue, content, context, label string, excluded map[string]bool) []bodyScanValue {
 	if root, ok := parseOrderedJSON(content); ok {
 		values = appendJSONWalkEntries(values, root, context+embeddedJSONLeafContextSuffix, excluded)
 	}
-	return append(values, bodyScanValue{content: content, context: context})
+	return append(values, bodyScanValue{content: content, context: context, label: bodyFieldLabel(label)})
 }
 
 // appendMultipartBodyValues mirrors _scan_multipart_body: when the body does
@@ -179,9 +188,9 @@ func appendMultipartPartValues(values []bodyScanValue, part multipartPart, cfg *
 	if len(entries) == 0 {
 		return values
 	}
-	values = append(values, bodyScanValue{content: label, context: requestBodyCtx})
+	values = append(values, bodyScanValue{content: label, context: requestBodyCtx, label: "Multipart field name '" + label + "': "})
 	for _, entry := range entries {
-		values = appendFieldBodyValue(values, entry, ctx, excluded)
+		values = appendFieldBodyValue(values, entry, ctx, label, excluded)
 	}
 	return values
 }

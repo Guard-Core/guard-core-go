@@ -63,9 +63,13 @@ func (c *ipSecurityCheck) Check(req Request) *Response {
 		return nil
 	}
 	if !state.HasBypass("ip_ban") && c.ban != nil && c.ban.IsIPBanned(ip) {
+		// The hook payload carries the reference log-format reason with an
+		// empty trigger_info (the reference checks pass no trigger_info to
+		// log_activity, and its non-passive stash therefore holds "").
 		reason := fmt.Sprintf("Banned IP attempted access: %s", ip)
-		stashBlock(state, reason, "banned_ip")
+		stashBlock(state, reason, "")
 		if cfg.PassiveMode {
+			firePassiveBlockHook(cfg, req, c.CheckName(), reason, "")
 			return nil
 		}
 		return createErrorResponse(cfg, 403, IPBanBlockedMessage)
@@ -83,7 +87,7 @@ func (c *ipSecurityCheck) Check(req Request) *Response {
 	routeOverridesIPLists := false
 	skipCountries := false
 	if route != nil {
-		if resp := c.checkRouteIPAccess(state, ip, route); resp != nil {
+		if resp := c.checkRouteIPAccess(req, ip, route); resp != nil {
 			return resp
 		}
 		routeOverridesIPLists = len(route.IPWhitelist) > 0
@@ -105,7 +109,7 @@ func (c *ipSecurityCheck) Check(req Request) *Response {
 // are still enforced afterwards by checkGlobal, so a route whitelist match
 // never relaxes the global blacklist or the global whitelist gate; it only
 // clears the identity flags.
-func (c *ipSecurityCheck) checkRouteIPAccess(state *RequestState, ip string, route *RouteConfig) *Response {
+func (c *ipSecurityCheck) checkRouteIPAccess(req Request, ip string, route *RouteConfig) *Response {
 	ipBlocked := false
 	if len(route.IPBlacklist) > 0 && ipMatchesList(ip, route.IPBlacklist) {
 		ipBlocked = true
@@ -149,7 +153,7 @@ func (c *ipSecurityCheck) checkRouteIPAccess(state *RequestState, ip string, rou
 				"passive_mode":   c.cfg.PassiveMode,
 			},
 		})
-		return c.denyRoute(state, ip)
+		return c.denyRoute(req, ip)
 	}
 	return nil
 }
@@ -189,10 +193,11 @@ func fireGeoEvent(cfg *SecurityConfig, ev GeoEvent) {
 	}()
 }
 
-func (c *ipSecurityCheck) denyRoute(state *RequestState, ip string) *Response {
+func (c *ipSecurityCheck) denyRoute(req Request, ip string) *Response {
 	reason := fmt.Sprintf("IP not allowed by route config: %s", ip)
-	stashBlock(state, reason, "ip_restriction")
+	stashBlock(req.State(), reason, "")
 	if c.cfg.PassiveMode {
+		firePassiveBlockHook(c.cfg, req, c.CheckName(), reason, "")
 		return nil
 	}
 	return createErrorResponse(c.cfg, 403, RestrictionBlockedMsg)
@@ -272,7 +277,7 @@ func (c *ipSecurityCheck) checkGlobal(req Request, ip string, routeOverridesIPLi
 	// the request even when the IP passes.
 	if len(whitelist) > 0 {
 		if !ipMatchesList(ip, whitelist) {
-			return c.deny(state, ip, "IP not in whitelist", "ip_restriction")
+			return c.deny(req, ip, genericListBlockReason(ip))
 		}
 		state.IsWhitelisted = !routeOverridesIPLists
 		state.IsExempt = !routeOverridesIPLists && ipMatchesList(ip, c.cfg.ExemptIPs)
@@ -282,15 +287,23 @@ func (c *ipSecurityCheck) checkGlobal(req Request, ip string, routeOverridesIPLi
 		skipCountries = true
 	}
 	if len(blacklist) > 0 && ipMatchesList(ip, blacklist) {
-		return c.deny(state, ip, "IP is blacklisted", "ip_restriction")
+		return c.deny(req, ip, genericListBlockReason(ip))
 	}
 	if !skipCountries {
 		if reason, blocked := globalCountryVerdict(c.cfg, ip); blocked {
-			return c.deny(state, ip, reason, "country_restriction")
+			return c.deny(req, ip, reason)
 		}
 	}
 	state.IsExempt = !routeOverridesIPLists && ipMatchesList(ip, c.cfg.ExemptIPs)
 	return nil
+}
+
+// genericListBlockReason mirrors _GENERIC_LIST_BLOCK_REASON
+// (guard_core/_utils/access_control.py): the single reason string the
+// reference reports for a global whitelist miss, a blacklist hit, an
+// unresolved country under an allowlist, and an unparseable IP.
+func genericListBlockReason(ip string) string {
+	return fmt.Sprintf("IP %s not in global allowlist/blocklist", ip)
 }
 
 // globalCountryVerdict mirrors _resolve_country_verdict plus
@@ -315,7 +328,7 @@ func globalCountryVerdict(cfg *SecurityConfig, ip string) (string, bool) {
 	country, resolved := resolver.GetCountry(ip)
 	if !resolved {
 		if len(allowed) > 0 {
-			return fmt.Sprintf("IP %s not in global allowlist/blocklist", ip), true
+			return genericListBlockReason(ip), true
 		}
 		return "", false
 	}
@@ -331,9 +344,16 @@ func globalCountryVerdict(cfg *SecurityConfig, ip string) (string, bool) {
 	return "", false
 }
 
-func (c *ipSecurityCheck) deny(state *RequestState, ip, reason, triggerInfo string) *Response {
-	stashBlock(state, reason, triggerInfo)
+// deny mirrors the reference _check_global_ip_restrictions block path: the
+// hook reason composes "IP not allowed: {ip} - {access reason}" with an
+// empty trigger_info (the reference check passes no trigger_info to
+// log_activity), and the passive mode still fires the hook with a null
+// status before allowing the request through.
+func (c *ipSecurityCheck) deny(req Request, ip, accessReason string) *Response {
+	reason := fmt.Sprintf("IP not allowed: %s - %s", ip, accessReason)
+	stashBlock(req.State(), reason, "")
 	if c.cfg.PassiveMode {
+		firePassiveBlockHook(c.cfg, req, c.CheckName(), reason, "")
 		return nil
 	}
 	return createErrorResponse(c.cfg, 403, RestrictionBlockedMsg)
@@ -367,10 +387,12 @@ func (c *rateLimitCheck) Check(req Request) *Response {
 	if outcome == nil || !outcome.Blocked {
 		return nil
 	}
-	reason := fmt.Sprintf("Rate limit exceeded: %d requests per %d seconds", cfg.RateLimit, cfg.RateLimitWindow)
-	stashBlock(state, reason, "rate_limit")
+	// The hook reason mirrors the reference ratelimit_handler log format: the
+	// tripped tier's request count and window, with an empty trigger_info.
+	reason := fmt.Sprintf("Rate limit exceeded for IP: %s (%d requests in %ds window)", ip, outcome.Count, outcome.Window)
+	stashBlock(state, reason, "")
 	if cfg.PassiveMode {
-		firePassiveBlockHook(cfg, req, "rate_limit", reason, "rate_limit")
+		firePassiveBlockHook(cfg, req, "rate_limit", reason, "")
 		return nil
 	}
 	resp := createErrorResponse(cfg, 429, "Too many requests")
@@ -438,15 +460,22 @@ func (c *suspiciousActivityCheck) Check(req Request) *Response {
 	if !penetrationEnabled {
 		return nil
 	}
-	categories, reason := detectThreat(req, cfg, resolveDetectionExclusions(cfg, route))
+	categories, triggerInfo := detectThreat(req, cfg, resolveDetectionExclusions(cfg, route))
 	if len(categories) == 0 {
 		return nil
 	}
-	stashBlock(state, reason, strings.Join(categories, ","))
 	if cfg.PassiveMode {
-		firePassiveBlockHook(cfg, req, "suspicious_activity", reason, strings.Join(categories, ","))
+		// The reference passive-mode handler
+		// (_handle_suspicious_passive_mode) fires the hook directly with the
+		// detection trigger_info and a null status.
+		firePassiveBlockHook(cfg, req, "suspicious_activity", fmt.Sprintf("Suspicious activity detected: %s", ip), triggerInfo)
 		return nil
 	}
+	// Active mode: the reason embeds the detection trigger_info while the
+	// stash trigger_info stays empty, exactly like the reference
+	// _handle_suspicious_active_mode log_activity call
+	// (guard_core/core/checks/implementations/suspicious_activity.py).
+	stashBlock(state, fmt.Sprintf("Suspicious activity detected for IP: %s - %s", ip, triggerInfo), "")
 	if applied := c.registerViolations(cfg, ip, categories); applied {
 		return createErrorResponse(cfg, 403, SuspiciousBannedMsg)
 	}
@@ -494,23 +523,29 @@ func (c *suspiciousActivityCheck) registerViolations(cfg *SecurityConfig, ip str
 	return false
 }
 
+// detectThreat returns the threat categories plus the reference
+// DetectionResult.trigger_info: the component label ("Request body: ",
+// "Header 'x': ", "URL path: ", ...) followed by the first threat's message
+// (_build_threat_message, guard_core/_utils/detection_scan.py), the string
+// the reference suspicious-activity hook payloads carry in trigger_info.
 func detectThreat(req Request, cfg *SecurityConfig, exclusions routeDetectionExclusions) ([]string, string) {
 	enabled := exclusions.enabledCategories
 	type value struct {
 		content        string
 		context        string
+		label          string
 		forcedCategory string
 		skipCategories map[string]bool
 	}
 	var values []value
 	if path := req.URLPath(); path != "" {
-		values = append(values, value{path, "url_path", "", nil})
+		values = append(values, value{content: path, context: "url_path", label: "URL path: "})
 	}
 	for key, v := range req.QueryParams() {
 		if exclusions.excludedParams[strings.ToLower(key)] {
 			continue
 		}
-		values = append(values, value{v, "query_param", "", nil})
+		values = append(values, value{content: v, context: "query_param", label: fmt.Sprintf("Query param '%s': ", key)})
 	}
 	// Excluded headers (the hardcoded proxy identity set merged with
 	// cfg.ExcludedDetectionHeaders) are not skipped outright: like the
@@ -522,7 +557,7 @@ func detectThreat(req Request, cfg *SecurityConfig, exclusions routeDetectionExc
 	headers := req.Headers()
 	for name := range headers.Map() {
 		if hv, ok := headers.Get(name); ok && hv != "" {
-			v := value{content: hv, context: "header"}
+			v := value{content: hv, context: "header", label: fmt.Sprintf("Header '%s': ", strings.ToLower(name))}
 			if excludedHeaders[strings.ToLower(name)] {
 				v.skipCategories = excludedHeaderSkipCategories(name, hv)
 			}
@@ -539,14 +574,18 @@ func detectThreat(req Request, cfg *SecurityConfig, exclusions routeDetectionExc
 	if exclusions.scanBody {
 		bodyValues := extractRequestBodyValues(req, cfg, exclusions.excludedBodyFields)
 		for _, v := range bodyValues {
-			values = append(values, value{v.content, v.context, v.forcedCategory, nil})
+			label := v.label
+			if label == "" {
+				label = "Request body: "
+			}
+			values = append(values, value{content: v.content, context: v.context, label: label, forcedCategory: v.forcedCategory})
 		}
 	}
 	for _, v := range values {
 		if v.forcedCategory != "" {
 			// JSON mongo-operator keys hit straight from the walk, like
 			// body_json_scan._mongo_operator_key_hit.
-			return []string{v.forcedCategory}, fmt.Sprintf("Penetration patterns detected: %s", v.forcedCategory)
+			return []string{v.forcedCategory}, fmt.Sprintf("JSON operator key '%s': matched pattern '%s'", v.content, mongoOperatorKeyRE.String())
 		}
 		result := Detect(v.content, resolveClientIP(req), v.context)
 		if !result.IsThreat {
@@ -566,9 +605,48 @@ func detectThreat(req Request, cfg *SecurityConfig, exclusions routeDetectionExc
 			return nil, ""
 		}
 		sort.Strings(categories)
-		return categories, fmt.Sprintf("Penetration patterns detected: %s", strings.Join(categories, ", "))
+		return categories, v.label + threatMessage(firstThreatOf(result))
 	}
 	return nil, ""
+}
+
+// firstThreatOf picks the first threat of the detection result, the one the
+// reference _check_value_enhanced uses for its trigger message.
+func firstThreatOf(result DetectResult) map[string]any {
+	if len(result.Threats) == 0 {
+		return nil
+	}
+	return result.Threats[0]
+}
+
+// threatMessage mirrors _build_threat_message
+// (guard_core/_utils/detection_scan.py).
+func threatMessage(threat map[string]any) string {
+	if threat == nil {
+		return "Threat detected"
+	}
+	kind, _ := threat["type"].(string)
+	switch kind {
+	case "semantic":
+		attackType, _ := threat["attack_type"].(string)
+		if attackType == "" {
+			attackType = "suspicious"
+		}
+		score := 0.0
+		if v, ok := threat["probability"].(float64); ok {
+			score = v
+		} else if v, ok := threat["threat_score"].(float64); ok {
+			score = v
+		}
+		return fmt.Sprintf("Semantic attack: %s (score: %.2f)", attackType, score)
+	case "pattern_timeout":
+		pattern, _ := threat["pattern"].(string)
+		return fmt.Sprintf("Pattern exceeded scan time budget: '%s'", pattern)
+	case "regex":
+		pattern, _ := threat["pattern"].(string)
+		return fmt.Sprintf("Value matched pattern '%s'", pattern)
+	}
+	return "Threat detected"
 }
 
 // extractRequestBodyValues reads the (already replay-buffered) request body
@@ -633,6 +711,17 @@ func firePassiveBlockHook(cfg *SecurityConfig, req Request, checkName, reason, t
 	fireBlockHook(cfg, req, checkName, reason, triggerInfo, true, 0)
 }
 
+// blockHookStatusCode maps the status code into the hook payload: the
+// reference carries null whenever no block status applies (every passive
+// dispatch passes None, guard_core/_utils/block_events.py build_block_payload
+// via _dispatch_block_hook) and the integer response status otherwise.
+func blockHookStatusCode(statusCode int) any {
+	if statusCode == 0 {
+		return nil
+	}
+	return statusCode
+}
+
 func fireBlockHook(cfg *SecurityConfig, req Request, checkName, reason, triggerInfo string, passiveMode bool, statusCode int) {
 	if cfg == nil || cfg.OnBlock == nil || onBlockExcludedCheckNames[checkName] {
 		return
@@ -649,7 +738,7 @@ func fireBlockHook(cfg *SecurityConfig, req Request, checkName, reason, triggerI
 		"client_ip":    ip,
 		"path":         req.URLPath(),
 		"method":       req.Method(),
-		"status_code":  statusCode,
+		"status_code":  blockHookStatusCode(statusCode),
 	}
 	func() {
 		defer func() {
@@ -677,7 +766,7 @@ func fireBlockHookForced(cfg *SecurityConfig, req Request, checkName, reason, tr
 		"client_ip":    ip,
 		"path":         req.URLPath(),
 		"method":       req.Method(),
-		"status_code":  statusCode,
+		"status_code":  blockHookStatusCode(statusCode),
 	}
 	func() {
 		defer func() {

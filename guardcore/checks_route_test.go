@@ -96,7 +96,7 @@ func TestRouteConfigCheckStrictUnresolved(t *testing.T) {
 	if resp == nil || resp.StatusCode != 500 || string(resp.Body) != "Route resolution failed" {
 		t.Fatalf("strict unresolved route must 500, got %+v", resp)
 	}
-	if req.State().BlockStash == nil || req.State().BlockStash.TriggerInfo != "route_unresolved" {
+	if req.State().BlockStash == nil || req.State().BlockStash == nil || req.State().BlockStash.TriggerInfo != "" {
 		t.Fatalf("block stash missing: %+v", req.State().BlockStash)
 	}
 	passive := testConfig(t)
@@ -281,7 +281,7 @@ func TestRequestSizeContent413(t *testing.T) {
 	if resp == nil || resp.StatusCode != 413 || string(resp.Body) != "Request too large" {
 		t.Fatalf("oversize must 413, got %+v", resp)
 	}
-	if req.State().BlockStash == nil || req.State().BlockStash.TriggerInfo != "max_request_size" {
+	if req.State().BlockStash == nil || req.State().BlockStash.TriggerInfo != "" {
 		t.Fatalf("stash missing: %+v", req.State().BlockStash)
 	}
 	if !strings.Contains(req.State().BlockStash.Reason, "Request size 101 exceeds limit: 100") {
@@ -409,7 +409,7 @@ func TestAuthenticationPresenceOnly(t *testing.T) {
 	if resp == nil || resp.StatusCode != 401 || string(resp.Body) != "Authentication required" {
 		t.Fatalf("missing authorization must 401, got %+v", resp)
 	}
-	if req.State().BlockStash == nil || req.State().BlockStash.TriggerInfo != "authorization_header" {
+	if req.State().BlockStash == nil || req.State().BlockStash.TriggerInfo != "" {
 		t.Fatalf("violation type must be authorization_header, got %+v", req.State().BlockStash)
 	}
 	okReq := routeTestRequest(t, func(opts *RequestOptions, state *RequestState) {
@@ -537,7 +537,7 @@ func TestReferrer(t *testing.T) {
 	if resp == nil || resp.StatusCode != 403 || string(resp.Body) != "Invalid referrer" {
 		t.Fatalf("disallowed referrer must 403, got %+v", resp)
 	}
-	if invalid.State().BlockStash == nil || invalid.State().BlockStash.TriggerInfo != "require_referrer" {
+	if invalid.State().BlockStash == nil || invalid.State().BlockStash.TriggerInfo != "" {
 		t.Fatalf("stash missing: %+v", invalid.State().BlockStash)
 	}
 	direct := routeTestRequest(t, func(opts *RequestOptions, state *RequestState) {

@@ -2,6 +2,7 @@ package guardcore
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 )
@@ -62,13 +63,24 @@ func newCORSPolicy(cfg *SecurityConfig) *CORSPolicy {
 	for _, origin := range origins {
 		originsSet[origin] = true
 	}
+	allowCredentials := cfg.CORSAllowCredentials
+	if allowAllOrigins && allowCredentials {
+		// The reference _compute_cors_config
+		// (guard_core/handlers/_security_headers_config.py) downgrades the
+		// wildcard + credentials misconfiguration at resolution time instead
+		// of rejecting the configuration: it logs the error and drops the
+		// credentials flag, so the wildcard policy answers without the
+		// allow-credentials header (the browser blocks credentialed CORS).
+		log.Printf("CORS config error: Wildcard origin disallowed with credentials")
+		allowCredentials = false
+	}
 	return &CORSPolicy{
 		allowAllOrigins:  allowAllOrigins,
 		allowOrigins:     originsSet,
 		allowMethods:     allowMethods,
 		allowHeaders:     allowHeaders,
 		allowAllHeaders:  allowAllHeaders,
-		allowCredentials: cfg.CORSAllowCredentials,
+		allowCredentials: allowCredentials,
 		maxAge:           maxAge,
 		exposeHeaders:    cfg.CORSExposeHeaders,
 	}
@@ -213,23 +225,17 @@ func containsValue(entries []string, value string) bool {
 	return false
 }
 
-// validateCORS fail-closes the CORS configuration at config construction and
-// normalizes the lists in place: methods uppercased, header names
-// lowercased, exactly like CorsHandler._init_enabled. The wildcard +
-// credentials misconfiguration raises in the reference at handler
-// construction; raising here only moves the failure earlier.
+// validateCORS normalizes the lists in place: methods uppercased, header
+// names lowercased, exactly like CorsHandler._init_enabled. The wildcard +
+// credentials combination is NOT rejected here: the reference pipeline
+// response path (SecurityHeadersManager._compute_cors_config,
+// guard_core/handlers/_security_headers_config.py) accepts the configuration
+// at construction, logs an error, and drops the credentials flag so the
+// wildcard policy blocks credentialed CORS at response time. newCORSPolicy
+// applies the same downgrade.
 func validateCORS(cfg *SecurityConfig) error {
 	if !cfg.EnableCORS {
 		return nil
-	}
-	allowAllOrigins := false
-	for _, origin := range cfg.CORSAllowOrigins {
-		if origin == "*" {
-			allowAllOrigins = true
-		}
-	}
-	if allowAllOrigins && cfg.CORSAllowCredentials {
-		return fmt.Errorf("CORS misconfiguration: wildcard origin '*' is incompatible with cors_allow_credentials=True")
 	}
 	for i, method := range cfg.CORSAllowMethods {
 		cfg.CORSAllowMethods[i] = strings.ToUpper(method)

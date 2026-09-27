@@ -265,7 +265,7 @@ func TestRouteIPDenialPassiveModeOnlyStashes(t *testing.T) {
 	if resp := pipeline.Execute(req); resp != nil {
 		t.Fatalf("passive mode must not block, got %+v", resp)
 	}
-	if req.State().BlockStash == nil || req.State().BlockStash.TriggerInfo != "ip_restriction" {
+	if req.State().BlockStash == nil || req.State().BlockStash.TriggerInfo != "" || req.State().BlockStash.Reason == "" {
 		t.Fatalf("passive mode must stash the route denial, got %+v", req.State().BlockStash)
 	}
 }

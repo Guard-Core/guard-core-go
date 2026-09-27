@@ -160,7 +160,10 @@ func TestPreflightAllowAllHeadersEchoesRequest(t *testing.T) {
 }
 
 // Credentials add the allow-credentials header on a passing preflight; the
-// wildcard + credentials combination is rejected at config construction.
+// wildcard + credentials combination is accepted at construction and
+// downgraded at policy resolution (credentials dropped, wildcard answers
+// without the allow-credentials header), like the reference
+// _compute_cors_config.
 func TestPreflightCredentials(t *testing.T) {
 	engine := newCORSTestEngine(t, corsTestConfig(nil))
 	engine.CORS.allowCredentials = true
@@ -175,12 +178,20 @@ func TestPreflightCredentials(t *testing.T) {
 		t.Fatalf("credentialed preflight must echo the origin, not *, got %q", got)
 	}
 
-	if _, err := NewSecurityConfig(func(c *SecurityConfig) {
+	wildcardCreds, err := NewSecurityConfig(func(c *SecurityConfig) {
 		c.EnableCORS = true
 		c.CORSAllowOrigins = []string{"*"}
 		c.CORSAllowCredentials = true
-	}); err == nil || !strings.Contains(err.Error(), "wildcard origin '*' is incompatible with cors_allow_credentials=True") {
-		t.Fatalf("wildcard + credentials must fail config construction with the reference message, got %v", err)
+	})
+	if err != nil {
+		t.Fatalf("wildcard + credentials must be accepted at construction, got %v", err)
+	}
+	policy := newCORSPolicy(wildcardCreds)
+	if policy == nil || !policy.allowAllOrigins {
+		t.Fatalf("wildcard + credentials must resolve to an allow-all policy: %+v", policy)
+	}
+	if policy.allowCredentials {
+		t.Fatalf("wildcard + credentials must drop the credentials flag at resolution (the reference _compute_cors_config downgrade)")
 	}
 }
 

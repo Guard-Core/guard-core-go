@@ -22,9 +22,9 @@ func (c *routeConfigCheck) Check(req Request) *Response {
 		state.ClientIP = ip
 	}
 	if c.cfg.RouteResolutionStrict && state.RouteUnresolved {
-		stashBlock(state, unresolvedRouteReason, "route_unresolved")
+		stashBlock(state, unresolvedRouteReason, "")
 		if c.cfg.PassiveMode {
-			firePassiveBlockHook(c.cfg, req, "route_config", unresolvedRouteReason, "route_unresolved")
+			firePassiveBlockHook(c.cfg, req, "route_config", unresolvedRouteReason, "")
 			return nil
 		}
 		return createErrorResponse(c.cfg, 500, "Route resolution failed")
@@ -57,9 +57,9 @@ func (c *emergencyModeCheck) Check(req Request) *Response {
 		return nil
 	}
 	reason := "[EMERGENCY MODE] Access denied for IP " + clientIP
-	stashBlock(state, reason, "emergency_mode")
+	stashBlock(state, reason, "")
 	if cfg.PassiveMode {
-		firePassiveBlockHook(cfg, req, "emergency_mode", reason, "emergency_mode")
+		firePassiveBlockHook(cfg, req, "emergency_mode", reason, "")
 		return nil
 	}
 	return createErrorResponse(cfg, 503, "Service temporarily unavailable")
