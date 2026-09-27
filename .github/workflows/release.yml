@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: ['1.25.x', '1.26.x']
+        go: ['1.26.x']
     services:
       redis:
         image: redis:7-alpine
