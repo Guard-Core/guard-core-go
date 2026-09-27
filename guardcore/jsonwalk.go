@@ -170,7 +170,7 @@ func appendJSONWalkEntries(values []bodyScanValue, root *jsonNode, context strin
 				})
 				continue
 			}
-			values = append(values, bodyScanValue{content: keyStr, context: requestBodyCtx})
+			values = append(values, bodyScanValue{content: keyStr, context: requestBodyCtx, label: "JSON key '" + keyStr + "': "})
 			stack = append(stack, frame{node: f.item, label: keyStr, depth: f.depth + 1})
 			continue
 		}
@@ -178,7 +178,7 @@ func appendJSONWalkEntries(values []bodyScanValue, root *jsonNode, context strin
 		switch {
 		case node.isObject:
 			if f.depth >= jsonWalkDepthCap {
-				values = append(values, bodyScanValue{content: serializeCompactJSON(node), context: context})
+				values = append(values, bodyScanValue{content: serializeCompactJSON(node), context: context, label: bodyFieldLabel(f.label)})
 				continue
 			}
 			for i := len(node.keys) - 1; i >= 0; i-- {
@@ -186,7 +186,7 @@ func appendJSONWalkEntries(values []bodyScanValue, root *jsonNode, context strin
 			}
 		case node.isArray:
 			if f.depth >= jsonWalkDepthCap {
-				values = append(values, bodyScanValue{content: serializeCompactJSON(node), context: context})
+				values = append(values, bodyScanValue{content: serializeCompactJSON(node), context: context, label: bodyFieldLabel(f.label)})
 				continue
 			}
 			for i := len(node.items) - 1; i >= 0; i-- {
@@ -202,11 +202,15 @@ func appendJSONWalkEntries(values []bodyScanValue, root *jsonNode, context strin
 					// nothing, the raw leaf string still scans with the walk
 					// context, so payloads confined to the raw text
 					// (duplicate-key remnants, structural text) still hit.
-					values = append(values, bodyScanValue{content: node.scalar, context: context})
+					values = append(values, bodyScanValue{content: node.scalar, context: context, label: bodyFieldLabel(f.label)})
 					continue
 				}
 			}
-			values = append(values, bodyScanValue{content: node.scalar, context: context})
+			leafLabel := bodyFieldLabel(f.label)
+			if f.label == "" {
+				leafLabel = ""
+			}
+			values = append(values, bodyScanValue{content: node.scalar, context: context, label: leafLabel})
 		}
 	}
 	return values

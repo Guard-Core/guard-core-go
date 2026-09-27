@@ -171,7 +171,10 @@ than silently ignoring them:
 
 - `EnableDynamicRules`
 - `EnableAgent`
-- `GlobalBehaviorRules`
+
+`GlobalBehaviorRules` is implemented: rules are validated at config time
+(`validateBehaviorRules`) and drive the in-memory behavior ban through the
+pipeline's behavioral processor.
 
 Each returns an `*UnsupportedFeatureError` from `Validate()`. See
 [Roadmap](roadmap.md) for the full divergence list.
@@ -184,7 +187,7 @@ Each returns an `*UnsupportedFeatureError` from `Validate()`. See
 | `CORSAllowOrigins` | `[]string` | `["*"]` | Exact origins; `*` allows every origin |
 | `CORSAllowMethods` | `[]string` | `GET, POST, PUT, PATCH, DELETE, OPTIONS` | Uppercased at config time; an empty list falls back to `GET` |
 | `CORSAllowHeaders` | `[]string` | `["*"]` | Lowercased at config time; `*` echoes the requested headers verbatim |
-| `CORSAllowCredentials` | `bool` | `false` | Incompatible with the `*` origin: that combination fails config construction |
+| `CORSAllowCredentials` | `bool` | `false` | Accepted together with the `*` origin, but downgraded at policy resolution: the wildcard policy answers without the allow-credentials header, like the reference `_compute_cors_config` |
 | `CORSExposeHeaders` | `[]string` | empty | Joined into `Access-Control-Expose-Headers` on responses |
 | `CORSMaxAge` | `int` | `600` | A configured `0` falls back to `600` |
 

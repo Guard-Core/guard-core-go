@@ -58,8 +58,9 @@ const (
 	geoRouteID = "/api/geo"
 )
 
-// A blocked-country IP is denied 403 with the reference block reason and the
-// country_restriction trigger, while other countries pass untouched.
+// A blocked-country IP is denied 403 with the reference block reason (the
+// "IP not allowed: {ip} - {reason}" hook shape) and an empty trigger_info,
+// while other countries pass untouched.
 func TestBlockedCountryIPDenies(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -89,11 +90,15 @@ func TestBlockedCountryIPDenies(t *testing.T) {
 			if resp == nil || resp.StatusCode != 403 || string(resp.Body) != RestrictionBlockedMsg {
 				t.Fatalf("blocked country must deny 403 Forbidden, got %+v", resp)
 			}
-			if req.State().BlockStash == nil || req.State().BlockStash.Reason != tc.reason {
-				t.Fatalf("block stash must carry the reference reason %q, got %+v", tc.reason, req.State().BlockStash)
+			wantReason := tc.reason
+			if wantReason != "" {
+				wantReason = fmt.Sprintf("IP not allowed: %s - %s", tc.ip, tc.reason)
 			}
-			if req.State().BlockStash.TriggerInfo != "country_restriction" {
-				t.Fatalf("block stash must carry country_restriction, got %+v", req.State().BlockStash)
+			if req.State().BlockStash == nil || req.State().BlockStash.Reason != wantReason {
+				t.Fatalf("block stash must carry the reference reason %q, got %+v", wantReason, req.State().BlockStash)
+			}
+			if req.State().BlockStash.TriggerInfo != "" {
+				t.Fatalf("block stash trigger_info must be empty, got %+v", req.State().BlockStash)
 			}
 		})
 	}
@@ -119,7 +124,7 @@ func TestAllowedCountryListIsRestrictive(t *testing.T) {
 	if resp == nil || resp.StatusCode != 403 || string(resp.Body) != RestrictionBlockedMsg {
 		t.Fatalf("unlisted country must deny 403 Forbidden, got %+v", resp)
 	}
-	if req.State().BlockStash == nil || req.State().BlockStash.Reason != "IP from blocked country: US" {
+	if req.State().BlockStash == nil || req.State().BlockStash.Reason != fmt.Sprintf("IP not allowed: %s - IP from blocked country: US", geoUSIP) {
 		t.Fatalf("resolved non-allowed country must stash the country reason, got %+v", req.State().BlockStash)
 	}
 }
@@ -134,7 +139,7 @@ func TestUnresolvedCountryVerdictDependsOnMode(t *testing.T) {
 		{"allowlist fails closed", func(c *SecurityConfig) {
 			c.WhitelistCountries = []string{"US"}
 			c.GeoIPHandler = fakeCountryResolver{}
-		}, true, fmt.Sprintf("IP %s not in global allowlist/blocklist", geoUSIP)},
+		}, true, fmt.Sprintf("IP not allowed: %s - IP %s not in global allowlist/blocklist", geoUSIP, geoUSIP)},
 		{"blocklist fails open", func(c *SecurityConfig) {
 			c.BlockedCountries = []string{"US"}
 			c.GeoIPHandler = fakeCountryResolver{}
@@ -353,7 +358,7 @@ func TestCountryDenialPassiveModeOnlyStashes(t *testing.T) {
 	if resp := pipeline.Execute(req); resp != nil {
 		t.Fatalf("passive mode must not block, got %+v", resp)
 	}
-	if req.State().BlockStash == nil || req.State().BlockStash.TriggerInfo != "country_restriction" {
+	if req.State().BlockStash == nil || req.State().BlockStash.TriggerInfo != "" || req.State().BlockStash.Reason == "" {
 		t.Fatalf("passive mode must stash the country denial, got %+v", req.State().BlockStash)
 	}
 }
@@ -406,7 +411,7 @@ func TestNoCountryRulesKeepsGlobalBehavior(t *testing.T) {
 		opts.ClientHost = geoUSIP
 	})
 	resp := pipeline.Execute(req)
-	if resp == nil || resp.StatusCode != 403 || req.State().BlockStash.Reason != "IP is blacklisted" {
+	if resp == nil || resp.StatusCode != 403 || req.State().BlockStash.Reason != fmt.Sprintf("IP not allowed: %s - IP %s not in global allowlist/blocklist", geoUSIP, geoUSIP) {
 		t.Fatalf("blacklist behavior must be unchanged without country rules, got %+v", resp)
 	}
 	// No country rules configured: the resolver must never be hit.

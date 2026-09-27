@@ -293,12 +293,11 @@ func runPipelineCase(t *testing.T, c pipelineCase) []string {
 	geo := fakeCountryResolver(c.GeoCountries)
 	cfg, cfgErr := tryBuildPipelineConfig(t, c.Config, geo)
 	if cfgErr != nil {
-		// Documented divergence: the reference SecurityConfig ACCEPTS
-		// wildcard origins + credentials at construction time (it logs an
-		// error and blocks CORS at response time), while this port fails
-		// closed at config validation. The runtime outcome (no CORS
-		// headers) matches; the construction outcome cannot be replayed
-		// here. Reported as a divergence, never as a pass.
+		// Fail-closed: the reference SecurityConfig accepts every corpus
+		// configuration (wildcard origins + credentials included; it logs an
+		// error and downgrades the credentials flag at policy resolution), so
+		// a construction failure here can only be a port-side regression.
+		// Reported as a divergence, never as a pass.
 		return []string{"DIVERGENCE config-construction rejected: " + cfgErr.Error()}
 	}
 

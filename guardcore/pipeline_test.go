@@ -636,8 +636,8 @@ func TestSuspiciousActivityPassiveModeLogsOnly(t *testing.T) {
 	if fired[0]["passive_mode"] != true {
 		t.Fatalf("passive payload must set passive_mode=true: %v", fired[0])
 	}
-	if fired[0]["status_code"] != 0 {
-		t.Fatalf("passive payload has no status code: %v", fired[0]["status_code"])
+	if fired[0]["status_code"] != nil {
+		t.Fatalf("passive payload status_code must be null, got %v", fired[0]["status_code"])
 	}
 }
 
