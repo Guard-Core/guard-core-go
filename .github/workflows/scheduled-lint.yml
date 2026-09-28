@@ -32,7 +32,7 @@ jobs:
 
       - name: staticcheck
         run: |
-          go install honnef.co/go/tools/cmd/staticcheck@latest
+          GOTOOLCHAIN=auto go install honnef.co/go/tools/cmd/staticcheck@latest
           staticcheck ./...
 
       - name: Run govulncheck
