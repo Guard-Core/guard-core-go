@@ -98,18 +98,6 @@ func (f *fakeZSet) zcard(key string) int {
 	return len(f.members[key])
 }
 
-func (f *fakeZSet) memberCountBelow(key string, ceiling float64) int {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	n := 0
-	for _, score := range f.members[key] {
-		if score <= ceiling {
-			n++
-		}
-	}
-	return n
-}
-
 func newRateLimitTestManager(t *testing.T, cfg RateLimitConfig, redisHandler RedisHandler, rl RateLimitRedis, clock *float64) *RateLimitManager {
 	t.Helper()
 	mgr := NewRateLimitManager(cfg, redisHandler, nil)

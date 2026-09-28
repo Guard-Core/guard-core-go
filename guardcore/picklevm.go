@@ -358,10 +358,7 @@ func pickleWalkPrefix(window []byte, isComplete bool) bool {
 	for vm.r.pos < len(window) {
 		_, done, err := vm.step()
 		if err != nil {
-			if isComplete {
-				return false
-			}
-			return true
+			return !isComplete
 		}
 		if done {
 			break
@@ -380,10 +377,7 @@ func pickleWalkSuffix(window []byte, isComplete bool) bool {
 			return true
 		}
 		if err != nil {
-			if isComplete {
-				return false
-			}
-			return true
+			return !isComplete
 		}
 		if done {
 			break

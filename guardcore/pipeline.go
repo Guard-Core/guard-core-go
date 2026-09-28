@@ -750,34 +750,6 @@ func fireBlockHook(cfg *SecurityConfig, req Request, checkName, reason, triggerI
 	}()
 }
 
-func fireBlockHookForced(cfg *SecurityConfig, req Request, checkName, reason, triggerInfo string, passiveMode bool, statusCode int) {
-	if cfg == nil || cfg.OnBlock == nil {
-		return
-	}
-	ip := resolveClientIP(req)
-	if ip == "" {
-		ip = UnknownClientIdentity
-	}
-	payload := map[string]any{
-		"check_name":   checkName,
-		"reason":       reason,
-		"trigger_info": triggerInfo,
-		"passive_mode": passiveMode,
-		"client_ip":    ip,
-		"path":         req.URLPath(),
-		"method":       req.Method(),
-		"status_code":  blockHookStatusCode(statusCode),
-	}
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				log.Printf("on_block hook raised: %v", r)
-			}
-		}()
-		cfg.OnBlock(req, payload)
-	}()
-}
-
 type SecurityCheckPipeline struct {
 	mu                     sync.RWMutex
 	checks                 []SecurityCheck

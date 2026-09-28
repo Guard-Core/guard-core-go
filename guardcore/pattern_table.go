@@ -243,46 +243,6 @@ var urlDecodedViewSources = map[string]bool{
 	"\\n[^\\S\\r\\n]*(?:[^=\\s;|&]+=[^\\s;|&]+\\s+)*(?:/?(?:[\\w.-]+/)*env\\s+)?/?(?:[\\w.-]+/)*(?:bash|sh|ksh|csh|tsch|zsh|ash)\\s+-c\\b": true,
 }
 
-var windowedFinderSources = map[string]bool{
-	"(c[A-Za-z_][A-Za-z0-9_]{0,100}(?:\\.[A-Za-z_][A-Za-z0-9_]{0,100}){0,20}\\n[A-Za-z_][A-Za-z0-9_]{0,100}\\n)[^ \\t]{0,100}?[Rb]":        true,
-	"<!DOCTYPE[^>\\[]+PUBLIC[^>\\[]+[\\\"']https?://(?!(?:www\\.)?w3\\.org/)[^\\\"'>]+[\\\"'][^>\\[]*>":                                    true,
-	"[a-zA-Z][\\w-]*\\s*=[\\d\\w\\s]*\\*\\)+(?:%00|\\\\u0000|\\\\x00|\\\\0|\\x00)":                                                         true,
-	"[a-zA-Z][\\w-]*\\s*=[\\d\\w\\s]*\\*\\)+\\x00":                                                                                         true,
-	"\\n[^\\S\\r\\n]*(?:[^=\\s;|&]+=[^\\s;|&]+\\s+)*(?:/?(?:[\\w.-]+/)*env\\s+)?/?(?:[\\w.-]+/)*(?:bash|sh|ksh|csh|tsch|zsh|ash)\\s+-c\\b": true,
-	"\\w+(?:['\\\"]+\\w+){1,10}": true,
-}
-
-var scanWindowMatcherSources = map[string]bool{
-	"#\\{(?![^\\}]*\\d{4}-\\d{1,2}-\\d{1,2}(?!\\d))(?=[^\\}]*(?:@[\\w.]+@|\\b\\w+\\s*\\(|['\\\"]?\\d+['\\\"]?\\s*[*/%+\\-]\\s*['\\\"]?\\d+['\\\"]?))[^\\}]*\\}": true,
-	"(?:[;&|]\\s*(?:\\$\\([^)]+\\)|\\$\\{[^}]+\\}))": true,
-	"(?:\\A|[;,:\\n])\\s*filename\\s*=\\s*[\\\"'][^\\\"']*\\.(?:php\\d*|phtml|shtml|asax|ascx|ashx|asmx|aspx|bash|jspx|phar|phps|asa|asp|bat|cer|cfc|cfm|cgi|cmd|com|exe|hta|jsp|msi|pht|vbe|vbs|war|wsf|js|pl|py|rb|sh|ws)[\\\"']":                                                                                                                                                    true,
-	"(?:\\A|[;,:\\n])\\s*filename\\s*=\\s*[\\\"'][^\\\"']*\\.(?:php\\d*|phtml|shtml|asax|ascx|ashx|asmx|aspx|bash|jspx|phar|phps|asa|asp|bat|cer|cfc|cfm|cgi|cmd|exe|hta|jsp|msi|pht|vbe|vbs|war|wsf|js|pl|py|rb|sh|ws)(?![A-Za-z0-9])(?:(?:%00|\\\\u0000|\\\\x00|\\\\0|\\x00|;)[^\\\"']*|\\.)[\\\"']":                                                                                 true,
-	"(?:\\A|[;,:\\n])\\s*filename\\s*=\\s*[\\\"'][^\\\"']*\\.(?:php\\d*|phtml|shtml|asax|ascx|ashx|asmx|aspx|bash|jspx|phar|phps|asa|asp|bat|cer|cfc|cfm|cgi|cmd|exe|hta|jsp|msi|pht|vbe|vbs|war|wsf|js|pl|py|rb|sh|ws)(?![A-Za-z0-9])(?:(?:\\x00|;)[^\\\"']*|\\.)[\\\"']":                                                                                                             true,
-	"(?:\\A|[;,:\\n])\\s*filename\\s*=\\s*[\\\"'][^\\\"']*\\.(?:php\\d*|phtml|shtml|asax|ascx|ashx|asmx|aspx|bash|jspx|phar|phps|asa|asp|bat|cer|cfc|cfm|cgi|cmd|exe|hta|jsp|msi|pht|vbe|vbs|war|wsf|js|pl|py|rb|sh|ws)(?![A-Za-z0-9])(?:[^ \\\"'][^\\\"']*)?\\.(?:docx|jpeg|pptx|tiff|webm|webp|xlsx|avi|bmp|doc|gif|ico|jpg|mkv|mov|mp3|mp4|odt|pdf|png|ppt|svg|tif|wav|xls)[\\\"']": true,
-	"(?i)(?:LOAD_FILE\\s*\\([^)]+\\))": true,
-	"(?i)<%[=#]?[^%]*(?:system|exec|eval|`|Runtime|IO\\.|File\\.|Dir\\.|\\d+\\s*[-+*/]\\s*\\d+)[^%]*%>":                                                                 true,
-	"[A-Za-z0-9_./*?-]*[?*][A-Za-z0-9_./*?-]*":                                                                                                                          true,
-	"\\$\\{[^}]*(?:@[\\w.]+@|\\b\\w+\\s*\\(|\\d+\\s*[*/%+\\-]\\s*\\d+)[^}]*\\}":                                                                                         true,
-	"\\{\\%\\s*[^\\%]+(?:system|exec|popen|eval|require|include)\\s*\\%\\}":                                                                                             true,
-	"\\{\\{(?![^\\}]*\\d{4}-\\d{1,2}-\\d{1,2}(?!\\d))(?=[^\\}]*(?:@[\\w.]+@|\\b\\w+\\(\\s*\\)|['\\\"]?\\d+['\\\"]?\\s*[*/%+\\-]\\s*['\\\"]?\\d+['\\\"]?))[^\\}]*\\}\\}": true,
-	"\\{\\{\\s*[^\\}]+(?:system|exec|popen|eval|require|include)\\s*\\}\\}":                                                                                             true,
-}
-
-var validatorSources = map[string]bool{
-	"://(?:[^/@\\s]*@)?((?:0[xX][0-9a-fA-F]+|0[0-7]+|[1-9]\\d*|0)(?:\\.(?:0[xX][0-9a-fA-F]+|0[0-7]+|[1-9]\\d*|0)){0,3})(?=[:/\\s]|$)": true,
-	"\\*\\)[|&]?\\(+\\s*(?::)?(?:[a-zA-Z][\\w.-]*|\\d+(?:\\.\\d+)*)(?:;[\\w.-]+)*(?::[\\w.-]+)*\\s*:?=":                               true,
-	"\\*\\s*\\)+\\s*(?:[|&!]\\s*)?\\(+\\s*(?:[&|!]|(?::)?(?:[a-zA-Z][\\w.-]*|\\d+(?:\\.\\d+)*)(?:;[\\w.-]+)*(?::[\\w.-]+)*\\s*:?=)":   true,
-	"\\)\\s*\\(\\s*(?:[&|!]|(?::)?(?:[a-zA-Z][\\w.-]*|\\d+(?:\\.\\d+)*)(?:;[\\w.-]+)*(?::[\\w.-]+)*\\s*:?[=~<>])":                     true,
-	"\\(\\s*[&|]\\s*": true,
-	"(?<!`)`(?:[A-Za-z0-9_./~]|\\$[({])(?:[^`\\\\\\n]|\\\\.)*`":                                                                                  true,
-	"\\A[/\\\\]?(?:[\\w.\\-~%]+[/\\\\])*[\\w.\\-~%]*\\.(?:ts|tsx|jsx|py|rb|java|go|rs|php|pl|sh|sql)(?:[/\\\\][\\w.\\-~%]*)*(?:\\?\\S*)?\\s*\\Z": true,
-	"\\$\\((?:[^()\\\\\\n]|\\\\.)*\\)|\\$\\{(?:[^{}\\\\\\n]|\\\\.)*\\}":                                                                          true,
-	"(?:\\A|[;&|]\\s*|\\$\\()\\{[^{}\\s,:'\\\"][^{},:'\\\"]*(?:,(?:[^{}\\s,:'\\\"][^{},:'\\\"]*)?)+\\}":                                          true,
-	"\\w+(?:['\\\"]+\\w+){1,10}":               true,
-	"[A-Za-z0-9_./*?-]*[?*][A-Za-z0-9_./*?-]*": true,
-	"(c[A-Za-z_][A-Za-z0-9_]{0,100}(?:\\.[A-Za-z_][A-Za-z0-9_]{0,100}){0,20}\\n[A-Za-z_][A-Za-z0-9_]{0,100}\\n)[^ \\t]{0,100}?[Rb]": true,
-}
-
 var scanWindowBounds = map[string][][2]string{
 
 	"<script[^>]*>[^<]*<\\/script\\s*>": {{"<script", "<\\/script\\s*>"}},

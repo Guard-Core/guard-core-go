@@ -74,15 +74,6 @@ func strList(v any) []string {
 	return out
 }
 
-func buildPipelineConfig(t *testing.T, raw map[string]any, geo fakeCountryResolver) *guardcore.SecurityConfig {
-	t.Helper()
-	cfg, err := tryBuildPipelineConfig(t, raw, geo)
-	if err != nil {
-		t.Fatalf("config: %v", err)
-	}
-	return cfg
-}
-
 func tryBuildPipelineConfig(t *testing.T, raw map[string]any, geo fakeCountryResolver) (*guardcore.SecurityConfig, error) {
 	t.Helper()
 	cfg, err := guardcore.NewSecurityConfig(func(c *guardcore.SecurityConfig) {

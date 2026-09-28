@@ -88,10 +88,6 @@ func checkDecodedViewPathTraversal(pre *preprocessor, processedContent, content,
 	}
 }
 
-var semanticAttackTypeToCategory = map[string]string{
-	"xss": "xss", "sql": "sqli", "command": "cmd_injection", "path": "path_traversal", "template": "template",
-}
-
 func checkSemanticThreats(processedContent, originalContent string) ([]map[string]any, float64, map[string]any) {
 	if looksLikeBinaryContent(originalContent) {
 		return nil, 0.0, nil

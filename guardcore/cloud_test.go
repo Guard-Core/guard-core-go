@@ -164,7 +164,7 @@ func TestParseCloudSelectors(t *testing.T) {
 		t.Fatalf("carve-outs for one provider must union: %v", carveouts)
 	}
 
-	blocked, carveouts = parseCloudSelectors([]string{"GCP:!"})
+	_, carveouts = parseCloudSelectors([]string{"GCP:!"})
 	if len(carveouts) != 0 {
 		t.Fatalf("empty region must not register a carve-out: %v", carveouts)
 	}
@@ -377,8 +377,8 @@ func TestRedisCloudIPStoreRoundTrip(t *testing.T) {
 	redis := newFakeRedisHandler()
 	store := NewRedisCloudIPStore(redis)
 	entries, found, err := store.Get("AWS")
-	if err != nil || found {
-		t.Fatalf("missing key must report a miss: %v %v", found, err)
+	if err != nil || found || entries != nil {
+		t.Fatalf("missing key must report a miss: %v %v %v", entries, found, err)
 	}
 	if err := store.Set("AWS", []string{"10.0.0.0/8|us-east-1", "192.0.2.0/24"}, 300); err != nil {
 		t.Fatalf("set: %v", err)

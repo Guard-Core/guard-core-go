@@ -96,19 +96,6 @@ func (t scanText) runeOff(b int) int {
 	return int(t.b2r[b])
 }
 
-func (t scanText) byteOf(r int) int {
-	lo, hi := 0, len(t.s)
-	for lo < hi {
-		mid := (lo + hi) / 2
-		if int(t.b2r[mid]) <= r {
-			lo = mid + 1
-		} else {
-			hi = mid
-		}
-	}
-	return lo
-}
-
 func (t scanText) str(start, end int) string {
 	if start < 0 {
 		start = 0
@@ -130,13 +117,12 @@ type rmatch struct {
 	re     *regexp2P
 }
 
-func (m rmatch) text() string    { return m.t.str(m.rStart, m.rEnd) }
-func (m rmatch) start() int      { return m.rStart }
-func (m rmatch) end() int        { return m.rEnd }
-func (m rmatch) full() string    { return m.t.s }
-func (m rmatch) runes() []rune   { return m.t.rs }
-func (m rmatch) group1() string  { return m.g1 }
-func (m rmatch) matched() string { return m.text() }
+func (m rmatch) text() string   { return m.t.str(m.rStart, m.rEnd) }
+func (m rmatch) start() int     { return m.rStart }
+func (m rmatch) end() int       { return m.rEnd }
+func (m rmatch) full() string   { return m.t.s }
+func (m rmatch) runes() []rune  { return m.t.rs }
+func (m rmatch) group1() string { return m.g1 }
 
 func matchFromIndices(t scanText, rStart, rEnd int, g1 string) rmatch {
 	return rmatch{t: t, rStart: rStart, rEnd: rEnd, g1: g1}
@@ -211,15 +197,6 @@ func searchFrom(re *regexp2.Regexp, t scanText, start int) (rmatch, bool) {
 		g1 = g.String()
 	}
 	return matchFromIndices(t, m.Index, m.Index+m.Length, g1), true
-}
-
-func firstIndexOfRune(rs []rune, target rune) int {
-	for i, r := range rs {
-		if r == target {
-			return i
-		}
-	}
-	return -1
 }
 
 func lastIndexOfRune(rs []rune, target rune) int {

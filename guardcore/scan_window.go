@@ -64,16 +64,3 @@ func boundedFinditer(re *regexp2P, t scanText, bound scanBound) []rmatch {
 		}
 	}
 }
-
-func runeSliceString(rs []rune, start, end int) string {
-	if start < 0 {
-		start = 0
-	}
-	if end > len(rs) {
-		end = len(rs)
-	}
-	if start >= end {
-		return ""
-	}
-	return string(rs[start:end])
-}

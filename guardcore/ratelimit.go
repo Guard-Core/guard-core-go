@@ -239,19 +239,18 @@ func inMemoryRequestCount(store *lruStore[[]float64], key string, windowStart, c
 }
 
 type RateLimitManager struct {
-	mu              sync.Mutex
-	cfg             RateLimitConfig
-	redis           RedisHandler
-	rlRedis         RateLimitRedis
-	ban             *IPBanManager
-	timestamps      *lruStore[[]float64]
-	byIPTimestamps  *lruStore[[]float64]
-	autobanCounts   *lruStore[int]
-	scriptSHA       string
-	logger          *log.Logger
-	OnScriptReload  func()
-	now             func() float64
-	scriptReloadLog func()
+	mu             sync.Mutex
+	cfg            RateLimitConfig
+	redis          RedisHandler
+	rlRedis        RateLimitRedis
+	ban            *IPBanManager
+	timestamps     *lruStore[[]float64]
+	byIPTimestamps *lruStore[[]float64]
+	autobanCounts  *lruStore[int]
+	scriptSHA      string
+	logger         *log.Logger
+	OnScriptReload func()
+	now            func() float64
 }
 
 func NewRateLimitManager(cfg RateLimitConfig, redisHandler RedisHandler, banManager *IPBanManager) *RateLimitManager {

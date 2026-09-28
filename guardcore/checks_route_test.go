@@ -96,7 +96,7 @@ func TestRouteConfigCheckStrictUnresolved(t *testing.T) {
 	if resp == nil || resp.StatusCode != 500 || string(resp.Body) != "Route resolution failed" {
 		t.Fatalf("strict unresolved route must 500, got %+v", resp)
 	}
-	if req.State().BlockStash == nil || req.State().BlockStash == nil || req.State().BlockStash.TriggerInfo != "" {
+	if req.State().BlockStash == nil || req.State().BlockStash.TriggerInfo != "" {
 		t.Fatalf("block stash missing: %+v", req.State().BlockStash)
 	}
 	passive := testConfig(t)

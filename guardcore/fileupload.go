@@ -7,16 +7,6 @@ import (
 	"github.com/dlclark/regexp2"
 )
 
-func fileUploadScanWindow(t scanText) string {
-	lastD := lastIndexOfRune(t.rs, '"')
-	lastQ := lastIndexOfRune(t.rs, '\'')
-	end := lastD
-	if lastQ > end {
-		end = lastQ
-	}
-	return t.str(0, end+1)
-}
-
 func fileUploadMatchStart(t scanText, filenameStart int) (int, bool) {
 	cursor := filenameStart - 1
 	firstNewline := -1
