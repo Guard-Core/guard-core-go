@@ -137,6 +137,39 @@ func TestPickleGlobalGenericFinditerShortSubjects(t *testing.T) {
 	}
 }
 
+func TestPickleGlobalGenericFinditerChainShapes(t *testing.T) {
+	cases := []struct {
+		input string
+		want  int
+	}{
+		// Both marker cases resolve when a letter follows.
+		{"Cz\nAz\nR", 1},
+		{"cabc\ndef\nR", 1},
+		// Dotted chains walk their segments.
+		{"cfoo.bar.baz\nqux\nR", 1},
+		{"cc.b.a\nczz\nR", 1},
+		// Non-letter markers fail and chains without idents bail.
+		{"c1\nAz\nR", 0},
+		{"c a.b\ncc\nR", 0},
+		{"c a.b.c\nzz\nR", 0},
+		{"c b.a\ncc\nR", 0},
+	}
+	for _, tc := range cases {
+		if got := len(pickleGlobalGenericFinditer(newScanText(tc.input))); got != tc.want {
+			t.Fatalf("input %q: got %d matches, want %d", tc.input, got, tc.want)
+		}
+	}
+	// Oversized segments clamp their scan floor.
+	long := "c a." + strings.Repeat("b", 50) + "c" + strings.Repeat("b", 60) + "\ncc\nR"
+	pickleGlobalGenericFinditer(newScanText(long))
+	// Non-ident segments break the chain walk.
+	pickleGlobalGenericFinditer(newScanText("c a.b!\ncc\nR"))
+	// Later line pairs fold into earlier matches.
+	pickleGlobalGenericFinditer(newScanText("cabc\ndef\nR!!!\n"))
+	// Non-ident middles skip their pair.
+	pickleGlobalGenericFinditer(newScanText("ab\nc!d\nefg\nR"))
+}
+
 func TestFloorMax(t *testing.T) {
 	if floorMax(-3) != 0 || floorMax(4) != 4 {
 		t.Fatal("floorMax clamps negatives")

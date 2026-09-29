@@ -71,9 +71,106 @@ func TestRateLimitCheckEarlyExits(t *testing.T) {
 		}
 	}
 	// Identity-less requests skip the tier run.
-	req := newTestRequest(t, nil)
+	req := newTestRequest(t, func(opts *RequestOptions, state *RequestState) {
+		opts.ClientHost = ""
+		state.ClientIP = ""
+	})
 	if resp := check.Check(req); resp != nil {
 		t.Fatal("identity-less requests skip the check")
+	}
+}
+
+func TestIPSecurityCheckPassiveBannedIP(t *testing.T) {
+	cfg, err := NewSecurityConfig(func(c *SecurityConfig) { c.PassiveMode = true })
+	if err != nil {
+		t.Fatalf("config: %v", err)
+	}
+	ban := NewIPBanManager(nil, nil)
+	_, _ = ban.Ban("203.0.113.140", 60, "test")
+	check := &ipSecurityCheck{cfg: cfg, ban: ban, name: "ip_security"}
+	if resp := check.Check(newTestRequest(t, nil)); resp != nil {
+		t.Fatalf("passive modes never block, got %+v", resp)
+	}
+}
+
+func TestSuspiciousActivityCheckSkipsIdentityLess(t *testing.T) {
+	cfg, err := NewSecurityConfig(nil)
+	if err != nil {
+		t.Fatalf("config: %v", err)
+	}
+	c := &suspiciousActivityCheck{cfg: cfg, counts: &suspiciousCountStore{m: map[string]map[string]int{}}}
+	req := newTestRequest(t, func(opts *RequestOptions, state *RequestState) {
+		opts.ClientHost = ""
+		state.ClientIP = ""
+	})
+	if resp := c.Check(req); resp != nil {
+		t.Fatalf("identity-less requests skip, got %+v", resp)
+	}
+}
+
+func TestFireBlockHookUnknownIdentity(t *testing.T) {
+	var got []map[string]any
+	cfg := &SecurityConfig{OnBlock: func(req Request, payload map[string]any) { got = append(got, payload) }}
+	fireBlockHook(cfg, newTestRequest(t, func(opts *RequestOptions, state *RequestState) {
+		opts.ClientHost = ""
+		state.ClientIP = ""
+	}), "ip_security", "reason", "", false, 0)
+	if len(got) != 1 || got[0]["client_ip"] != UnknownClientIdentity {
+		t.Fatalf("unknown identities fill in, got %v", got)
+	}
+}
+
+func TestPipelineStaleViaContainerSignature(t *testing.T) {
+	cfg, err := NewSecurityConfig(nil)
+	if err != nil {
+		t.Fatalf("config: %v", err)
+	}
+	p := NewSecurityCheckPipeline(nil, cfg, func() []SecurityCheck { return nil })
+	if p.IsStale() {
+		t.Fatal("fresh pipelines are not stale")
+	}
+	// Container length changes mark staleness even at the same revision.
+	cfg.BlockCloudProviders = []string{"AWS"}
+	if !p.IsStale() {
+		t.Fatal("container changes staleness")
+	}
+}
+
+func TestPipelineRebuildRepopulatesMutedLogs(t *testing.T) {
+	cfg, err := NewSecurityConfig(func(c *SecurityConfig) {
+		c.MutedCheckLogs = map[string]bool{"rate_limit": true}
+	})
+	if err != nil {
+		t.Fatalf("config: %v", err)
+	}
+	rebuilds := 0
+	p := NewSecurityCheckPipeline(nil, cfg, func() []SecurityCheck {
+		rebuilds++
+		return nil
+	})
+	// A revision bump marks the pipeline stale; executing rebuilds and
+	// repopulates the muted set.
+	cfg.BumpRevision()
+	_ = p.Execute(newTestRequest(t, nil))
+	if rebuilds != 1 {
+		t.Fatalf("stale pipelines rebuild once, got %d", rebuilds)
+	}
+	if !p.mutedCheckLogs["rate_limit"] {
+		t.Fatal("rebuilds repopulate muted logs")
+	}
+}
+
+type stringPanicCheck struct{}
+
+func (c *stringPanicCheck) CheckName() string                  { return "string_panic" }
+func (c *stringPanicCheck) EnforcedOnExcludedPaths() bool      { return false }
+func (c *stringPanicCheck) AppliesTo(cfg *SecurityConfig) bool { return true }
+func (c *stringPanicCheck) Check(req Request) *Response        { panic("plain string") }
+
+func TestRunCheckWrapsNonErrorPanics(t *testing.T) {
+	_, err := runCheck(&stringPanicCheck{}, newTestRequest(t, nil))
+	if err == nil || !strings.Contains(err.Error(), "plain string") {
+		t.Fatalf("non-error panics wrap, got %v", err)
 	}
 }
 

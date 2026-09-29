@@ -98,11 +98,6 @@ func TestTrackEndpointUsageLocalWindow(t *testing.T) {
 	}
 }
 
-type stubRedisManager struct {
-	*RedisManager
-	enabled bool
-}
-
 func TestTrackEndpointUsageFailsClosedWithoutRedis(t *testing.T) {
 	cfg := behaviorTestConfig(t, func(c *SecurityConfig) { c.RedisFailOpen = false })
 	mgr := NewRedisManager(RedisConfig{URL: "redis://127.0.0.1:1", Prefix: "t:", EnableRedis: true})
@@ -257,12 +252,6 @@ func TestJSONScalarToString(t *testing.T) {
 func TestBehaviorTrackerLocalEviction(t *testing.T) {
 	cfg := behaviorTestConfig(t, nil)
 	tracker := NewBehaviorTracker(cfg, nil, nil, nil)
-	store := map[string]map[string][]float64{}
-	for i := 0; i < maxTrackedClientsPerEndpoint; i++ {
-		store["row"] = map[string][]float64{}
-		_ = store
-		break
-	}
 	// Fill a row map to the cap and force one more insertion.
 	rows := map[string][]float64{}
 	for i := 0; i < maxTrackedClientsPerEndpoint; i++ {
