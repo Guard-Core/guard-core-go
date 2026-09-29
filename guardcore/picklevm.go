@@ -3,20 +3,19 @@ package guardcore
 import "fmt"
 
 const pickleWorkBudgetBytes = 4096
-const pickleSurrogateEscapeLow = 0xDC80
-const pickleSurrogateEscapeHigh = 0xDCFF
 
 func pickleWindowFromChars(s string) ([]byte, bool) {
+	// Note: the Python reference also maps surrogate escapes (U+DC80..U+DCFF,
+	// Python's surrogateescape error handler) back to their high bytes. Go
+	// strings cannot carry those code points: ranging over a string decodes
+	// the escaped bytes as U+FFFD, so that branch of the reference mapping is
+	// unrepresentable here and every rune must be latin-1 range.
 	var window []byte
 	for _, r := range s {
-		switch {
-		case r <= 0xFF:
-			window = append(window, byte(r))
-		case r >= pickleSurrogateEscapeLow && r <= pickleSurrogateEscapeHigh:
-			window = append(window, byte(r-pickleSurrogateEscapeLow+0x80))
-		default:
+		if r > 0xFF {
 			return nil, false
 		}
+		window = append(window, byte(r))
 	}
 	return window, true
 }
@@ -358,10 +357,7 @@ func pickleWalkPrefix(window []byte, isComplete bool) bool {
 	for vm.r.pos < len(window) {
 		_, done, err := vm.step()
 		if err != nil {
-			if isComplete {
-				return false
-			}
-			return true
+			return !isComplete
 		}
 		if done {
 			break
@@ -380,10 +376,7 @@ func pickleWalkSuffix(window []byte, isComplete bool) bool {
 			return true
 		}
 		if err != nil {
-			if isComplete {
-				return false
-			}
-			return true
+			return !isComplete
 		}
 		if done {
 			break
