@@ -65,6 +65,13 @@ jobs:
           REDIS_HOST: 127.0.0.1
         run: go test -tags integration ./...
 
+      - name: coverage gate (100%)
+        env:
+          REDIS_HOST: 127.0.0.1
+        run: |
+          go test -tags integration -coverprofile=cover.out ./guardcore
+          bash .github/scripts/check_coverage.sh
+
   govulncheck:
     name: govulncheck
     runs-on: ubuntu-latest

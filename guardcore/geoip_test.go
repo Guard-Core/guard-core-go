@@ -54,6 +54,17 @@ func buildTestMMDB(t *testing.T, entries map[string]string) string {
 			continue
 		}
 		countryOffsets[code] = uint32(len(dataSection))
+		if code == "-" {
+			// The "-" sentinel writes a record without a country field,
+			// exercising the country-less lookup path.
+			record := []byte{0xE1} // map, 1 entry
+			record = append(record, 0x40|4)
+			record = append(record, "lang"...)
+			record = append(record, 0x40|2)
+			record = append(record, "en"...)
+			dataSection = append(dataSection, record...)
+			continue
+		}
 		record := []byte{0xE1} // map, 1 entry
 		record = append(record, 0x40|7)
 		record = append(record, "country"...)

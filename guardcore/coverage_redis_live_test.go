@@ -277,3 +277,137 @@ func TestIPBanManagerLiveRedisChecks(t *testing.T) {
 	}
 	_, _ = m.DeletePattern("banned_ips:*")
 }
+
+func TestRedisManagerClosedClientErrors(t *testing.T) {
+	m := newLiveRedisManager(t)
+	if err := m.Initialize(); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	// Close the underlying client directly so the manager still holds a
+	// (broken) client: every operation surfaces its error path.
+	if err := m.client.Close(); err != nil {
+		t.Fatalf("underlying close: %v", err)
+	}
+	if _, err := m.GetKey("cov", "k"); err == nil {
+		t.Fatal("gets on broken clients fail")
+	}
+	if _, err := m.Delete("cov", "k"); err == nil {
+		t.Fatal("deletes on broken clients fail")
+	}
+	if _, err := m.Keys("cov:*"); err == nil {
+		t.Fatal("keys on broken clients fail")
+	}
+	if _, err := m.DeletePattern("cov:*"); err == nil {
+		t.Fatal("pattern deletes on broken clients fail")
+	}
+	if _, err := m.ScanMatch("cov:*"); err == nil {
+		t.Fatal("scans on broken clients fail")
+	}
+	if _, err := m.PTTL("cov:k"); err == nil {
+		t.Fatal("pttls on broken clients fail")
+	}
+	if err := m.SetPX("cov:k", "v", time.Second); err == nil {
+		t.Fatal("setpx on broken clients fails")
+	}
+	if _, err := m.DeleteKeys("cov:k"); err == nil {
+		t.Fatal("bulk deletes on broken clients fail")
+	}
+	if _, err := m.RecordSlidingWindowHit("cov", "k", 1, 0, 60); err == nil {
+		t.Fatal("window hits on broken clients fail")
+	}
+	if _, err := m.ScriptLoad("return 1"); err == nil {
+		t.Fatal("script loads on broken clients fail")
+	}
+	if _, err := m.EvalSha("sha", "cov:k", 1, 60, 10); err == nil {
+		t.Fatal("evals on broken clients fail")
+	}
+	if _, err := m.PipelineRateLimit("cov:k", "m", 1, 0, 60); err == nil {
+		t.Fatal("pipelines on broken clients fail")
+	}
+}
+
+func TestRateLimitManagerFailOpenFallback(t *testing.T) {
+	dead := NewRedisManager(RedisConfig{URL: "redis://127.0.0.1:1", Prefix: "guard_core_test:", EnableRedis: true})
+	cfg, err := NewSecurityConfig(func(c *SecurityConfig) {
+		c.RateLimit = 5
+		c.RateLimitWindow = 60
+		c.RedisFailOpen = true
+	})
+	if err != nil {
+		t.Fatalf("config: %v", err)
+	}
+	rl := NewRateLimitManager(RateLimitConfigFromSecurityConfig(cfg), dead, nil)
+	rl.InitializeRedis(dead)
+	rl.now = func() float64 { return 7000.0 }
+	// Fail-open managers fall back to the in-memory window without errors.
+	for i := 0; i < 3; i++ {
+		out, err := rl.CheckRateLimit("203.0.113.233", "/fallback", nil, nil)
+		if err != nil {
+			t.Fatalf("fail-open checks never error, got %v", err)
+		}
+		if i < 2 && out.Blocked {
+			t.Fatalf("early requests pass, got %+v", out)
+		}
+	}
+	// The by-ip primitive rides the same fallback.
+	if allowed, err := rl.CheckRateLimitByIP("203.0.113.233", "path"); err != nil || !allowed {
+		t.Fatalf("fail-open by-ip checks fall back, got %v %v", allowed, err)
+	}
+	// Rate limit check errors fail closed through the pipeline check.
+	failClosedCfg, err := NewSecurityConfig(func(c *SecurityConfig) { c.RedisFailOpen = false })
+	if err != nil {
+		t.Fatalf("config: %v", err)
+	}
+	rlFailClosed := NewRateLimitManager(RateLimitConfigFromSecurityConfig(failClosedCfg), dead, nil)
+	rlFailClosed.InitializeRedis(dead)
+	check := &rateLimitCheck{cfg: failClosedCfg, manager: rlFailClosed}
+	func() {
+		defer func() {
+			if recover() == nil {
+				t.Fatal("fail-closed rate limit checks panic on redis errors")
+			}
+		}()
+		check.Check(newTestRequest(t, nil))
+	}()
+	// Resets with broken redis surface the sweep error.
+	dead2 := NewRedisManager(RedisConfig{URL: "redis://127.0.0.1:1", Prefix: "guard_core_test:", EnableRedis: true})
+	rl2 := NewRateLimitManager(RateLimitConfig{EnableRateLimiting: true}, dead2, nil)
+	// Resets log broken-redis sweep errors and still detach.
+	rl2.Reset()
+}
+
+func TestGeoIPManagerCachedDatabaseWriteFailure(t *testing.T) {
+	m := newLiveRedisManager(t)
+	if err := m.Initialize(); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	if err := m.SetKey("ipinfo", "database", "cached-bytes", nil); err != nil {
+		t.Fatalf("seed cache: %v", err)
+	}
+	// An unwritable target directory fails the cached write and logs.
+	mgr := &GeoIPManager{DBPath: "/proc/guardcore-nonexistent/db.mmdb", Redis: m, Token: "tok", sleep: func(time.Duration) {}}
+	mgr.Initialize()
+	if _, err := m.DeleteKeys(m.Prefix() + "ipinfo:database"); err != nil {
+		t.Fatalf("cleanup: %v", err)
+	}
+}
+
+func TestGeoIPManagerGetCountryWithoutRecord(t *testing.T) {
+	host := os.Getenv("REDIS_HOST")
+	_ = host
+	path := buildTestMMDB(t, map[string]string{"203.0.113.0/24": "ZZ", "10.0.0.0/8": "-"})
+	mgr := &GeoIPManager{DBPath: path, MaxAge: 86400, now: func() time.Time { return time.Unix(0, 0) }}
+	mgr.Initialize()
+	if status := mgr.GetStatus(); status["ready"] != true {
+		t.Fatalf("local databases open, got %v", status)
+	}
+	// Addresses outside the seeded ranges resolve to empty records.
+	if country, ok := mgr.GetCountry("198.51.100.1"); ok || country != "" {
+		t.Fatalf("unlisted addresses miss, got %q %v", country, ok)
+	}
+	// Addresses whose records carry no country miss too.
+	if country, ok := mgr.GetCountry("10.1.2.3"); ok || country != "" {
+		t.Fatalf("country-less records miss, got %q %v", country, ok)
+	}
+	_ = mgr.Close()
+}

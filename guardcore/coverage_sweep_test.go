@@ -257,6 +257,7 @@ func TestRateLimitManagerUnitPaths(t *testing.T) {
 		t.Fatalf("ban settings default, got %+v", rl.cfg)
 	}
 	// Repeated fail-open warnings warn once.
+	resetRateLimitFailOpenWarned()
 	counter := &writeCounter{}
 	logger := log.New(counter, "", 0)
 	warnRedisFailOpenInMemoryFallback(logger)
@@ -324,6 +325,10 @@ type fakeAdminRedis struct {
 	scanErr     error
 	getErr      error
 	pttlResults map[string]time.Duration
+	pttlErr     error
+	failPTTLKey string
+	setPXErr    error
+	deleteErr   error
 }
 
 func (f *fakeAdminRedis) ScanMatch(string) ([]string, error) { return f.scanResults, f.scanErr }
@@ -334,10 +339,18 @@ func (f *fakeAdminRedis) GetKey(namespace, key string) (string, error) {
 	return f.fakeRedisHandler.GetKey(namespace, key)
 }
 func (f *fakeAdminRedis) PTTL(key string) (time.Duration, error) {
+	if f.pttlErr != nil || (f.failPTTLKey != "" && key == f.failPTTLKey) {
+		return 0, errors.New("pttl boom")
+	}
 	return f.pttlResults[key], nil
 }
-func (f *fakeAdminRedis) SetPX(key, value string, ttl time.Duration) error { return nil }
+func (f *fakeAdminRedis) SetPX(key, value string, ttl time.Duration) error {
+	return f.setPXErr
+}
 func (f *fakeAdminRedis) DeleteKeys(keys ...string) (int64, error) {
+	if f.deleteErr != nil {
+		return 0, f.deleteErr
+	}
 	return int64(len(keys)), nil
 }
 
@@ -423,22 +436,119 @@ func TestIPBanManagerMigrationBranches(t *testing.T) {
 	ban.admin = fake
 	ban.migrateLegacyBanKeys()
 
-	// Canonical keys with newer TTLs just delete the legacy copy.
+	// Missing values fail the migration.
 	fake.scanResults = []string{"guard_core:banned_ips:10.1.2.3"}
-	fake.data["banned_ips:10.1.2.3"] = "4000000000"
+	delete(fake.data, "banned_ips:10.1.2.3")
 	fake.pttlResults["guard_core:banned_ips:10.1.2.3"] = time.Hour
 	ban.migrateLegacyBanKeys()
 
-	// Expired legacy keys delete outright.
-	fake.pttlResults["guard_core:banned_ips:10.1.2.3"] = -time.Second
+	// PTTL failures log and skip.
+	fake.scanResults = []string{"guard_core:banned_ips:0:0:0:0:0:ffff:c0a8:101"}
+	fake.data["banned_ips:0:0:0:0:0:ffff:c0a8:101"] = "4000000000"
+	fake.pttlErr = errors.New("pttl boom")
 	ban.migrateLegacyBanKeys()
-
-	// Missing values fail the migration.
-	delete(fake.data, "banned_ips:10.1.2.3")
-	ban.migrateLegacyBanKeys()
+	fake.pttlErr = nil
 
 	// Get failures log and skip.
-	fake.pttlResults["guard_core:banned_ips:10.1.2.3"] = time.Hour
 	fake.getErr = errors.New("get boom")
 	ban.migrateLegacyBanKeys()
+	fake.getErr = nil
+
+	// Expired legacy keys delete outright; delete failures log and skip.
+	fake.scanResults = []string{"guard_core:banned_ips:0:0:0:0:0:ffff:c0a8:101"}
+	fake.pttlResults["guard_core:banned_ips:0:0:0:0:0:ffff:c0a8:101"] = -time.Second
+	fake.deleteErr = errors.New("delete boom")
+	ban.migrateLegacyBanKeys()
+	fake.deleteErr = nil
+
+	// Expired keys with healthy deletes succeed quietly.
+	ban.migrateLegacyBanKeys()
+
+	// Second PTTL failures (the canonical comparison) log and skip.
+	fake.pttlResults["guard_core:banned_ips:0:0:0:0:0:ffff:c0a8:101"] = time.Hour
+	fake.failPTTLKey = "guard_core:banned_ips:192.168.1.1"
+	ban.migrateLegacyBanKeys()
+	fake.failPTTLKey = ""
+
+	// SetPX failures log and skip.
+	fake.setPXErr = errors.New("setpx boom")
+	ban.migrateLegacyBanKeys()
+	fake.setPXErr = nil
+
+	// Canonical keys with newer TTLs just delete the legacy copy.
+	fake.setPXErr = nil
+	fake.pttlResults["fake:banned_ips:0:0:0:0:0:ffff:c0a8:101"] = time.Minute
+	ban.migrateLegacyBanKeys()
+}
+
+func TestJSONRedactTextScalars(t *testing.T) {
+	// Scalar json payloads never text-redact.
+	if got := jsonRedactText("42", map[string]bool{"a": true}); got != "" {
+		t.Fatalf("scalar payloads never redact, got %q", got)
+	}
+}
+
+func TestRedactURLForDisplayUnparseable(t *testing.T) {
+	// Unparseable urls pass through untouched.
+	raw := "http://[::1"
+	if got := RedactURLForDisplay(raw, nil, nil, nil); got != raw {
+		t.Fatalf("unparseable urls pass through, got %q", got)
+	}
+}
+
+func TestEngineMatcherRejectsBadPercents(t *testing.T) {
+	cfg := &SecurityConfig{ExcludePaths: []string{"/ok"}}
+	m := &exclusionMatcher{cfg: cfg}
+	// Paths whose percent runs decode into invalid utf8 never match.
+	if m.matches("/%ff%fe") {
+		t.Fatal("undecodable percent runs never match")
+	}
+}
+
+func TestAnchoredAnywherePastEnd(t *testing.T) {
+	tx := newScanText("x.php")
+	if anchoredAnywhere(fileUploadTruncationMarkerRE, tx, tx.n+1) {
+		t.Fatal("offsets past the end never anchor")
+	}
+}
+
+func TestRateLimitInitializeRedisNonRateLimitHandler(t *testing.T) {
+	fake := newFakeRedisHandler()
+	rl := NewRateLimitManager(RateLimitConfig{EnableRateLimiting: true}, fake, nil)
+	rl.InitializeRedis(fake)
+	if rl.rlRedis != nil {
+		t.Fatal("handlers without the rate limit surface stay unwired")
+	}
+}
+
+func TestRateLimitAutobanTotalPathBanError(t *testing.T) {
+	ban := NewIPBanManager(nil, nil)
+	rl := NewRateLimitManager(RateLimitConfig{
+		EnableRateLimiting:     true,
+		EnableIPBanning:        true,
+		EnableRateLimitAutoBan: true,
+		AutoBanThreshold:       1,
+	}, nil, ban)
+	// Non-IP overflows fail the network ban and log.
+	if rl.resolveAndApplyThresholdBan("junk/24", map[string]int{"rate_limit": 3}) {
+		t.Fatal("failed total bans stay quiet")
+	}
+}
+
+func TestGeoIPManagerDownloadWriteFailures(t *testing.T) {
+	// Successful downloads onto unwritable targets fail the write.
+	m := &GeoIPManager{DBPath: "/proc/guardcore-nonexistent/db.mmdb", Token: "tok", sleep: func(time.Duration) {}}
+	m.customHTTPClient = &http.Client{Transport: statusRoundTripper{status: 200, body: []byte("bytes")}}
+	m.dataURL = "http://geo.test/db"
+	if err := m.downloadDatabase(); err == nil {
+		t.Fatal("unwritable targets fail the write")
+	}
+	// Successful downloads warn when the redis cache write fails.
+	dead := NewRedisManager(RedisConfig{URL: "redis://127.0.0.1:1", EnableRedis: true})
+	m2 := &GeoIPManager{DBPath: t.TempDir() + "/db.mmdb", Token: "tok", Redis: dead, sleep: func(time.Duration) {}}
+	m2.customHTTPClient = &http.Client{Transport: statusRoundTripper{status: 200, body: []byte("bytes")}}
+	m2.dataURL = "http://geo.test/db"
+	if err := m2.downloadDatabase(); err != nil {
+		t.Fatalf("redis cache failures warn only, got %v", err)
+	}
 }

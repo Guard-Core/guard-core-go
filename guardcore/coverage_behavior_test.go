@@ -179,6 +179,11 @@ func TestCheckResponsePatternKinds(t *testing.T) {
 	if matched, _ := tracker.CheckResponsePattern(resp, "regex:["); matched {
 		t.Fatal("invalid regexes never match")
 	}
+	// Regex bodies that blow the pattern budget log and miss.
+	big := strings.Repeat("a", 4000) + "!"
+	if matched, evaluated := tracker.CheckResponsePattern(&Response{StatusCode: 200, Body: []byte(big)}, "regex:(a+)+$"); matched || !evaluated {
+		t.Fatalf("timed-out patterns miss cleanly, got %v %v", matched, evaluated)
+	}
 	// Bodies that fail to parse never match json patterns.
 	if matched, evaluated := tracker.CheckResponsePattern(&Response{StatusCode: 200, Body: []byte("not json")}, "json:x==1"); matched || !evaluated {
 		t.Fatalf("unparseable bodies evaluate clean, got %v %v", matched, evaluated)

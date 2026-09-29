@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/netip"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -122,11 +123,11 @@ func TestIPBanManagerTrustedProxyParsing(t *testing.T) {
 
 func TestIPBanManagerLocalEviction(t *testing.T) {
 	m := NewIPBanManager(nil, nil)
-	// Fill the local cache to force one eviction.
-	for i := 0; i < localCacheMaxSize; i++ {
-		m.localSet(string(rune('a'+i%26))+string(rune('a'+i/26%26))+string(rune(i)), 1e18)
+	// Fill the local cache to force evictions; a hundred overflows trip the
+	// eviction warning.
+	for i := 0; i < localCacheMaxSize+evictionWarnInterval; i++ {
+		m.localSet("ip-"+strconv.Itoa(i), 1e18)
 	}
-	m.localSet("overflow", 1e18)
 	m.mu.Lock()
 	size := len(m.bannedIPs)
 	m.mu.Unlock()

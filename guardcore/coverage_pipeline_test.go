@@ -86,7 +86,7 @@ func TestIPSecurityCheckPassiveBannedIP(t *testing.T) {
 		t.Fatalf("config: %v", err)
 	}
 	ban := NewIPBanManager(nil, nil)
-	_, _ = ban.Ban("203.0.113.140", 60, "test")
+	_, _ = ban.Ban("203.0.113.9", 60, "test")
 	check := &ipSecurityCheck{cfg: cfg, ban: ban, name: "ip_security"}
 	if resp := check.Check(newTestRequest(t, nil)); resp != nil {
 		t.Fatalf("passive modes never block, got %+v", resp)
