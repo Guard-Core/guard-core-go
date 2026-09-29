@@ -1,0 +1,56 @@
+# Coverage waiver inventory for guard-core-go.
+#
+# Every entry is a defensive statement that is unreachable as written, with
+# its proof in PR #39's waiver table (and the audit that shrank it:
+# behavior.go 345, ratelimit.go 340 and redis.go 200 turned out testable and
+# are covered by real tests, not listed here).
+#
+# Format: <file>:<startLine> - the coverage gate treats these statements as
+# satisfied and fails on any uncovered statement NOT listed here.
+guardcore/base64decode.go:237
+guardcore/base64decode.go:298
+guardcore/base64decode.go:364
+guardcore/base64decode.go:55
+guardcore/base64decode.go:61
+guardcore/bodyscan.go:398
+guardcore/composition.go:81
+guardcore/composition.go:82
+guardcore/composition.go:86
+guardcore/config.go:306
+guardcore/encodings.go:136
+guardcore/encodings.go:187
+guardcore/encodings.go:222
+guardcore/encodings.go:321
+guardcore/encodings.go:38
+guardcore/encodings.go:75
+guardcore/encodings.go:86
+guardcore/engine.go:160
+guardcore/engine.go:173
+guardcore/engine.go:188
+guardcore/fileupload.go:162
+guardcore/fileupload.go:87
+guardcore/geoip.go:308
+guardcore/geoip.go:371
+guardcore/jsonwalk.go:84
+guardcore/matchers.go:163
+guardcore/matchers.go:216
+guardcore/multipartscan.go:134
+guardcore/multipartscan.go:144
+guardcore/multipartscan.go:157
+guardcore/pipeline.go:1107
+guardcore/pipeline.go:902
+guardcore/pipeline.go:980
+guardcore/pipeline.go:983
+guardcore/pipeline.go:985
+guardcore/pipeline.go:989
+guardcore/pipeline.go:991
+guardcore/pipeline.go:993
+guardcore/pipeline.go:995
+guardcore/redis.go:274
+guardcore/registry.go:24
+guardcore/registry.go:279
+guardcore/registry.go:294
+guardcore/semantic.go:313
+guardcore/templates.go:111
+guardcore/templates.go:173
+guardcore/truncation.go:82
