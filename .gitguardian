@@ -1,0 +1,7 @@
+# Test fixtures intentionally carry fake credential-shaped strings (the
+# redaction suite plants secrets to prove they are removed, and the fuzz
+# corpus preserves its findings). Never scan tests or their corpora.
+paths-ignore:
+  - "**/*_test.go"
+  - "**/testdata/**"
+  - "**/examples/**"

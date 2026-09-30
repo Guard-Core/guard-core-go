@@ -298,23 +298,35 @@ func TestSentinelCheckFailsClosed(t *testing.T) {
 	}
 }
 
-func TestUnsupportedConfigFeaturesFailClosed(t *testing.T) {
-	cases := []struct {
+// The agent stream and dynamic rules are supported surfaces now: both
+// flags validate, the interval carries the reference ge=60 bound, and an
+// agentless dynamic-rule config still constructs (the loop idles without
+// a fetcher).
+func TestAgentAndDynamicRuleConfigSurfacesValidate(t *testing.T) {
+	for _, tc := range []struct {
 		name   string
 		mutate func(*SecurityConfig)
 	}{
 		{"enable_dynamic_rules", func(c *SecurityConfig) { c.EnableDynamicRules = true }},
 		{"enable_agent", func(c *SecurityConfig) { c.EnableAgent = true }},
+		{"both", func(c *SecurityConfig) {
+			c.EnableDynamicRules = true
+			c.EnableAgent = true
+		}},
+	} {
+		cfg, err := NewSecurityConfig(tc.mutate)
+		if err != nil {
+			t.Fatalf("enabling %s must validate: %v", tc.name, err)
+		}
+		if cfg.DynamicRuleInterval != DefaultDynamicRuleInterval {
+			t.Fatalf("%s: dynamic_rule_interval default drifted: %d", tc.name, cfg.DynamicRuleInterval)
+		}
 	}
-	for _, tc := range cases {
-		_, err := NewSecurityConfig(tc.mutate)
-		var unsupported *UnsupportedFeatureError
-		if !errors.As(err, &unsupported) {
-			t.Fatalf("enabling %s must fail with UnsupportedFeatureError, got %v", tc.name, err)
-		}
-		if !strings.Contains(err.Error(), tc.name) {
-			t.Fatalf("error should name the feature %s: %v", tc.name, err)
-		}
+	if _, err := NewSecurityConfig(func(c *SecurityConfig) {
+		c.EnableDynamicRules = true
+		c.DynamicRuleInterval = 30
+	}); err == nil {
+		t.Fatal("dynamic_rule_interval below 60 must be refused (pydantic ge=60)")
 	}
 }
 

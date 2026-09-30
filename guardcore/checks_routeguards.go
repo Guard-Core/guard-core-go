@@ -43,6 +43,11 @@ func (c *requestSizeContentCheck) Check(req Request) *Response {
 			if int64(size) > routeConfig.MaxRequestSize {
 				reason := fmt.Sprintf("Request size %s exceeds limit: %d", contentLength, routeConfig.MaxRequestSize)
 				stashBlock(req.State(), reason, "")
+				// Reference request_size_content.py: content_filtered,
+				// decorator_type content_filtering, violation_type
+				// max_request_size.
+				emitAccessDeniedEvent(cfg, req, reason, "content_filtering", cfg.PassiveMode,
+					map[string]any{"violation_type": "max_request_size"})
 				if cfg.PassiveMode {
 					firePassiveBlockHook(cfg, req, "request_size_content", reason, "")
 					return nil
@@ -66,6 +71,10 @@ func (c *requestSizeContentCheck) Check(req Request) *Response {
 		if !allowed {
 			reason := fmt.Sprintf("Invalid content type: %s", contentType)
 			stashBlock(req.State(), reason, "")
+			// Reference request_size_content.py: content_filtered with the
+			// allowed types, decorator_type content_filtering.
+			emitAccessDeniedEvent(cfg, req, reason, "content_filtering", cfg.PassiveMode,
+				map[string]any{"violation_type": "content_type", "allowed_content_types": routeConfig.AllowedContentTypes})
 			if cfg.PassiveMode {
 				firePassiveBlockHook(cfg, req, "request_size_content", reason, "")
 				return nil
@@ -108,6 +117,11 @@ func (c *requiredHeadersCheck) Check(req Request) *Response {
 }
 
 func (c *requiredHeadersCheck) reportViolation(cfg *SecurityConfig, req Request, header, reason, headerField string) *Response {
+	// Reference required_headers.py: decorator_violation classified by the
+	// header plus the {header_field: header} kwarg.
+	decoratorType, violationType := classifyHeaderViolation(header)
+	emitAccessDeniedEvent(cfg, req, reason, decoratorType, cfg.PassiveMode,
+		map[string]any{"violation_type": violationType, headerField: header})
 	stashBlock(req.State(), reason, "")
 	if cfg.PassiveMode {
 		firePassiveBlockHook(cfg, req, "required_headers", reason, "")
@@ -153,6 +167,17 @@ func extractCredential(authHeader, authType string) (string, string) {
 func (c *authenticationCheck) handleAuthFailure(cfg *SecurityConfig, req Request, routeConfig *RouteConfig, authReason, violationType string) *Response {
 	reason := fmt.Sprintf("Authentication failure: %s", authReason)
 	stashBlock(req.State(), reason, "")
+	// Reference authentication.py emit_authentication_failed_event:
+	// decorator_violation with the auth type and violation classification.
+	authType := routeConfig.AuthRequired
+	if authType == "" && routeConfig.AuthorizationHeaderRequired != "" {
+		authType = routeConfig.AuthorizationHeaderRequired
+	}
+	if authType == "" {
+		authType = "api_key"
+	}
+	emitAccessDeniedEvent(cfg, req, reason, "authentication", cfg.PassiveMode,
+		map[string]any{"auth_type": authType, "violation_type": violationType})
 	if cfg.PassiveMode {
 		firePassiveBlockHook(cfg, req, "authentication", reason, "")
 		return nil
@@ -268,6 +293,11 @@ func (c *referrerCheck) Check(req Request) *Response {
 	if referrer == "" {
 		reason := "Missing referrer header"
 		stashBlock(req.State(), reason, "")
+		// Reference referrer.py: decorator_violation,
+		// decorator_type content_filtering, violation_type
+		// require_referrer with the allowed domains.
+		emitAccessDeniedEvent(cfg, req, reason, "content_filtering", cfg.PassiveMode,
+			map[string]any{"violation_type": "require_referrer", "allowed_domains": routeConfig.RequireReferrer})
 		if cfg.PassiveMode {
 			firePassiveBlockHook(cfg, req, "referrer", reason, "")
 			return nil
@@ -277,6 +307,12 @@ func (c *referrerCheck) Check(req Request) *Response {
 	if !isReferrerDomainAllowed(referrer, routeConfig.RequireReferrer) {
 		reason := fmt.Sprintf("Invalid referrer: %s", referrer)
 		stashBlock(req.State(), reason, "")
+		emitAccessDeniedEvent(cfg, req, reason, "content_filtering", cfg.PassiveMode,
+			map[string]any{
+				"violation_type":  "require_referrer",
+				"referrer":        RedactBlobForDisplay(referrer, nil, nil, nil),
+				"allowed_domains": routeConfig.RequireReferrer,
+			})
 		if cfg.PassiveMode {
 			firePassiveBlockHook(cfg, req, "referrer", reason, "")
 			return nil
@@ -400,6 +436,17 @@ func (c *userAgentCheck) Check(req Request) *Response {
 	}
 	reason := fmt.Sprintf("Blocked user agent: %s", userAgent)
 	stashBlock(state, reason, "")
+	// Reference user_agent.py: user_agent_blocked with the redacted user
+	// agent and the filter tier (route list first, global fallback).
+	filterType := "global"
+	if routeConfig != nil && len(routeConfig.BlockedUserAgents) > 0 && userAgentMatchesBlockedPattern(userAgent, routeConfig.BlockedUserAgents) {
+		filterType = "route"
+	}
+	emitBusEvent(cfg, EventUserAgentBlocked, req, blockedOrLoggedAction(cfg.PassiveMode), reason,
+		map[string]any{
+			"user_agent":  RedactHeaderValueForDisplay(userAgent, cfg.LogSensitiveParams, cfg.LogSensitiveBodyFields, cfg.LogSensitiveHeaders),
+			"filter_type": filterType,
+		})
 	if cfg.PassiveMode {
 		firePassiveBlockHook(cfg, req, "user_agent", reason, "")
 		return nil

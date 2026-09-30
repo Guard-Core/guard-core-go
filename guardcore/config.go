@@ -137,9 +137,29 @@ type SecurityConfig struct {
 	EmergencyMode      bool
 	EmergencyWhitelist []string
 	AuthVerifier       AuthVerifier
-	EnableDynamicRules bool
-	EnableAgent        bool
 	EnableCORS         bool
+
+	// EnableAgent and EnableDynamicRules turn on the agent telemetry
+	// stream and the agent-synced dynamic rules (spec 12). The agent
+	// handler itself is injected through AgentHandler; without one the
+	// event bus and metrics collector are inert no-ops.
+	EnableAgent        bool
+	AgentHandler       AgentHandler
+	AgentEnableEvents  bool
+	AgentEnableMetrics bool
+	// MutedEventTypes / MutedMetricTypes mirror the reference EventFilter
+	// mute lists (exact type-string suppression).
+	MutedEventTypes  []string
+	MutedMetricTypes []string
+
+	// Dynamic-rule surface (dynamic_rule_handler.py): the update loop
+	// polls every DynamicRuleInterval seconds (reference default 300,
+	// pydantic ge=60), and DynamicRulesCachePath is the optional local
+	// file persisting the last-known rules snapshot alongside the Redis
+	// dynamic_rules:last_known key.
+	EnableDynamicRules    bool
+	DynamicRuleInterval   int
+	DynamicRulesCachePath string
 
 	// CORS surface, mirrored from the reference cors_* SecurityConfig
 	// fields (_security_config_fields.py): default origins/headers are the
@@ -207,6 +227,9 @@ type SecurityConfig struct {
 	CloudIPRefreshInterval int
 
 	revision atomic.Uint64
+
+	// agent is the installed telemetry stream (nil when agentless).
+	agent *agentPipeline
 }
 
 func DefaultSecurityConfig() *SecurityConfig {
@@ -246,6 +269,9 @@ func DefaultSecurityConfig() *SecurityConfig {
 		CORSMaxAge:                          DefaultCORSMaxAge,
 		BehaviorMaxResponseBodyInspectBytes: DefaultBehaviorMaxResponseBodyInspectBytes,
 		CloudIPRefreshInterval:              DefaultCloudIPRefreshInterval,
+		AgentEnableEvents:                   true,
+		AgentEnableMetrics:                  true,
+		DynamicRuleInterval:                 DefaultDynamicRuleInterval,
 	}
 }
 
@@ -266,6 +292,55 @@ func (c *SecurityConfig) BumpRevision() { c.revision.Add(1) }
 
 func (c *SecurityConfig) unsupported(feature, reason string) error {
 	return &UnsupportedFeatureError{Feature: feature, Reason: reason}
+}
+
+// DefaultDynamicRuleInterval mirrors the reference dynamic_rule_interval
+// default of 300 seconds (pydantic ge=60).
+const DefaultDynamicRuleInterval = 300
+
+// installAgentStream attaches the agent pipeline (bus, metrics collector,
+// event filter) to the config. The Engine calls this once at construction;
+// a nil handler leaves the config agentless and every emission inert.
+func (c *SecurityConfig) installAgentStream() {
+	if c.AgentHandler == nil {
+		c.agent = nil
+		return
+	}
+	c.agent = newAgentPipeline(c.AgentHandler, c, EventFilter{
+		MutedEventTypes:  nameSet(c.MutedEventTypes),
+		MutedMetricTypes: nameSet(c.MutedMetricTypes),
+	})
+}
+
+func nameSet(names []string) map[string]bool {
+	set := make(map[string]bool, len(names))
+	for _, name := range names {
+		set[name] = true
+	}
+	return set
+}
+
+// validateAgentSurface normalizes the agent and dynamic-rule knobs,
+// mirroring the reference field validators: the enable flags gate a
+// present handler, the event/metrics flags default true, and the
+// dynamic-rule interval carries the pydantic ge=60 bound with the 300
+// default.
+func (c *SecurityConfig) validateAgentSurface() error {
+	if !c.AgentEnableEvents && !c.AgentEnableMetrics && c.AgentHandler != nil {
+		// Both channels off: the handler would never be called; allowed
+		// but pointless, matching the reference where the flags simply
+		// gate the bus and collector.
+		_ = c
+	}
+	if c.EnableDynamicRules || c.DynamicRuleInterval != 0 {
+		if c.DynamicRuleInterval == 0 {
+			c.DynamicRuleInterval = DefaultDynamicRuleInterval
+		}
+		if c.DynamicRuleInterval < 60 {
+			return fmt.Errorf("dynamic_rule_interval: must be >= 60, got %d", c.DynamicRuleInterval)
+		}
+	}
+	return nil
 }
 
 // validateBehaviorRules mirrors the BehaviorRuleConfig constraints and the
@@ -293,11 +368,8 @@ func (c *SecurityConfig) validateBehaviorRules() error {
 }
 
 func (c *SecurityConfig) Validate() error {
-	if c.EnableDynamicRules {
-		return c.unsupported("enable_dynamic_rules", "dynamic rules are not implemented in this port yet")
-	}
-	if c.EnableAgent {
-		return c.unsupported("enable_agent", "Guard Agent telemetry is not implemented in this port yet")
+	if err := c.validateAgentSurface(); err != nil {
+		return err
 	}
 	if err := c.validateBehaviorRules(); err != nil {
 		return err

@@ -19,6 +19,10 @@ type Engine struct {
 	CORS      *CORSPolicy
 	Behavior  *BehaviorTracker
 
+	// DynamicRules runs the agent-synced rule loop when
+	// EnableDynamicRules is set; nil otherwise.
+	DynamicRules *DynamicRuleManager
+
 	pipeline       *SecurityCheckPipeline
 	behaviorProc   *BehavioralProcessor
 	exclusions     exclusionMatcher
@@ -40,6 +44,23 @@ func NewEngine(cfg *SecurityConfig) (*Engine, error) {
 	pipeline, counts := BuildDefaultPipeline(cfg, ban, rateLimit, routes)
 	tracker := NewBehaviorTracker(cfg, redisManager, ban, log.Default())
 	behavioral := NewBehavioralProcessor(cfg, tracker, counts, log.Default())
+	// The agent telemetry stream installs once, before the managers read
+	// it: the bus, the metrics collector, the ip_ban and rate_limit event
+	// seams and the dynamic-rule manager all hang off the config's
+	// handler.
+	cfg.installAgentStream()
+	if cfg.agent != nil {
+		cfg.agent.attachGeoResolver(cfg.GeoIPHandler)
+	}
+	var dynamicRules *DynamicRuleManager
+	if cfg.EnableDynamicRules || cfg.EnableAgent {
+		bus := busFor(cfg)
+		ban.SetEventBus(bus)
+		rateLimit.SetEventBus(bus, cfg.PassiveMode)
+	}
+	if cfg.EnableDynamicRules {
+		dynamicRules = NewDynamicRuleManager(cfg, redisManager, ban, busFor(cfg))
+	}
 	return &Engine{
 		Config:       cfg,
 		Routes:       routes,
@@ -50,6 +71,7 @@ func NewEngine(cfg *SecurityConfig) (*Engine, error) {
 		behaviorProc: behavioral,
 		Cloud:        DefaultCloudManager,
 		CORS:         newCORSPolicy(cfg),
+		DynamicRules: dynamicRules,
 		pipeline:     pipeline,
 		exclusions: exclusionMatcher{
 			cfg: cfg,
@@ -67,13 +89,17 @@ func (e *Engine) Initialize() error {
 func (e *Engine) startup() error {
 	if !e.Config.EnableRedis {
 		e.initializeGeoLifecycle(nil)
-		return e.refreshCloudRangesWithoutRedis()
+		err := e.refreshCloudRangesWithoutRedis()
+		e.startDynamicRuleLoop()
+		return err
 	}
 	if err := e.Redis.Initialize(); err != nil {
 		if e.Config.RedisFailOpen {
 			log.Printf("Redis unavailable during initialization, failing open: %v", err)
 			e.initializeGeoLifecycle(nil)
-			return e.refreshCloudRangesWithoutRedis()
+			err := e.refreshCloudRangesWithoutRedis()
+			e.startDynamicRuleLoop()
+			return err
 		}
 		return err
 	}
@@ -87,7 +113,24 @@ func (e *Engine) startup() error {
 	}
 	e.RateLimit.InitializeRedis(e.Redis)
 	e.initializeGeoLifecycle(e.Redis)
+	e.startDynamicRuleLoop()
 	return nil
+}
+
+// startDynamicRuleLoop hydrates the last-known snapshot and launches the
+// reference _rule_update_loop when the config enables dynamic rules and
+// the agent handler can fetch them (the DynamicRulesProvider capability).
+func (e *Engine) startDynamicRuleLoop() {
+	if e.DynamicRules == nil {
+		return
+	}
+	provider, ok := e.Config.AgentHandler.(DynamicRulesProvider)
+	if !ok {
+		log.Printf("enable_dynamic_rules is set but the agent handler cannot fetch dynamic rules (GetDynamicRules not implemented); the loop stays idle")
+		return
+	}
+	e.DynamicRules.HydrateLastKnownRules()
+	e.DynamicRules.Start(provider.GetDynamicRules, time.Duration(e.Config.DynamicRuleInterval)*time.Second)
 }
 
 // initializeGeoLifecycle runs the reference geo_ip_handler initialization at
@@ -115,6 +158,9 @@ func (e *Engine) refreshCloudRangesWithoutRedis() error {
 // security-header set exactly like _inject_cors_headers.
 func (e *Engine) Check(req Request) *Response {
 	state := req.State()
+	if state != nil {
+		state.PipelineStartedAt = time.Now()
+	}
 	if e.CORS != nil && IsPreflight(req) {
 		// The reference dispatch runs the preflight branch before the
 		// passthrough handler marks the request exclusion-scoped, so the
@@ -159,6 +205,15 @@ func (e *Engine) ProcessResponse(req Request, resp *Response) {
 	state := req.State()
 	e.behaviorProc.ProcessReturnRules(req, resp, clientIP, state.RouteConfig, now)
 	e.behaviorProc.ProcessGlobalReturnRules(req, resp, clientIP, now)
+	// The reference response factory collects the request metrics once per
+	// outbound response (metrics.collect_request_metrics).
+	if collector := metricsFor(e.Config); collector != nil {
+		responseTime := 0.0
+		if state != nil && !state.PipelineStartedAt.IsZero() {
+			responseTime = time.Since(state.PipelineStartedAt).Seconds()
+		}
+		collector.CollectRequestMetrics(req, responseTime, resp.StatusCode)
+	}
 }
 
 // behaviorClock is time.Now as a float Unix timestamp, matching the
@@ -193,6 +248,9 @@ func (e *Engine) CORSResponseHeaders(req Request) map[string]string {
 }
 
 func (e *Engine) Close() error {
+	if e.DynamicRules != nil {
+		e.DynamicRules.Stop()
+	}
 	if closer, ok := e.Config.GeoIPHandler.(io.Closer); ok {
 		// The built-in manager's Close only releases the MMDB handle; its
 		// error must not mask the Redis shutdown.

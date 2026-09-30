@@ -56,13 +56,6 @@ type GeoEvent struct {
 	Metadata    map[string]any
 }
 
-// Reference event_type values (guard_core/core/events/event_types.py).
-const (
-	EventCountryBlocked     = "country_blocked"
-	EventGeoLookupFailed    = "geo_lookup_failed"
-	EventDecoratorViolation = "decorator_violation"
-)
-
 // GeoIP country resolution, ported from the reference IPInfoManager
 // (guard_core/handlers/ipinfo_handler.py) and the GeoIPHandler protocol
 // (guard_core/protocols/geo_ip_protocol.py). The country verdict itself

@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 )
 
 type BlockStash struct {
@@ -12,19 +13,23 @@ type BlockStash struct {
 }
 
 type RequestState struct {
-	ClientIP         string
-	ExclusionScoped  bool
-	RouteUnresolved  bool
-	IsWhitelisted    bool
-	IsExempt         bool
-	BypassChecks     []string
-	BlockStash       *BlockStash
-	Extras           map[string]any
-	GuardRouteID     string
-	RouteConfig      *RouteConfig
-	AuthPrincipal    any
-	bypassChecksOnce sync.Once
-	bypassSet        map[string]bool
+	ClientIP string
+	// PipelineStartedAt is stamped by the Engine at dispatch and feeds
+	// the reference's pipeline response_time on emitted events and
+	// collected metrics.
+	PipelineStartedAt time.Time
+	ExclusionScoped   bool
+	RouteUnresolved   bool
+	IsWhitelisted     bool
+	IsExempt          bool
+	BypassChecks      []string
+	BlockStash        *BlockStash
+	Extras            map[string]any
+	GuardRouteID      string
+	RouteConfig       *RouteConfig
+	AuthPrincipal     any
+	bypassChecksOnce  sync.Once
+	bypassSet         map[string]bool
 }
 
 func (s *RequestState) HasBypass(name string) bool {

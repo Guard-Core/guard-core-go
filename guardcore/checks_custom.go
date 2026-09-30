@@ -70,6 +70,11 @@ func (c *customValidatorsCheck) Check(req Request) *Response {
 			SensitiveParams:     cfg.LogSensitiveParams,
 			SensitiveBodyFields: cfg.LogSensitiveBodyFields,
 		})
+		// Reference custom_validators.py: decorator_violation,
+		// decorator_type content_filtering, violation_type
+		// custom_validation.
+		emitAccessDeniedEvent(cfg, req, "Custom validation failed", "content_filtering", cfg.PassiveMode,
+			map[string]any{"violation_type": "custom_validation"})
 		if !cfg.PassiveMode {
 			fireBlockHook(cfg, req, c.CheckName(), "Custom validation failed", "custom_validation", false, validationResponse.StatusCode)
 			return validationResponse
@@ -97,6 +102,11 @@ func (c *customRequestCheck) Check(req Request) *Response {
 	if customResponse == nil {
 		return nil
 	}
+	// Reference custom_request.py: custom_request_check with the blocking
+	// response's status.
+	emitBusEvent(c.cfg, EventCustomRequestCheck, req, blockedOrLoggedAction(c.cfg.PassiveMode),
+		"Custom request check returned blocking response",
+		map[string]any{"response_status": blockHookStatusCode(customResponse.StatusCode)})
 	if c.cfg.PassiveMode {
 		return nil
 	}

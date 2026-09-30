@@ -23,6 +23,8 @@ func (c *routeConfigCheck) Check(req Request) *Response {
 	}
 	if c.cfg.RouteResolutionStrict && state.RouteUnresolved {
 		stashBlock(state, unresolvedRouteReason, "")
+		// Reference route_config.py: route_unresolved.
+		emitBusEvent(c.cfg, EventRouteUnresolved, req, blockedOrLoggedAction(c.cfg.PassiveMode), unresolvedRouteReason, nil)
 		if c.cfg.PassiveMode {
 			firePassiveBlockHook(c.cfg, req, "route_config", unresolvedRouteReason, "")
 			return nil
@@ -58,6 +60,13 @@ func (c *emergencyModeCheck) Check(req Request) *Response {
 	}
 	reason := "[EMERGENCY MODE] Access denied for IP " + clientIP
 	stashBlock(state, reason, "")
+	// Reference emergency_mode.py: emergency_mode_block with the
+	// whitelist size and the active flag.
+	emitBusEvent(cfg, EventEmergencyModeBlock, req, blockedOrLoggedAction(cfg.PassiveMode), reason,
+		map[string]any{
+			"emergency_whitelist_count": len(cfg.EmergencyWhitelist),
+			"emergency_active":          true,
+		})
 	if cfg.PassiveMode {
 		firePassiveBlockHook(cfg, req, "emergency_mode", reason, "")
 		return nil
@@ -107,6 +116,12 @@ func (c *httpsEnforcementCheck) Check(req Request) *Response {
 	}
 	if cfg.PassiveMode {
 		return nil
+	}
+	// Reference middleware_events.send_https_violation_event: route-level
+	// require_https reports decorator_violation, global enforcement
+	// reports https_enforced; both action https_redirect.
+	if bus := busFor(cfg); bus != nil {
+		bus.SendHTTPSViolationEvent(req, routeConfig)
 	}
 	return NewResponseFactory().CreateRedirectResponse(req.URLReplaceScheme("https"), 301)
 }
