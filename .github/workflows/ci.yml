@@ -72,6 +72,39 @@ jobs:
           go test -tags integration -coverprofile=cover.out ./guardcore
           bash .github/scripts/check_coverage.sh
 
+  conformance:
+    name: Conformance (spec 4.1.0)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.26.x'
+
+      # Fails closed: the runner t.Fatal's when the corpus glob matches
+      # zero files, so a missing or renamed corpus can never pass vacuously.
+      - name: go test (conformance corpus)
+        env:
+          REDIS_HOST: 127.0.0.1
+        run: go test -v ./conformance/...
+
   govulncheck:
     name: govulncheck
     runs-on: ubuntu-latest
