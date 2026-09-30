@@ -664,7 +664,7 @@ func TestFetchAzureIPRangesEndToEnd(t *testing.T) {
 	empty := &cloudServe{responses: map[string]cloudResponse{
 		azurePageURL: {body: "<html><p>no links</p></html>"},
 	}}
-	if _, err := fetchAzureIPRanges(cloudClient(empty), func() time.Time { return now }, logger); err == nil || !strings.Contains(err.Error(), "Could not find Azure IP ranges download URL") {
+	if _, err := fetchAzureIPRanges(cloudClient(empty), func() time.Time { return now }, logger); err == nil || !strings.Contains(err.Error(), "could not find Azure IP ranges download URL") {
 		t.Fatalf("link-less pages must fail, got %v", err)
 	}
 
