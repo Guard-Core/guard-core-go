@@ -250,7 +250,7 @@ func TestRegisterViolationsWithoutBanning(t *testing.T) {
 		cfg:    cfg,
 		counts: &suspiciousCountStore{m: map[string]map[string]int{}},
 	}
-	if c.registerViolations(cfg, "203.0.113.77", []string{"sqli"}) {
+	if c.registerViolations(cfg, nil, "203.0.113.77", []string{"sqli"}) {
 		t.Fatal("banning-disabled configs never escalate")
 	}
 }
@@ -270,7 +270,7 @@ func TestRegisterViolationsRefusalsContinue(t *testing.T) {
 		counts: &suspiciousCountStore{m: map[string]map[string]int{}},
 	}
 	// Loopback refusals fall through without escalating.
-	if c.registerViolations(cfg, "127.0.0.1", []string{"sqli"}) {
+	if c.registerViolations(cfg, nil, "127.0.0.1", []string{"sqli"}) {
 		t.Fatal("refused bans never escalate")
 	}
 }
