@@ -112,10 +112,34 @@ func (c *cloudProviderCheck) Check(req Request) *Response {
 		SensitiveParams:     cfg.LogSensitiveParams,
 		SensitiveBodyFields: cfg.LogSensitiveBodyFields,
 	})
+	c.emitCloudBlockEvents(req, ip, providers, state.RouteConfig)
 	if !cfg.PassiveMode {
 		return createErrorResponse(cfg, 403, CloudBlockedMsg)
 	}
 	return nil
+}
+
+// emitCloudBlockEvents mirrors cloud_provider.py _emit_cloud_block_events
+// plus middleware_events.send_cloud_detection_events: the cloud handler's
+// cloud_blocked event always rides (handler-direct, envelope metadata with
+// the matched provider and network), and a route-tier block adds the
+// decorator_violation classified block_clouds/cloud_provider with the
+// checked provider list.
+func (c *cloudProviderCheck) emitCloudBlockEvents(req Request, ip string, providers []string, routeConfig *RouteConfig) {
+	bus := busFor(c.cfg)
+	if bus == nil {
+		return
+	}
+	action := blockedOrLoggedAction(c.cfg.PassiveMode)
+	if provider, network, ok := c.manager.GetCloudProviderDetails(ip, providers); ok {
+		bus.SendHandlerEvent(EventCloudBlocked, CloudHandlerName, ip, action,
+			fmt.Sprintf("IP belongs to blocked cloud provider: %s", provider),
+			map[string]any{"cloud_provider": provider, "network": network})
+	}
+	if routeConfig != nil && len(routeConfig.BlockCloudProviders) > 0 {
+		emitAccessDeniedEvent(c.cfg, req, fmt.Sprintf("Cloud provider IP %s blocked", ip), "block_clouds", c.cfg.PassiveMode,
+			map[string]any{"violation_type": "cloud_provider", "blocked_providers": providers})
+	}
 }
 
 func (m *CloudManager) nowUnix() int64 { return m.nowFunc().Unix() }

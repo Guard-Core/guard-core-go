@@ -35,6 +35,7 @@ type IPBanManager struct {
 	trustedProxies []netip.Prefix
 	evictions      int
 	logger         *log.Logger
+	eventBus       *SecurityEventBus
 }
 
 func NewIPBanManager(redisHandler RedisHandler, trustedProxies []string) *IPBanManager {
@@ -194,6 +195,15 @@ func (m *IPBanManager) Ban(ip string, duration int, reason string) (bool, error)
 			return false, err
 		}
 	}
+	// Reference _ipban_events.py: ip_banned, handler ip_ban, metadata
+	// carrying the ban duration.
+	m.mu.Lock()
+	bus := m.eventBus
+	m.mu.Unlock()
+	if bus != nil {
+		bus.SendHandlerEvent(EventIPBanned, IPBanHandlerName, ip, "banned", reason,
+			map[string]any{"duration": duration})
+	}
 	return true, nil
 }
 
@@ -310,7 +320,24 @@ func (m *IPBanManager) Unban(ip string) error {
 			return err
 		}
 	}
+	// Reference _ipban_events.py: ip_unbanned with the fixed
+	// dynamic_rule_whitelist reason and the unban action.
+	m.mu.Lock()
+	bus := m.eventBus
+	m.mu.Unlock()
+	if bus != nil {
+		bus.SendHandlerEvent(EventIPUnbanned, IPBanHandlerName, ip, "unbanned", "dynamic_rule_whitelist",
+			map[string]any{"action": "unban"})
+	}
 	return nil
+}
+
+// SetEventBus attaches the agent event stream so the manager emits the
+// reference ip_ban handler events. Safe for concurrent use.
+func (m *IPBanManager) SetEventBus(bus *SecurityEventBus) {
+	m.mu.Lock()
+	m.eventBus = bus
+	m.mu.Unlock()
 }
 
 func (m *IPBanManager) Reset() error {

@@ -252,6 +252,18 @@ type RateLimitManager struct {
 	OnScriptReload  func()
 	now             func() float64
 	scriptReloadLog func()
+	eventBus        *SecurityEventBus
+	passiveMode     bool
+}
+
+// SetEventBus attaches the agent event stream so the manager emits the
+// reference rate_limit handler events (rate_limited,
+// rate_limit_script_reloaded).
+func (m *RateLimitManager) SetEventBus(bus *SecurityEventBus, passiveMode bool) {
+	m.mu.Lock()
+	m.eventBus = bus
+	m.passiveMode = passiveMode
+	m.mu.Unlock()
 }
 
 func NewRateLimitManager(cfg RateLimitConfig, redisHandler RedisHandler, banManager *IPBanManager) *RateLimitManager {
@@ -311,9 +323,19 @@ func (m *RateLimitManager) SetAgentHandlerHook(fn func()) {
 
 func (m *RateLimitManager) emitScriptReloaded() {
 	m.logger.Printf("Rate limit Lua script reloaded after NOSCRIPT")
+	// Reference ratelimit_handler._emit_script_reloaded_event:
+	// rate_limit_script_reloaded, handler rate_limit, ip system.
+	m.mu.Lock()
+	bus, passiveMode := m.eventBus, m.passiveMode
+	m.mu.Unlock()
+	if bus != nil {
+		bus.SendHandlerEvent(EventRateLimitScriptReloaded, RateLimitHandlerName, "system", "script_reloaded",
+			"NOSCRIPT recovery: Lua script re-cached on Redis", nil)
+	}
 	if m.OnScriptReload != nil {
 		m.OnScriptReload()
 	}
+	_ = passiveMode
 }
 
 func (m *RateLimitManager) redisRequestCount(clientIP string, currentTime, windowStart float64, window, limit int, endpointPath string, forcePipeline bool) (int, bool, error) {
@@ -367,6 +389,9 @@ type rateLimitTier struct {
 	limit        int
 	window       int
 	endpointPath string
+	// country records the geo tier's resolved country ("unknown" is the
+	// caller's empty-country display) so the event payloads can quote it.
+	country string
 }
 
 type RouteRateConfig struct {
@@ -395,7 +420,7 @@ func (m *RateLimitManager) tiersFor(clientIP, urlPath string, route *RouteRateCo
 				entry, ok = route.GeoRateLimits["*"]
 			}
 			if ok {
-				tiers = append(tiers, rateLimitTier{name: "geo", limit: entry.Requests, window: entry.Window, endpointPath: urlPath})
+				tiers = append(tiers, rateLimitTier{name: "geo", limit: entry.Requests, window: entry.Window, endpointPath: urlPath, country: country})
 			}
 		}
 	}
@@ -410,6 +435,11 @@ type RateLimitOutcome struct {
 	Tier       string
 	StatusCode int
 	Message    string
+	// Limit is the tripped tier's configured limit and Country the geo
+	// tier's resolved country: the fields the reference event payloads
+	// quote (the count only feeds the handler-log format).
+	Limit   int
+	Country string
 }
 
 func (o *RateLimitOutcome) RetryAfter() string {
@@ -466,6 +496,8 @@ func (m *RateLimitManager) CheckRateLimit(clientIP, urlPath string, route *Route
 				Tier:       tier.name,
 				StatusCode: RateLimitBlockedStatus,
 				Message:    RateLimitBlockedMessage,
+				Limit:      tier.limit,
+				Country:    tier.country,
 			}, nil
 		}
 	}

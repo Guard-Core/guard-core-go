@@ -1,6 +1,9 @@
 package guardcore
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 const unresolvedRouteReason = "Route resolution failed; per-route decorator config could not be applied"
 
@@ -23,6 +26,8 @@ func (c *routeConfigCheck) Check(req Request) *Response {
 	}
 	if c.cfg.RouteResolutionStrict && state.RouteUnresolved {
 		stashBlock(state, unresolvedRouteReason, "")
+		// Reference route_config.py: route_unresolved.
+		emitBusEvent(c.cfg, EventRouteUnresolved, req, blockedOrLoggedAction(c.cfg.PassiveMode), unresolvedRouteReason, nil)
 		if c.cfg.PassiveMode {
 			firePassiveBlockHook(c.cfg, req, "route_config", unresolvedRouteReason, "")
 			return nil
@@ -56,10 +61,19 @@ func (c *emergencyModeCheck) Check(req Request) *Response {
 	if isWhitelisted {
 		return nil
 	}
-	reason := "[EMERGENCY MODE] Access denied for IP " + clientIP
-	stashBlock(state, reason, "")
+	hookReason := "[EMERGENCY MODE] Access denied for IP " + clientIP
+	stashBlock(state, hookReason, "")
+	// Reference emergency_mode.py: the emergency_mode_block event carries
+	// its own reason, distinct from the log_activity string, plus the
+	// whitelist size and the active flag.
+	emitBusEvent(cfg, EventEmergencyModeBlock, req, blockedOrLoggedAction(cfg.PassiveMode),
+		fmt.Sprintf("[EMERGENCY MODE] IP %s not in whitelist", clientIP),
+		map[string]any{
+			"emergency_whitelist_count": len(cfg.EmergencyWhitelist),
+			"emergency_active":          true,
+		})
 	if cfg.PassiveMode {
-		firePassiveBlockHook(cfg, req, "emergency_mode", reason, "")
+		firePassiveBlockHook(cfg, req, "emergency_mode", hookReason, "")
 		return nil
 	}
 	return createErrorResponse(cfg, 503, "Service temporarily unavailable")
@@ -107,6 +121,12 @@ func (c *httpsEnforcementCheck) Check(req Request) *Response {
 	}
 	if cfg.PassiveMode {
 		return nil
+	}
+	// Reference middleware_events.send_https_violation_event: route-level
+	// require_https reports decorator_violation, global enforcement
+	// reports https_enforced; both action https_redirect.
+	if bus := busFor(cfg); bus != nil {
+		bus.SendHTTPSViolationEvent(req, routeConfig)
 	}
 	return NewResponseFactory().CreateRedirectResponse(req.URLReplaceScheme("https"), 301)
 }

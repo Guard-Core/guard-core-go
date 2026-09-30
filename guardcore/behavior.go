@@ -434,7 +434,13 @@ func jsonScalarToString(v any) string {
 // emits agent security events, which this port does not model yet (the
 // agent surface is still fail-closed).
 func (t *BehaviorTracker) ApplyAction(rule BehaviorRuleConfig, clientIP, endpointID, details string) {
+	// Reference _behavior_action_dispatch: the behavioral_violation event
+	// rides every action path (passive included, action_taken
+	// logged_only), handler behavior, metadata with the rule identity.
+	// The ban action distinguishes success (banned) from the self-DoS
+	// refusal (tracked).
 	if t.cfg.PassiveMode {
+		t.emitBehaviorEvent(rule, clientIP, endpointID, details, "logged_only")
 		t.logPassiveModeAction(rule, clientIP, details)
 		return
 	}
@@ -450,15 +456,35 @@ func (t *BehaviorTracker) ApplyAction(rule BehaviorRuleConfig, clientIP, endpoin
 			applied, err = t.ban.Ban(clientIP, duration, "behavioral_violation")
 		}
 		if err != nil || !applied {
+			t.emitBehaviorEvent(rule, clientIP, endpointID, details, "tracked")
 			return
 		}
+		t.emitBehaviorEvent(rule, clientIP, endpointID, details, "banned")
 		t.logAtSuspiciousLevel(fmt.Sprintf("IP %s banned for behavioral violation: %s", clientIP, details))
 	case "alert":
+		t.emitBehaviorEvent(rule, clientIP, endpointID, details, "logged")
 		t.log.Printf("ALERT - Behavioral anomaly: %s", details)
 	case "log":
+		t.emitBehaviorEvent(rule, clientIP, endpointID, details, "logged")
 		t.logAtSuspiciousLevel(fmt.Sprintf("Behavioral anomaly detected: %s", details))
 	case "throttle":
+		t.emitBehaviorEvent(rule, clientIP, endpointID, details, "logged")
 		t.logAtSuspiciousLevel(fmt.Sprintf("Throttling IP %s: %s", clientIP, details))
+	}
+}
+
+// emitBehaviorEvent sends the behavioral_violation handler event with the
+// reference envelope.
+func (t *BehaviorTracker) emitBehaviorEvent(rule BehaviorRuleConfig, clientIP, endpointID, details, actionTaken string) {
+	if bus := busFor(t.cfg); bus != nil {
+		bus.SendHandlerEvent(EventBehaviorViolation, BehaviorHandlerName, clientIP, actionTaken,
+			fmt.Sprintf("Behavioral rule violated: %s", details),
+			map[string]any{
+				"endpoint":  endpointID,
+				"rule_type": rule.RuleType,
+				"threshold": rule.Threshold,
+				"window":    rule.Window,
+			})
 	}
 }
 
@@ -561,6 +587,17 @@ func (p *BehavioralProcessor) ProcessUsageRules(req Request, clientIP string, ro
 		details := fmt.Sprintf("%d calls in %ds", rule.Threshold, rule.Window)
 		reason := fmt.Sprintf("Behavioral %s threshold exceeded: %s", rule.RuleType, details)
 		p.log.Printf("behavioral_action_triggered: %s (endpoint=%s action=%s)", reason, endpointID, rule.Action)
+		// Reference processor.process_usage_rules: decorator_violation with
+		// decorator_type behavioral and the rule classification.
+		emitBusEvent(p.cfg, EventDecoratorViolation, req, blockedOrLoggedAction(p.cfg.PassiveMode), reason,
+			map[string]any{
+				"decorator_type": "behavioral",
+				"violation_type": rule.RuleType,
+				"threshold":      rule.Threshold,
+				"window":         rule.Window,
+				"action":         rule.Action,
+				"endpoint_id":    endpointID,
+			})
 		p.tracker.ApplyAction(rule, clientIP, endpointID, fmt.Sprintf("Usage threshold exceeded: %s", details))
 	}
 }
@@ -585,6 +622,16 @@ func (p *BehavioralProcessor) ProcessReturnRules(req Request, resp *Response, cl
 		details := fmt.Sprintf("%d for '%s' in %ds", rule.Threshold, rule.Pattern, rule.Window)
 		reason := fmt.Sprintf("Return pattern threshold exceeded: %s", details)
 		p.log.Printf("behavioral_action_triggered: %s (endpoint=%s action=%s)", reason, endpointID, rule.Action)
+		emitBusEvent(p.cfg, EventDecoratorViolation, req, blockedOrLoggedAction(p.cfg.PassiveMode), reason,
+			map[string]any{
+				"decorator_type": "behavioral",
+				"violation_type": "return_pattern",
+				"threshold":      rule.Threshold,
+				"window":         rule.Window,
+				"action":         rule.Action,
+				"endpoint_id":    endpointID,
+				"pattern":        rule.Pattern,
+			})
 		p.tracker.ApplyAction(rule, clientIP, endpointID, fmt.Sprintf("Return pattern threshold exceeded: %s", details))
 	}
 }
@@ -624,6 +671,20 @@ func (p *BehavioralProcessor) ProcessGlobalReturnRules(req Request, resp *Respon
 		details := fmt.Sprintf("%d for '%s' in %ds%s", effectiveThreshold, rule.Pattern, rule.Window, correlated)
 		reason := fmt.Sprintf("Global return pattern threshold exceeded: %s", details)
 		p.log.Printf("behavioral_action_triggered: %s (decorator_type=behavioral_global endpoint=%s action=%s correlated=%v)", reason, endpointID, rule.Action, correlationActive)
+		kwargs := map[string]any{
+			"decorator_type": "behavioral_global",
+			"violation_type": "return_pattern",
+			"threshold":      effectiveThreshold,
+			"window":         rule.Window,
+			"action":         rule.Action,
+			"endpoint_id":    endpointID,
+			"pattern":        rule.Pattern,
+		}
+		if correlationActive {
+			kwargs["correlation"] = true
+			kwargs["correlated_categories"] = correlatedCategories
+		}
+		emitBusEvent(p.cfg, EventDecoratorViolation, req, blockedOrLoggedAction(p.cfg.PassiveMode), reason, kwargs)
 		p.tracker.ApplyAction(rule, clientIP, endpointID, reason)
 	}
 }
