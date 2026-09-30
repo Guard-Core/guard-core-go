@@ -239,21 +239,20 @@ func inMemoryRequestCount(store *lruStore[[]float64], key string, windowStart, c
 }
 
 type RateLimitManager struct {
-	mu              sync.Mutex
-	cfg             RateLimitConfig
-	redis           RedisHandler
-	rlRedis         RateLimitRedis
-	ban             *IPBanManager
-	timestamps      *lruStore[[]float64]
-	byIPTimestamps  *lruStore[[]float64]
-	autobanCounts   *lruStore[int]
-	scriptSHA       string
-	logger          *log.Logger
-	OnScriptReload  func()
-	now             func() float64
-	scriptReloadLog func()
-	eventBus        *SecurityEventBus
-	passiveMode     bool
+	mu             sync.Mutex
+	cfg            RateLimitConfig
+	redis          RedisHandler
+	rlRedis        RateLimitRedis
+	ban            *IPBanManager
+	timestamps     *lruStore[[]float64]
+	byIPTimestamps *lruStore[[]float64]
+	autobanCounts  *lruStore[int]
+	scriptSHA      string
+	logger         *log.Logger
+	OnScriptReload func()
+	now            func() float64
+	eventBus       *SecurityEventBus
+	passiveMode    bool
 }
 
 // SetEventBus attaches the agent event stream so the manager emits the

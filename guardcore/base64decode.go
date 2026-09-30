@@ -32,7 +32,6 @@ var b64RunRE = regexp2.MustCompile(
 	`(?<![`+dataAlphabetClass+`])[`+dataAlphabetClass+`]{12,}={0,2}(?![`+dataAlphabetClass+`=])`, 0)
 var b64SubFloorRE = regexp2.MustCompile(
 	`(?<![`+dataAlphabetClass+`])[`+dataAlphabetClass+`]{1,11}(?![`+dataAlphabetClass+`])`, 0)
-var b64WhitespaceRE = regexp2.MustCompile(b64SeparatorClass+`+`, 0)
 var b64HexLiteralRE = regexp2.MustCompile(`0[xX][0-9a-fA-F]+`, 0)
 var b64WidenedMarkerRE = regexp2.MustCompile(widenedSeparatorClass, 0)
 

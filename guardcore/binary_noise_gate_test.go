@@ -65,15 +65,6 @@ var plainTextSamples = []string{
 	"кириллица и русский текст",
 }
 
-func noiseBytesOld(seed int64) []byte {
-	rng := rand.New(rand.NewSource(seed))
-	raw := make([]byte, noiseSize)
-	for i := range raw {
-		raw[i] = byte(rng.Intn(256))
-	}
-	return raw
-}
-
 // latin1Decoded mirrors Python's raw.decode("latin-1"): every byte becomes the
 // rune U+0000-U+00FF with the same value.
 func latin1Decoded(raw []byte) string {

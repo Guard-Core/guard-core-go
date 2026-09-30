@@ -321,7 +321,7 @@ func cloudHTTPGet(client *http.Client, url string, headers map[string]string, ti
 	}
 	defer resp.Body.Close()
 	if refuseRedirects && resp.StatusCode >= 300 && resp.StatusCode < 400 {
-		return nil, resp.StatusCode, fmt.Errorf("Azure IP ranges download redirected (status %d); refusing to follow redirects", resp.StatusCode)
+		return nil, resp.StatusCode, fmt.Errorf("azure IP ranges download redirected (status %d); refusing to follow redirects", resp.StatusCode)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, resp.StatusCode, fmt.Errorf("HTTP request to %s failed with status %d", url, resp.StatusCode)
@@ -575,7 +575,7 @@ func downloadAzureServiceTags(client *http.Client, downloadURL string, deadline 
 	for attempt := 1; ; attempt++ {
 		remaining := deadline.Sub(nowFunc())
 		if remaining <= 0 {
-			return nil, errors.New("Azure IP ranges download exceeded max elapsed time")
+			return nil, errors.New("azure IP ranges download exceeded max elapsed time")
 		}
 		attemptTimeout := azureDownloadAttemptTimeout
 		if remaining < attemptTimeout {
@@ -617,7 +617,7 @@ func selectAzureCloudPrefixes(body []byte) ([]string, error) {
 			return entry.Properties.AddressPrefixes, nil
 		}
 	}
-	return nil, fmt.Errorf("Azure ServiceTags document has no %q tag", azureCloudServiceTagName)
+	return nil, fmt.Errorf("azure ServiceTags document has no %q tag", azureCloudServiceTagName)
 }
 
 func fetchAzureIPRanges(client *http.Client, nowFunc func() time.Time, logger *log.Logger) (cloudRangeSet, error) {
@@ -628,7 +628,7 @@ func fetchAzureIPRanges(client *http.Client, nowFunc func() time.Time, logger *l
 		pageTimeout = remaining
 	}
 	if pageTimeout <= 0 {
-		return cloudRangeSet{}, errors.New("Azure IP ranges download exceeded max elapsed time")
+		return cloudRangeSet{}, errors.New("azure IP ranges download exceeded max elapsed time")
 	}
 	pageBody, _, err := cloudHTTPGet(client, azurePageURL, map[string]string{"User-Agent": azureUserAgentValue}, pageTimeout, false)
 	if err != nil {
@@ -637,7 +637,7 @@ func fetchAzureIPRanges(client *http.Client, nowFunc func() time.Time, logger *l
 	decodedHTML := html.UnescapeString(string(pageBody))
 	downloadURL := extractAzureDownloadURL(decodedHTML, nowFunc(), logger)
 	if downloadURL == "" {
-		return cloudRangeSet{}, errors.New("Could not find Azure IP ranges download URL")
+		return cloudRangeSet{}, errors.New("could not find Azure IP ranges download URL")
 	}
 	body, err := downloadAzureServiceTags(client, downloadURL, deadline, nowFunc)
 	if err != nil {

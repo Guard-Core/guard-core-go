@@ -5,12 +5,8 @@ import (
 	"strings"
 )
 
-const embeddedJSONLeafSuffix = embeddedJSONLeafContextSuffix
-
 var ambiguousBacktickContexts = map[string]bool{"query_param": true, "url_path": true}
 var globValueStartContexts = map[string]bool{"request_body": true}
-
-var shellChainOps = []string{";", "||", "|", "&&"}
 
 func countShellOperators(token string) int {
 	count := 0
@@ -41,7 +37,6 @@ var shellMetacharWindowCompiled = mustCompile(`(?:;|\|\||\||&&)\s*(?:`+"`"+`|[A-
 var strongSQLGluedPrefixCompiled = mustCompile(`(?i)\b(?:SELECT|FROM|WHERE|INSERT|UPDATE|DELETE|JOIN|VALUES|ORDER\s+BY|GROUP\s+BY)\z`, 0, windowTimeout)
 var strongSQLGluedSuffixCompiled = mustCompile(`(?i)\A(?:SELECT|FROM|WHERE|INSERT|UPDATE|DELETE|JOIN|VALUES|ORDER\s+BY|GROUP\s+BY)\b`, 0, windowTimeout)
 var implausibleSQLIdentCharsCompiled = regexpCompileASCII(`[\s/.;|&$()]`)
-var implausibleDollarTokenCharsCompiled = regexpCompileASCII(`[/.;|&$()]`)
 var bareShellParamNameCompiled = mustCompile(`\A[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*\z`, 0, windowTimeout)
 var shellPrintableASCIICompiled = mustCompile(`\A[\t\x20-\x7e]*\z`, 0, windowTimeout)
 var globBoundaryPrefixCompiled = mustCompile(`(?:;|\|\||\||&&|\$\(|`+"`"+`)\s*\z`, 0, windowTimeout)
@@ -364,8 +359,6 @@ func ldapParenConjunctionIsInjection(m rmatch) bool {
 	}
 	return hasEq && len(findAllMatches(ldapParenFollowupAttrCompiled, ts)) > 0
 }
-
-var legacyIPv4PartCompiled = mustCompile(`://(?:[^/@\s]*@)?((?:0[xX][0-9a-fA-F]+|0[0-7]+|[1-9]\d*|0)(?:\.(?:0[xX][0-9a-fA-F]+|0[0-7]+|[1-9]\d*|0)){0,3})(?=[:/\s]|\z)`, 0, windowTimeout)
 
 type ipRange struct{ lo, hi uint32 }
 

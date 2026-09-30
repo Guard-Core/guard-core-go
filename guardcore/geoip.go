@@ -321,7 +321,7 @@ func (m *GeoIPManager) downloadDatabase() error {
 		dataURL = ipinfoDataURL
 	}
 	if m.Token == "" {
-		return errors.New("IPInfo token is required!")
+		return errors.New("ipinfo token is required")
 	}
 	client := m.httpClient()
 	var lastErr error

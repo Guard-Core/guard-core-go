@@ -290,10 +290,6 @@ func (c *SecurityConfig) Revision() uint64 { return c.revision.Load() }
 
 func (c *SecurityConfig) BumpRevision() { c.revision.Add(1) }
 
-func (c *SecurityConfig) unsupported(feature, reason string) error {
-	return &UnsupportedFeatureError{Feature: feature, Reason: reason}
-}
-
 // DefaultDynamicRuleInterval mirrors the reference dynamic_rule_interval
 // default of 300 seconds (pydantic ge=60).
 const DefaultDynamicRuleInterval = 300
