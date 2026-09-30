@@ -8,6 +8,12 @@ set -eu
 # Waiver format: guardcore/<file>:<startLine> per line; comments (#) and
 # blank lines are ignored.
 
+# Fail closed: a missing or empty profile must fail the gate, not skip it.
+if [ ! -s cover.out ]; then
+    printf 'coverage gate: cover.out is missing or empty; refusing to pass vacuously\n'
+    exit 1
+fi
+
 total=0
 covered=0
 uncovered_waived=0
@@ -31,6 +37,11 @@ while IFS=' ' read -r loc stmts count; do
             ;;
     esac
 done < cover.out
+
+if [ "$total" -eq 0 ]; then
+    printf 'coverage gate: no coverage rows parsed from cover.out; refusing to pass vacuously\n'
+    exit 1
+fi
 
 if [ "$uncovered_real" -gt 0 ]; then
     printf 'coverage gate: %d uncovered statement(s) not in the waiver inventory\n' "$uncovered_real"
