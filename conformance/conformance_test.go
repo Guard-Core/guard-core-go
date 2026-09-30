@@ -15,6 +15,7 @@ import (
 
 type caseFile struct {
 	Suite string            `json:"suite"`
+	Kind  string            `json:"kind"`
 	Cases []conformanceCase `json:"cases"`
 }
 
@@ -164,15 +165,25 @@ func shortPattern(p any) string {
 }
 
 func TestConformance(t *testing.T) {
-	files, err := filepath.Glob("guard-core-spec-4.0.3/cases/*.json")
+	files, err := filepath.Glob("guard-core-spec-4.1.0/cases/*.json")
 	if err != nil {
 		t.Fatal(err)
 	}
+	if len(files) == 0 {
+		t.Fatal("conformance corpus glob matched zero files: expected guard-core-spec-4.1.0/cases/*.json; a vacuous pass is a failure")
+	}
 	sort.Strings(files)
+	t.Logf("conformance corpus: %d files matched in guard-core-spec-4.1.0/cases", len(files))
 	total, failed, skipped := 0, 0, 0
+	caseFiles := 0
 	var failures []string
 	for _, f := range files {
 		if strings.HasSuffix(f, "index.json") {
+			continue
+		}
+		if strings.HasPrefix(filepath.Base(f), "pipeline_") {
+			// Pipeline-kind suites have a different schema and are
+			// replayed by pipeline_test.go.
 			continue
 		}
 		data, err := os.ReadFile(f)
@@ -183,6 +194,11 @@ func TestConformance(t *testing.T) {
 		if err := json.Unmarshal(data, &cf); err != nil {
 			t.Fatal(err)
 		}
+		if cf.Kind != "detect" {
+			// Pipeline-kind suites are replayed by pipeline_test.go.
+			continue
+		}
+		caseFiles++
 		for _, c := range cf.Cases {
 			total++
 			c := c
@@ -205,6 +221,7 @@ func TestConformance(t *testing.T) {
 	for _, f := range failures {
 		t.Errorf("%s", f)
 	}
+	t.Logf("conformance corpus: %d detect case files loaded, %d cases from guard-core-spec-4.1.0", caseFiles, total)
 	t.Logf("conformance: %d/%d passed, %d failed, %d skipped", total-failed-skipped, total, failed, skipped)
 }
 

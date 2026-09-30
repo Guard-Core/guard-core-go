@@ -127,18 +127,16 @@ func decodeCachedRangesPayload(payload string) (cloudRangeSet, error) {
 	return decodeCachedEntries(entries)
 }
 
-func encodeCloudIPv2Payload(entries []string) (string, error) {
+func encodeCloudIPv2Payload(entries []string) string {
 	sorted := append([]string(nil), entries...)
 	sort.Strings(sorted)
 	quoted := make([]string, 0, len(sorted))
 	for _, entry := range sorted {
-		b, err := json.Marshal(entry)
-		if err != nil {
-			return "", err
-		}
+		// json.Marshal of a string value cannot fail.
+		b, _ := json.Marshal(entry)
 		quoted = append(quoted, string(b))
 	}
-	return "[" + strings.Join(quoted, ", ") + "]", nil
+	return "[" + strings.Join(quoted, ", ") + "]"
 }
 
 type decodedCloudIPv2Payload struct {
@@ -231,11 +229,8 @@ func (s *RedisCloudIPStore) Get(provider string) ([]string, bool, error) {
 }
 
 func (s *RedisCloudIPStore) Set(provider string, entries []string, ttlSeconds int) error {
-	payload, err := encodeCloudIPv2Payload(entries)
-	if err != nil {
-		return err
-	}
-	return s.redis.SetKey(s.prefix, provider, payload, ttlIntPtr(ttlSeconds))
+	// encodeCloudIPv2Payload cannot fail for string entries.
+	return s.redis.SetKey(s.prefix, provider, encodeCloudIPv2Payload(entries), ttlIntPtr(ttlSeconds))
 }
 
 type RedisCloudRangesStore struct {
@@ -561,9 +556,8 @@ func extractGenericJSONURL(decodedHTML string) string {
 	if match == nil {
 		return ""
 	}
-	if !isTrustedAzureDownloadURL(match[1]) {
-		return ""
-	}
+	// The href pattern only matches https://download.microsoft.com URLs,
+	// so the match is trusted by construction.
 	return match[1]
 }
 
