@@ -48,15 +48,21 @@ func TestSecurityEventBusCountryLookup(t *testing.T) {
 	}
 }
 
-// TestSecurityEventBusHandlerEventMuted pins the one gate handler-direct
-// emitters keep: the event filter.
-func TestSecurityEventBusHandlerEventMuted(t *testing.T) {
+// TestSecurityEventBusHandlerEventBypassesMuteFilter pins that
+// handler-direct emitters never consult the event filter: the reference
+// handlers (_ipban_events.py, ratelimit_handler.py, _dynamic_rule_events.py,
+// cloud_handler.py, ipinfo_handler.py) send unconditionally, so a muted
+// ip_banned still reaches the agent.
+func TestSecurityEventBusHandlerEventBypassesMuteFilter(t *testing.T) {
 	cfg, _ := NewSecurityConfig(nil)
 	agent := &recordingAgent{}
 	bus := NewSecurityEventBus(agent, cfg, nil, EventFilter{MutedEventTypes: nameSet([]string{EventIPBanned})})
-	bus.SendHandlerEvent(EventIPBanned, IPBanHandlerName, "1.2.3.4", "banned", "muted", nil)
-	if len(agent.events) != 0 {
-		t.Fatal("muted handler events must not reach the agent")
+	bus.SendHandlerEvent(EventIPBanned, IPBanHandlerName, "1.2.3.4", "banned", "muted-but-delivered", nil)
+	if len(agent.events) != 1 {
+		t.Fatal("handler-direct events must bypass the mute filter (the reference handlers never consult it)")
+	}
+	if agent.events[0].EventType != EventIPBanned || agent.events[0].Reason != "muted-but-delivered" {
+		t.Fatalf("the muted handler event must deliver whole: %+v", agent.events[0])
 	}
 	// A nil bus and a handler-less bus are no-ops.
 	var nilBus *SecurityEventBus

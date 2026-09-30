@@ -1,6 +1,9 @@
 package guardcore
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 const unresolvedRouteReason = "Route resolution failed; per-route decorator config could not be applied"
 
@@ -58,17 +61,19 @@ func (c *emergencyModeCheck) Check(req Request) *Response {
 	if isWhitelisted {
 		return nil
 	}
-	reason := "[EMERGENCY MODE] Access denied for IP " + clientIP
-	stashBlock(state, reason, "")
-	// Reference emergency_mode.py: emergency_mode_block with the
+	hookReason := "[EMERGENCY MODE] Access denied for IP " + clientIP
+	stashBlock(state, hookReason, "")
+	// Reference emergency_mode.py: the emergency_mode_block event carries
+	// its own reason, distinct from the log_activity string, plus the
 	// whitelist size and the active flag.
-	emitBusEvent(cfg, EventEmergencyModeBlock, req, blockedOrLoggedAction(cfg.PassiveMode), reason,
+	emitBusEvent(cfg, EventEmergencyModeBlock, req, blockedOrLoggedAction(cfg.PassiveMode),
+		fmt.Sprintf("[EMERGENCY MODE] IP %s not in whitelist", clientIP),
 		map[string]any{
 			"emergency_whitelist_count": len(cfg.EmergencyWhitelist),
 			"emergency_active":          true,
 		})
 	if cfg.PassiveMode {
-		firePassiveBlockHook(cfg, req, "emergency_mode", reason, "")
+		firePassiveBlockHook(cfg, req, "emergency_mode", hookReason, "")
 		return nil
 	}
 	return createErrorResponse(cfg, 503, "Service temporarily unavailable")

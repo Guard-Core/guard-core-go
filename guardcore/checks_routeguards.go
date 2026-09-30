@@ -434,19 +434,26 @@ func (c *userAgentCheck) Check(req Request) *Response {
 	if !blocked {
 		return nil
 	}
-	reason := fmt.Sprintf("Blocked user agent: %s", userAgent)
+	// Reference user_agent.py: the redacted user agent feeds the log and
+	// both event payloads.
+	redacted := RedactHeaderValueForDisplay(userAgent, cfg.LogSensitiveParams, cfg.LogSensitiveBodyFields, cfg.LogSensitiveHeaders)
+	reason := fmt.Sprintf("Blocked user agent: %s", redacted)
 	stashBlock(state, reason, "")
-	// Reference user_agent.py: user_agent_blocked with the redacted user
-	// agent and the filter tier (route list first, global fallback).
-	filterType := "global"
-	if routeConfig != nil && len(routeConfig.BlockedUserAgents) > 0 && userAgentMatchesBlockedPattern(userAgent, routeConfig.BlockedUserAgents) {
-		filterType = "route"
+	if routeConfig != nil && len(routeConfig.BlockedUserAgents) > 0 {
+		// Route tier: decorator_violation classified
+		// access_control/user_agent carrying the blocked user agent
+		// (user_agent.py emit_decorator_event branch).
+		emitAccessDeniedEvent(cfg, req, fmt.Sprintf("User agent '%s' blocked", redacted), "access_control", cfg.PassiveMode,
+			map[string]any{"violation_type": "user_agent", "blocked_user_agent": redacted})
+	} else {
+		// Global tier: user_agent_blocked with the global filter tier.
+		emitBusEvent(cfg, EventUserAgentBlocked, req, blockedOrLoggedAction(cfg.PassiveMode),
+			fmt.Sprintf("User agent '%s' in global blocklist", redacted),
+			map[string]any{
+				"user_agent":  redacted,
+				"filter_type": "global",
+			})
 	}
-	emitBusEvent(cfg, EventUserAgentBlocked, req, blockedOrLoggedAction(cfg.PassiveMode), reason,
-		map[string]any{
-			"user_agent":  RedactHeaderValueForDisplay(userAgent, cfg.LogSensitiveParams, cfg.LogSensitiveBodyFields, cfg.LogSensitiveHeaders),
-			"filter_type": filterType,
-		})
 	if cfg.PassiveMode {
 		firePassiveBlockHook(cfg, req, "user_agent", reason, "")
 		return nil

@@ -68,6 +68,11 @@ func (c *ipSecurityCheck) Check(req Request) *Response {
 		// log_activity, and its non-passive stash therefore holds "").
 		reason := fmt.Sprintf("Banned IP attempted access: %s", ip)
 		stashBlock(state, reason, "")
+		// Reference ip_security.py _check_banned_ip: ip_blocked with the
+		// banned filter tier and the client IP, emitted in passive and
+		// active mode alike.
+		emitBusEvent(cfg, EventIPBlocked, req, blockedOrLoggedAction(cfg.PassiveMode), reason,
+			map[string]any{"filter_type": "banned", "ip_address": ip})
 		if cfg.PassiveMode {
 			firePassiveBlockHook(cfg, req, c.CheckName(), reason, "")
 			return nil
@@ -414,9 +419,11 @@ func (c *rateLimitCheck) Check(req Request) *Response {
 // global tier reports rate_limited (handler rate_limit, metadata with the
 // count, limit and window); dynamic endpoint tiers report
 // dynamic_rule_violation; route and geo tiers report decorator_violation
-// with their decorator classification. Passive mode downgrades every
+// with their decorator classification. The tier events quote the tier's
+// CONFIGURED limit (rate_limit.py builds its reason from the config
+// values, never the tripping count). Passive mode downgrades every
 // action to logged_only.
-func (c *rateLimitCheck) emitRateLimitEvent(req Request, ip, reason string, outcome *RateLimitOutcome) {
+func (c *rateLimitCheck) emitRateLimitEvent(req Request, ip, hookReason string, outcome *RateLimitOutcome) {
 	bus := busFor(c.cfg)
 	if bus == nil {
 		return
@@ -424,46 +431,50 @@ func (c *rateLimitCheck) emitRateLimitEvent(req Request, ip, reason string, outc
 	action := blockedOrLoggedAction(c.cfg.PassiveMode)
 	switch outcome.Tier {
 	case "endpoint":
+		// Reference rate_limit.py _check_endpoint_rate_limit.
 		safeEndpoint := redactEndpointForDisplay(req.URLPath(), c.cfg)
 		emitBusEvent(c.cfg, EventDynamicRuleViolation, req, action,
-			fmt.Sprintf("Endpoint-specific rate limit exceeded: %d requests per %ds for %s", outcome.Count, outcome.Window, safeEndpoint),
+			fmt.Sprintf("Endpoint-specific rate limit exceeded: %d requests per %ds for %s", outcome.Limit, outcome.Window, safeEndpoint),
 			map[string]any{
 				"rule_type":  "endpoint_rate_limit",
 				"endpoint":   safeEndpoint,
-				"rate_limit": outcome.Count,
+				"rate_limit": outcome.Limit,
 				"window":     outcome.Window,
 			})
 	case "route":
-		emitAccessDeniedEvent(c.cfg, req, reason, "rate_limiting", c.cfg.PassiveMode,
+		// Reference rate_limit.py _check_route_rate_limit via
+		// emit_rate_limit_event: decorator_violation with the configured
+		// route limit.
+		emitAccessDeniedEvent(c.cfg, req,
+			fmt.Sprintf("Route-specific rate limit exceeded: %d requests per %ds", outcome.Limit, outcome.Window),
+			"rate_limiting", c.cfg.PassiveMode,
 			map[string]any{
 				"violation_type": "rate_limit",
-				"rate_limit":     c.tierLimit(outcome),
+				"rate_limit":     outcome.Limit,
 				"window":         outcome.Window,
 			})
 	case "geo":
-		emitAccessDeniedEvent(c.cfg, req, reason, "geo_rate_limiting", c.cfg.PassiveMode,
+		// Reference rate_limit.py _check_geo_rate_limit via
+		// emit_decorator_event: decorator_violation with the resolved
+		// country (unknown when the lookup failed) and the configured
+		// limit.
+		country := outcome.Country
+		if country == "" {
+			country = "unknown"
+		}
+		emitAccessDeniedEvent(c.cfg, req,
+			fmt.Sprintf("Geo rate limit exceeded for %s: %d requests per %ds", country, outcome.Limit, outcome.Window),
+			"geo_rate_limiting", c.cfg.PassiveMode,
 			map[string]any{
 				"violation_type": "geo_rate_limit",
-				"rate_limit":     c.tierLimit(outcome),
+				"rate_limit":     outcome.Limit,
 				"window":         outcome.Window,
 			})
 	default:
 		// Global tier: the reference manager event with the request
 		// count and the configured limit and window.
-		if req.State() != nil {
-			// keep the envelope endpoint/method fields accurate
-		}
-		emitRateLimitedHandlerEvent(c.cfg, req, ip, reason, outcome, c.cfg.RateLimit, c.cfg.RateLimitWindow)
+		emitRateLimitedHandlerEvent(c.cfg, req, ip, hookReason, outcome, c.cfg.RateLimit, c.cfg.RateLimitWindow)
 	}
-}
-
-// tierLimit resolves the limit that tripped for the endpoint/route/geo
-// tiers from the live config and the resolved route.
-func (c *rateLimitCheck) tierLimit(outcome *RateLimitOutcome) int {
-	if outcome == nil {
-		return 0
-	}
-	return outcome.Count
 }
 
 // emitRateLimitedHandlerEvent mirrors the ratelimit_handler event: the
@@ -621,9 +632,11 @@ func (c *suspiciousActivityCheck) registerViolations(cfg *SecurityConfig, req Re
 		applied, err := c.ban.Ban(ip, duration, "penetration:"+category)
 		if err != nil {
 			// Reference helpers.py _emit_ban_escalation_failed:
-			// ip_ban_failed with action ban_not_applied.
+			// ip_ban_failed with action ban_not_applied and the client IP
+			// kwarg.
 			emitBusEvent(cfg, EventIPBanFailed, req, "ban_not_applied",
-				fmt.Sprintf("Escalation ban failed for %s: %v", ip, err), nil)
+				fmt.Sprintf("Escalation ban failed for %s: %v", ip, err),
+				map[string]any{"ip_address": ip})
 			continue
 		}
 		if !applied {

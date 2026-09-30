@@ -93,6 +93,22 @@ func (r *DynamicRules) normalize() {
 	}
 }
 
+// validate mirrors the pydantic ge=1 constraints on the delivery fields
+// (guard_core/_dynamic_rules.py): an auto_ban_threshold or
+// auto_ban_duration of zero or less is a model-construction
+// ValidationError in the reference, which rejects the WHOLE delivery
+// (the update loop keeps the previous rules); this port answers the same
+// rejection from the same fields. Absent (nil) overrides stay neutral.
+func (r *DynamicRules) validate() error {
+	if r.AutoBanThreshold != nil && *r.AutoBanThreshold < 1 {
+		return fmt.Errorf("auto_ban_threshold must be >= 1, got %d", *r.AutoBanThreshold)
+	}
+	if r.AutoBanDuration != nil && *r.AutoBanDuration < 1 {
+		return fmt.Errorf("auto_ban_duration must be >= 1, got %d", *r.AutoBanDuration)
+	}
+	return nil
+}
+
 // lastKnownRulesSnapshot is the persistence envelope
 // (LastKnownRulesSnapshot with extra="forbid").
 type lastKnownRulesSnapshot struct {
@@ -125,6 +141,12 @@ func LoadLastKnownRulesSnapshot(payload string) (DynamicRules, error) {
 	}
 	if snapshot.SchemaVersion != LastKnownRulesSnapshotSchemaVersion {
 		return DynamicRules{}, fmt.Errorf("unsupported last-known dynamic rules snapshot schema version: %d", snapshot.SchemaVersion)
+	}
+	// The reference revalidates the mirrored rules through DynamicRules
+	// (ge=1 on the auto-ban fields), so an unusable snapshot is skipped
+	// for the next store rather than half-applied.
+	if err := snapshot.Rules.validate(); err != nil {
+		return DynamicRules{}, err
 	}
 	snapshot.Rules.normalize()
 	return snapshot.Rules, nil
@@ -290,6 +312,12 @@ func (m *DynamicRuleManager) UpdateRules(fetch func() (*DynamicRules, error)) er
 	}
 	if rules == nil {
 		return nil
+	}
+	// The reference validates the delivery at model construction
+	// (DynamicRules ge=1 on the auto-ban fields): an invalid delivery is
+	// rejected whole and the update loop keeps the previous rules.
+	if err := rules.validate(); err != nil {
+		return err
 	}
 	rules.normalize()
 

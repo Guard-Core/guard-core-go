@@ -54,12 +54,13 @@ const (
 	EventUserAgentBlocked        = "user_agent_blocked"
 	EventSuspiciousRequest       = "suspicious_request"
 
-	// Detection-engine anomaly and callback-error event names
-	// (event_types.py, emitted by the performance monitor port).
-	EventDetectionEngineCallbackError     = "detection_engine_callback_error"
-	EventPatternAnomalyTimeout            = "pattern_anomaly_timeout"
-	EventPatternAnomalySlowExecution      = "pattern_anomaly_slow_execution"
-	EventPatternAnomalyStatisticalAnomaly = "pattern_anomaly_statistical_anomaly"
+	// The four detection-engine anomaly and callback-error names
+	// (detection_engine_callback_error, pattern_anomaly_timeout,
+	// pattern_anomaly_slow_execution,
+	// pattern_anomaly_statistical_anomaly) are declared by the
+	// performance monitor port (performance_monitor.go, PR 41), which
+	// merges ahead of this branch; EventVocabulary reuses them from
+	// there so the package never redeclares an event name.
 )
 
 // EventVocabulary returns every event-type string in EVENT_TYPE_VALUES.
@@ -308,13 +309,13 @@ func (b *SecurityEventBus) SendHTTPSViolationEvent(req Request, route *RouteConf
 // the bus gate ("the bus's agent_enable_events gate does not apply to
 // handler-direct emitters"): ip_ban, rate_limit, behavior, dynamic_rules,
 // cloud and ipinfo deliver their own envelopes with their handler_name
-// and only the bus's envelope hygiene (timestamp, redaction of endpoint
-// fields, filter mutes, logged send failures).
+// and only the bus's envelope hygiene (timestamp, logged send failures).
+// Like the reference handlers (_ipban_events.py, ratelimit_handler.py,
+// _dynamic_rule_events.py, cloud_handler.py, ipinfo_handler.py), these
+// emitters never consult the event filter: the mute lists gate the
+// middleware stream and the metrics, not the handler families.
 func (b *SecurityEventBus) SendHandlerEvent(eventType string, handlerName string, ipAddress, actionTaken, reason string, metadata map[string]any) {
 	if b == nil || b.handler == nil {
-		return
-	}
-	if !b.filter.IsEventAllowed(eventType) {
 		return
 	}
 	event := SecurityEvent{

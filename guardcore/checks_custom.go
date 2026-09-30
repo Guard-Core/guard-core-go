@@ -1,6 +1,11 @@
 package guardcore
 
-import "log"
+import (
+	"log"
+	"reflect"
+	"runtime"
+	"strings"
+)
 
 type requestLoggingCheck struct {
 	cfg    *SecurityConfig
@@ -103,12 +108,38 @@ func (c *customRequestCheck) Check(req Request) *Response {
 		return nil
 	}
 	// Reference custom_request.py: custom_request_check with the blocking
-	// response's status.
+	// response's status and the check function's name (anonymous when it
+	// has none).
 	emitBusEvent(c.cfg, EventCustomRequestCheck, req, blockedOrLoggedAction(c.cfg.PassiveMode),
 		"Custom request check returned blocking response",
-		map[string]any{"response_status": blockHookStatusCode(customResponse.StatusCode)})
+		map[string]any{
+			"response_status": blockHookStatusCode(customResponse.StatusCode),
+			"check_function":  customRequestCheckFunctionName(c.cfg.CustomRequestCheck),
+		})
 	if c.cfg.PassiveMode {
 		return nil
 	}
 	return customResponse
+}
+
+// customRequestCheckFunctionName mirrors custom_request.py's
+// check_function kwarg: the function's bare name, "anonymous" when the
+// value carries none (Go closures compile to numbered names, the port
+// reports those stripped of their package path).
+func customRequestCheckFunctionName(fn func(Request) *Response) string {
+	full := runtime.FuncForPC(reflect.ValueOf(fn).Pointer()).Name()
+	if full == "" {
+		return "anonymous"
+	}
+	name := full
+	if idx := strings.LastIndexByte(name, '/'); idx != -1 {
+		name = name[idx+1:]
+	}
+	if idx := strings.LastIndexByte(name, '.'); idx != -1 {
+		name = name[idx+1:]
+	}
+	if name == "" {
+		return "anonymous"
+	}
+	return name
 }

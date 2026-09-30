@@ -54,6 +54,10 @@ func TestEngineBlockedRequestEmitsMiddlewareEvent(t *testing.T) {
 			if event.Metadata["filter_type"] != "global" {
 				t.Fatalf("filter_type drifted: %+v", event.Metadata)
 			}
+			// Reference user_agent.py global-tier reason.
+			if want := "User agent 'badbot/1.0' in global blocklist"; event.Reason != want {
+				t.Fatalf("reason drifted: %q, want %q", event.Reason, want)
+			}
 		}
 	}
 	if !found {
