@@ -1,57 +1,192 @@
 # Coverage waiver inventory for guard-core-go.
 #
-# Every entry is a defensive statement that is unreachable as written, with
-# its proof in PR #39's waiver table (and the audit that shrank it:
-# behavior.go 345, ratelimit.go 340 and redis.go 200 turned out testable and
-# are covered by real tests, not listed here).
+# Every entry is a defensive statement that is unreachable as written. The
+# gate treats these statements as satisfied and fails on any uncovered
+# statement NOT listed here. Genuine tests are preferred over waivers: the
+# twin sweep (guardcore/coverage_twin_sweep_test.go and its integration
+# half) covers every remaining reachable statement with real inputs.
 #
-# Generated with the go 1.26 toolchain (CI's statement attribution).
-# Format: <file>:<startLine> - the coverage gate treats these statements as
-# satisfied and fails on any uncovered statement NOT listed here.
+# Rebaselined after the feature-port waves (event bus, dynamic rules,
+# headers cache, cloud/geo, pattern ledger, PerformanceMonitor) shifted
+# line numbers and superseded the PR #39 audit coordinates (whose audit
+# also shrank itself: behavior.go 345, ratelimit.go 340 and redis.go 200
+# turned out testable and are covered by real tests, not listed here).
+# Proofs are restated against the current sources with the go 1.27
+# statement attribution CI uses.
+#
+# Format: <file>:<startLine> per line; comments (#) and blank lines ignored.
+
+# base64decode.go
+# 54: findAllStrings stale-match guard. regexp2's FindStringMatchStartingAt
+#     never reports a match whose Index precedes the requested start, so
+#     m.Index < pos cannot hold.
+# 60: zero-advance guard. Every b64 RE on this path (b64SubFloorRE and
+#     friends) requires at least one character, so m.Length > 0 and
+#     next = m.Index + m.Length > pos always; the fallback is defensive.
+# 236, 297: ReplaceFunc error returns. A compiled regexp2 RE cannot error
+#     during replace; the err != nil branches are defensive hygiene.
+# 363: zero-advance guard. shortBase64TokenRE is {4,}, so m.Length >= 4 and
+#     pos = m.Index + m.Length > m.Index always.
+guardcore/base64decode.go:54
+guardcore/base64decode.go:60
 guardcore/base64decode.go:236
 guardcore/base64decode.go:297
 guardcore/base64decode.go:363
-guardcore/base64decode.go:52
-guardcore/base64decode.go:60
-guardcore/bodyscan.go:397
-guardcore/composition.go:80
-guardcore/composition.go:81
-guardcore/composition.go:85
-guardcore/config.go:305
-guardcore/encodings.go:135
-guardcore/encodings.go:186
+
+# bodyscan.go
+# 398: parseHeaderParams empty-split guard. splitHeaderParams appends a
+#     trailing piece unconditionally, so len(pieces) >= 1 always.
+guardcore/bodyscan.go:398
+
+# checks_custom.go
+# 132, 142: customRequestCheckFunctionName anonymous fallbacks. The check
+#     only runs with a non-nil hook, runtime.FuncForPC over a non-nil func
+#     value's PC always names a real symbol, and Go symbol names never end
+#     in '.' after the final '/' segment, so the stripped name is never
+#     empty.
+guardcore/checks_custom.go:132
+guardcore/checks_custom.go:142
+
+# composition.go
+# 107, 108: Cloud.InitializeRedis failure branch. InitializeRedis errors
+#     only on a nil handler, and e.Redis is non-nil after the successful
+#     Initialize above; RefreshAsync returns nil on every path.
+# 112: IPBanManager.InitializeRedis returns nil unconditionally.
+guardcore/composition.go:107
+guardcore/composition.go:108
+guardcore/composition.go:112
+
+# config.go
+# 374: validateCORS error branch. It normalizes method/header case and
+#     returns nil on every path.
+guardcore/config.go:374
+
+# dynamicrules.go
+# 685, 690: writeAtomicFile write/close guards. A WriteString or Close on a
+#     freshly created temp file fails only on ENOSPC/EIO-class conditions,
+#     which cannot be induced in-process (per the in-code comment); the
+#     cleanup contract (remove the temp, surface the error) is kept.
+guardcore/dynamicrules.go:685
+guardcore/dynamicrules.go:690
+
+# encodings.go
+# 38, 75, 86, 136, 222: escape-decode failure returns. hexEscapeRE,
+#     unicodeEscapeRE, percentUEscapeRE, percentByteRunRE and
+#     ldapHexEscapeStdRE capture hex digits only, so parseHex2 cannot fail
+#     on the captured group.
+# 187: utf8Len zero-length guard. utf8.DecodeRuneInString returns size 0
+#     only for an empty remainder, and the caller guarantees a non-empty
+#     slice (i < len(content)).
+# 321: stripSQLComments monotonic guard. FindRunesMatchStartingAt never
+#     reports matches behind the requested start or past the subject.
+guardcore/encodings.go:38
+guardcore/encodings.go:75
+guardcore/encodings.go:86
+guardcore/encodings.go:136
+guardcore/encodings.go:187
 guardcore/encodings.go:222
-guardcore/encodings.go:319
-guardcore/encodings.go:37
-guardcore/encodings.go:74
-guardcore/encodings.go:85
-guardcore/engine.go:157
-guardcore/engine.go:172
-guardcore/engine.go:187
-guardcore/fileupload.go:161
-guardcore/fileupload.go:86
-guardcore/geoip.go:307
-guardcore/geoip.go:371
-guardcore/jsonwalk.go:83
-guardcore/matchers.go:162
-guardcore/matchers.go:215
-guardcore/multipartscan.go:133
-guardcore/multipartscan.go:143
-guardcore/multipartscan.go:156
-guardcore/pipeline.go:1106
-guardcore/pipeline.go:901
-guardcore/pipeline.go:979
-guardcore/pipeline.go:982
-guardcore/pipeline.go:985
-guardcore/pipeline.go:988
-guardcore/pipeline.go:991
-guardcore/pipeline.go:992
-guardcore/pipeline.go:995
-guardcore/redis.go:273
-guardcore/registry.go:23
-guardcore/registry.go:276
-guardcore/registry.go:293
-guardcore/semantic.go:312
-guardcore/templates.go:110
-guardcore/templates.go:172
-guardcore/truncation.go:81
+guardcore/encodings.go:321
+
+# engine.go
+# 160: findAllMatches stale-match guard (same regexp2 monotonic guarantee
+#     as base64decode.go:54).
+# 173: zero-advance guard. m.Index >= pos and zero-length matches already
+#     advance (m.Length == 0 advances next by one), so next <= pos cannot
+#     hold.
+# 188: findFirstAt post-clamp guard. Every caller passes start < t.n, so
+#     after clamping ceiling to len(rs), start < ceiling holds.
+guardcore/engine.go:160
+guardcore/engine.go:173
+guardcore/engine.go:188
+
+# fileupload.go
+# 87: fileUploadIsDoubleExtension no-dot guard. A benign-terminal match
+#     implies a literal '.' in the subject, so lastIndexOfRune('.') cannot
+#     return -1.
+guardcore/fileupload.go:87
+
+# geoip.go
+# 301: Refresh post-download stat guard. A nil download error means
+#     writeDatabaseAtomically just wrote m.DBPath; os.Stat on the file
+#     written moments before cannot fail in-process.
+# 364: downloadDatabase post-loop return. The loop returns inside the body
+#     on the final attempt (attempt == downloadRetries-1), so the loop can
+#     never complete normally.
+guardcore/geoip.go:301
+guardcore/geoip.go:364
+
+# jsonwalk.go
+# 84: decodeJSONValue non-string object key. encoding/json only produces
+#     string tokens for object keys, so the not-a-string branch is
+#     unreachable.
+guardcore/jsonwalk.go:84
+
+# logging.go
+# 128: redactPairsDepth submatch guard. The regex re-matches its own match
+#     and all three groups are mandatory, so len(parts) == 4 always.
+guardcore/logging.go:128
+
+# matchers.go
+# 163: ldapNullByteAttrFinditer overlap guard. findAllMatches yields
+#     ordered, non-overlapping tail matches and lastEnd equals the previous
+#     tail's end, so starPos >= lastEnd always.
+# 216: quoteSpliceFinditer anchor-miss fallback. Once the scanner verified
+#     the word-run, quote-run and trailing word char, quoteSpliceCandidate
+#     (\w+(?:['"]+\w+){1,10}) always matches at w, so the else branch is
+#     defensive.
+guardcore/matchers.go:163
+guardcore/matchers.go:216
+
+# multipartscan.go
+# 144: payloadSlice nil-start guard. The only call site passes a
+#     payloadStart set by the blank-line or colonless-line transition, so
+#     payloadStart >= 0 always.
+# 157: payloadSlice negative-end clamp. The CR strip only runs when
+#     end > payloadStart, so end >= payloadStart is an invariant and the
+#     clamp is defensive.
+guardcore/multipartscan.go:144
+guardcore/multipartscan.go:157
+
+# pipeline.go
+# 1026: Execute rebuild-error branch. rebuildIfStale has no error return
+#     path (the rebuild function returns checks only), so err != nil is
+#     defensive.
+# 1104, 1107, 1109, 1113, 1115, 1117, 1119: handleRebuildError body. The
+#     function is only reachable from the defensive 1026 branch above.
+# 1231: buildChecks nil-build fallback. Every spec in the table defines
+#     build, so spec.build == nil cannot hold.
+guardcore/pipeline.go:1026
+guardcore/pipeline.go:1104
+guardcore/pipeline.go:1107
+guardcore/pipeline.go:1109
+guardcore/pipeline.go:1113
+guardcore/pipeline.go:1115
+guardcore/pipeline.go:1117
+guardcore/pipeline.go:1119
+guardcore/pipeline.go:1231
+
+# redis.go
+# 274: RecordSlidingWindowHit rand guard. crypto/rand.Read cannot fail on
+#     the supported platforms, so the error branch is defensive.
+guardcore/redis.go:274
+
+# registry.go
+# 24: init compile-failure skip. Every patternTable entry compiles (the
+#     detection suite pins the full table), so the continue is defensive.
+# 279: safeFindAll stale-match guard (same regexp2 monotonic guarantee as
+#     engine.go:160).
+# 294: safeFindAll zero-advance guard (same proof as engine.go:173).
+guardcore/registry.go:24
+guardcore/registry.go:279
+guardcore/registry.go:294
+
+# semantic.go
+# 313: codeInjectionRisk clamp. The maximum possible score is
+#     0.2 + 0.2 + 0.1 + 0.1 + 0.2 = 0.8 < 1.0, so risk > 1.0 cannot hold.
+guardcore/semantic.go:313
+
+# templates.go
+# 111: templateFrame compile guard. The regex is built by quoting the four
+#     fixed opener/closer pairs into a literal class expression, which
+#     compileRE cannot reject.
+guardcore/templates.go:111
