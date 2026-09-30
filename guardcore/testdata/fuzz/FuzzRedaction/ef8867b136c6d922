@@ -1,0 +1,4 @@
+go test fuzz v1
+string("token=<a b>")
+string("token")
+string("\"000000")

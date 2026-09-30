@@ -1,0 +1,4 @@
+go test fuzz v1
+string("{\"password\": \"SAMPLE-VALUE-02\", \"user\": \"alice\"}")
+string("sample_field")
+string("#000000000000")

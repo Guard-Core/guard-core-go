@@ -1,0 +1,4 @@
+go test fuzz v1
+string("0tokenSAMPLE-VALUE-04")
+string("token")
+string("SAMPLE-VALUE-05")

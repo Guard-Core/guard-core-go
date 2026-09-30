@@ -101,15 +101,40 @@ func redactXMLElements(text string, sensitive map[string]bool) string {
 	})
 }
 
-var pairRedactRe = regexp.MustCompile(`(?i)([A-Za-z_][\w.-]*)\s*([=:])\s*("[^"]*"|'[^']*'|[^\s&;,'"\]]+)`)
+// The value grammar carries terminated and unterminated quoted forms
+// alongside the bare token, so a value like "000000 that lost its
+// closing quote still redacts (the reference scanner treats both quote
+// characters as value starts; guard_core/_utils/pair_value_scan.py).
+var pairRedactRe = regexp.MustCompile(`(?i)([A-Za-z_][\w.-]*)\s*([=:])\s*("[^"]*"|'[^']*'|"[^"]*|'[^']*|[^\s&;,'"\]]+)`)
 
+// redactPairsInText redacts sensitive name/value pairs. A non-sensitive
+// label's value can itself carry sensitive pairs ("reason: token=x" -
+// the label consumes "reason:" and the value swallows the pair), so the
+// value is rescanned recursively, bounded like the reference's value
+// scan (guard_core/_utils/pair_redaction.py).
 func redactPairsInText(text string, sensitive map[string]bool) string {
+	return redactPairsDepth(text, sensitive, 0)
+}
+
+const pairRedactionMaxDepth = 6
+
+func redactPairsDepth(text string, sensitive map[string]bool, depth int) string {
+	if depth > pairRedactionMaxDepth {
+		return text
+	}
 	return pairRedactRe.ReplaceAllStringFunc(text, func(match string) string {
 		parts := pairRedactRe.FindStringSubmatch(match)
-		if len(parts) != 4 || !sensitive[strings.ToLower(parts[1])] {
+		if len(parts) != 4 {
 			return match
 		}
-		return parts[1] + parts[2] + RedactedPlaceholder
+		if sensitive[strings.ToLower(parts[1])] {
+			return parts[1] + parts[2] + RedactedPlaceholder
+		}
+		scanned := redactPairsDepth(parts[3], sensitive, depth+1)
+		if scanned == parts[3] {
+			return match
+		}
+		return parts[1] + parts[2] + scanned
 	})
 }
 
@@ -222,7 +247,10 @@ func RedactURLForDisplay(rawURL string, sensitiveParams, sensitiveBodyFields, se
 	}
 	parsed, err := url.Parse(rawURL)
 	if err != nil {
-		return rawURL
+		// A malformed URL must never skip redaction (the reference's
+		// splitter tolerates malformed escapes): fall back to the blob
+		// redactor over the raw text.
+		return RedactBlobForDisplay(rawURL, sensitiveParams, sensitiveBodyFields, sensitiveHeaders)
 	}
 	sensitive := mergedSensitiveNames(sensitiveParams, mergeSensitiveLogBodyFields(sensitiveBodyFields), sensitiveHeaders)
 	changed := false
@@ -238,6 +266,14 @@ func RedactURLForDisplay(rawURL string, sensitiveParams, sensitiveBodyFields, se
 	}
 	if parsed.RawQuery != "" {
 		values, qerr := url.ParseQuery(parsed.RawQuery)
+		if qerr != nil {
+			// A malformed query string must not skip redaction either:
+			// pair-scan the raw segment.
+			if redacted := redactPairsInText(redactXMLElements(parsed.RawQuery, sensitive), sensitive); redacted != parsed.RawQuery {
+				parsed.RawQuery = redacted
+				changed = true
+			}
+		}
 		if qerr == nil {
 			queryChanged := false
 			for key := range values {
@@ -255,6 +291,14 @@ func RedactURLForDisplay(rawURL string, sensitiveParams, sensitiveBodyFields, se
 	if parsed.Path != "" {
 		if redacted := redactPairsInText(redactXMLElements(parsed.Path, sensitive), sensitive); redacted != parsed.Path {
 			parsed.Path = redacted
+			changed = true
+		}
+	}
+	// The fragment redacts like the query (the reference
+	// redact_url_for_display runs _redact_json_or_pairs_segment over both).
+	if parsed.Fragment != "" {
+		if redacted := redactPairsInText(redactXMLElements(parsed.Fragment, sensitive), sensitive); redacted != parsed.Fragment {
+			parsed.Fragment = redacted
 			changed = true
 		}
 	}
