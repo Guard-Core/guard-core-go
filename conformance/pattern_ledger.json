@@ -1,0 +1,827 @@
+{
+  "spec_version": "4.1.0",
+  "engine": "shipped engine: regexp2 v1.12.0 behind guardcore.compileRE (translatePattern rewrites \\Z to \\z) with the spec MatchTimeout; this ledger records the stdlib RE2 (regexp.Compile) posture of specs/impl/go.md option 1",
+  "how_to_regenerate": "go test ./conformance -run TestPatternLedger -update",
+  "counts": {
+    "as_is": 46,
+    "total": 71,
+    "translated": 3,
+    "unmatchable": 22
+  },
+  "entries": [
+    {
+      "pattern": "\"\\$(?:gt|gte|lt|lte|ne|eq|in|nin|all|mod)\"\\s*:\\s*(?:\"\"|null|\\{|\\[)",
+      "category": "nosql",
+      "status": "as_is",
+      "evidence_cases": [
+        "misc_injection::nosql_gt_empty"
+      ]
+    },
+    {
+      "pattern": "\"\\$(?:where|regex|expr|jsonSchema|function|accumulator|type|exists|size)\"\\s*:",
+      "category": "nosql",
+      "status": "as_is",
+      "evidence_cases": [
+        "misc_injection::nosql_where_sleep"
+      ]
+    },
+    {
+      "pattern": "(?:\u003c[A-Za-z/](?:[^\u003c\u003e]*[^\u003c\u003e\\s])?\\s+(?:href|src|data|action)\\s*=[\\s\\\"\\']*(?:javascript|vbscript|data):)",
+      "category": "xss",
+      "status": "as_is",
+      "evidence_cases": [
+        "xss::xss_anchor_href_data",
+        "xss::xss_form_action",
+        "xss::xss_iframe_javascript",
+        "xss::xss_object_data"
+      ]
+    },
+    {
+      "pattern": "(?:\u003c[A-Za-z/][^\u003c\u003e]*style\\s*=\\s{0,20}[\\\"']?[^\u003c\u003e\\\"']*(?:expression|behavior|url)\\s*\\([^)]*\\))",
+      "category": "xss",
+      "status": "as_is",
+      "evidence_cases": [
+        "xss::xss_style_expression"
+      ]
+    },
+    {
+      "pattern": "(?:\\.\\.\\/|\\.\\.\\\\)(?:\\.\\.\\/|\\.\\.\\\\)+",
+      "category": "dir_traversal",
+      "status": "as_is",
+      "evidence_cases": [
+        "binary_bodies::binary_attack_traversal_padding",
+        "boundaries::boundary_binary_noise_payload_gap_kept",
+        "context_matrix::ctx_trav_header",
+        "context_matrix::ctx_trav_query_param",
+        "context_matrix::ctx_trav_request_body",
+        "context_matrix::ctx_trav_unknown",
+        "context_matrix::ctx_trav_url_path",
+        "path_traversal::trav_deep_padding",
+        "path_traversal::trav_double_backslash",
+        "path_traversal::trav_double_dot_slash",
+        "path_traversal::trav_etc_shadow",
+        "path_traversal::trav_proc_self_env"
+      ]
+    },
+    {
+      "pattern": "(?:\\A|[;,:\\n])\\s*filename\\s*=\\s*[\\\"'][^\\\"']*\\.(?:php\\d*|phtml|shtml|asax|ascx|ashx|asmx|aspx|bash|jspx|phar|phps|asa|asp|bat|cer|cfc|cfm|cgi|cmd|com|exe|hta|jsp|msi|pht|vbe|vbs|war|wsf|js|pl|py|rb|sh|ws)[\\\"']",
+      "category": "file_upload",
+      "status": "as_is",
+      "evidence_cases": [
+        "binary_bodies::binary_attack_base64_fragmented_multipart",
+        "misc_injection::file_upload_php_ext"
+      ]
+    },
+    {
+      "pattern": "(?:__proto__|constructor)\\s*(?:\\[\\s*[\\\"']prototype[\\\"']\\s*\\]|\\.\\s*prototype)|[\\\"']__proto__[\\\"']\\s*:",
+      "category": "proto_pollution",
+      "status": "as_is",
+      "evidence_cases": [
+        "misc_injection::proto_pollution_dunder"
+      ]
+    },
+    {
+      "pattern": "(?:file|dict|gopher|jar|tftp)://[^\\s]+",
+      "category": "ssrf",
+      "status": "as_is",
+      "evidence_cases": [
+        "misc_injection::xml_xxe_file"
+      ]
+    },
+    {
+      "pattern": "(?:php|data|zip|rar|file|glob|expect|input|phpinfo|zlib|phar|ssh2|rar|ogg|expect)://[^\\s]+",
+      "category": "file_inclusion",
+      "status": "as_is",
+      "evidence_cases": [
+        "inclusion_sensitive_recon::incl_data_uri",
+        "inclusion_sensitive_recon::incl_expect_scheme",
+        "inclusion_sensitive_recon::incl_phar_stream",
+        "inclusion_sensitive_recon::incl_php_filter",
+        "inclusion_sensitive_recon::incl_zip_stream",
+        "misc_injection::xml_xxe_file"
+      ]
+    },
+    {
+      "pattern": "(?i)('\\s*(?:OR|AND)[\\s(]*'?(?:[@:$][A-Za-z_]\\w*|[\\d\\w]+)\\s*(?:LIKE|[\u003c\u003e]=?|=)[\\s(]*'?(?:[@:$][A-Za-z_]\\w*|[\\d\\w]+))",
+      "category": "sqli",
+      "status": "as_is",
+      "evidence_cases": [
+        "sqli::sqli_or_tautology",
+        "sqli::sqli_sqlite_version",
+        "sqli::sqli_union_password"
+      ]
+    },
+    {
+      "pattern": "(?i)(?:BENCHMARK\\s*\\(\\s*\\d+\\s*,)",
+      "category": "sqli",
+      "status": "as_is",
+      "evidence_cases": [
+        "sqli::sqli_benchmark"
+      ]
+    },
+    {
+      "pattern": "(?i)(?:LOAD_FILE\\s*\\([^)]+\\))",
+      "category": "sqli",
+      "status": "as_is",
+      "evidence_cases": [
+        "sqli::sqli_load_file"
+      ]
+    },
+    {
+      "pattern": "(?i)(?:OR|AND)\\s+(?:'[\\w\\d]*'='[\\w\\d]*'?|[@:$][A-Za-z_]\\w*\\s*=\\s*[@:$][A-Za-z_]\\w*)",
+      "category": "sqli",
+      "status": "as_is",
+      "evidence_cases": [
+        "encoding::enc_double_url_sqli",
+        "sqli::sqli_or_string_compare",
+        "sqli::sqli_url_encoded_quote"
+      ]
+    },
+    {
+      "pattern": "(?i)(?:SLEEP\\s*\\(\\s*\\d+\\s*\\))",
+      "category": "sqli",
+      "status": "as_is",
+      "evidence_cases": [
+        "misc_injection::nosql_where_sleep",
+        "sqli::sqli_pg_sleep",
+        "sqli::sqli_sleep"
+      ]
+    },
+    {
+      "pattern": "(?i)(?:\\A|[;'\\\"])\\s*EXEC(?:UTE)?\\s+(?:xp_\\w+|sp_\\w+)",
+      "category": "sqli",
+      "status": "as_is",
+      "evidence_cases": [
+        "sqli::sqli_xp_cmdshell"
+      ]
+    },
+    {
+      "pattern": "(?i)(UNION\\s+(?:ALL\\s+)?SELECT\\s+NULL(?:[,\\s]*NULL)*[,\\s]*|\\(\\s*SELECT\\s+(?:@@|VERSION))",
+      "category": "sqli",
+      "status": "as_is",
+      "evidence_cases": [
+        "sqli::sqli_union_select"
+      ]
+    },
+    {
+      "pattern": "(?i);\\s*(?:DROP|TRUNCATE|ALTER|CREATE)\\s+(?:TABLE|DATABASE|SCHEMA)\\b",
+      "category": "sqli",
+      "status": "as_is",
+      "evidence_cases": [
+        "binary_bodies::binary_attack_sqli_padding",
+        "sqli::sqli_drop_table"
+      ]
+    },
+    {
+      "pattern": "(?i);\\s*(?:INSERT\\s+INTO|UPDATE\\s+\\w+\\s+SET|DELETE\\s+FROM|SELECT\\b[^;]*?\\bFROM\\b|REPLACE\\s+INTO)\\b",
+      "category": "sqli",
+      "status": "as_is",
+      "evidence_cases": [
+        "sqli::sqli_update_set"
+      ]
+    },
+    {
+      "pattern": "(?i)\u003c%[=#]?[^%]*(?:system|exec|eval|`|Runtime|IO\\.|File\\.|Dir\\.|\\d+\\s*[-+*/]\\s*\\d+)[^%]*%\u003e",
+      "category": "template",
+      "status": "as_is",
+      "evidence_cases": [
+        "misc_injection::template_asp_eval"
+      ]
+    },
+    {
+      "pattern": "(?i)UNION\\s+(?:ALL\\s+)?SELECT",
+      "category": "sqli",
+      "status": "as_is",
+      "evidence_cases": [
+        "context_matrix::ctx_sqli_narrow_body",
+        "context_matrix::ctx_sqli_narrow_header",
+        "semantic::sem_structural_dense",
+        "sqli::sqli_double_query",
+        "sqli::sqli_information_schema",
+        "sqli::sqli_load_file",
+        "sqli::sqli_union_password",
+        "sqli::sqli_union_select"
+      ]
+    },
+    {
+      "pattern": "(?i)\\$\\{(?:jndi:(?:ldap|rmi|dns)://|\\$?\\{?(?:lower|upper):j\\}ndi|::-j\\}ndi)",
+      "category": "cmd_injection",
+      "status": "as_is",
+      "evidence_cases": [
+        "misc_injection::log4shell_jndi_dns",
+        "misc_injection::log4shell_jndi_ldap",
+        "misc_injection::log4shell_jndi_obfuscated"
+      ]
+    },
+    {
+      "pattern": "(?i)\\bEXEC(?:UTE)?\\s+(?:xp_\\w+|sp_\\w+)",
+      "category": "sqli",
+      "status": "as_is",
+      "evidence_cases": [
+        "sqli::sqli_xp_cmdshell"
+      ]
+    },
+    {
+      "pattern": "(?i)\\bWAITFOR\\s+(?:DELAY|TIME)\\s+'\\d{1,2}:\\d{1,2}:\\d{1,2}(?:\\.\\d+)?'",
+      "category": "sqli",
+      "status": "as_is",
+      "evidence_cases": [
+        "sqli::sqli_waitfor_delay"
+      ]
+    },
+    {
+      "pattern": "(?i)\\bWHERE\\s+[\\w.\"]+\\s*(?:=|\u003c|\u003e|\u003c=|\u003e=|LIKE|IN)\\b",
+      "category": "sqli",
+      "status": "as_is",
+      "evidence_cases": [
+        "semantic::sem_structural_dense",
+        "sqli::sqli_update_set"
+      ]
+    },
+    {
+      "pattern": "\u003c!(?:ENTITY|DOCTYPE)[^\u003e]+SYSTEM[^\u003e]+\u003e",
+      "category": "xml",
+      "status": "as_is",
+      "evidence_cases": [
+        "misc_injection::xml_xxe_file",
+        "misc_injection::xml_xxe_remote"
+      ]
+    },
+    {
+      "pattern": "\u003c!DOCTYPE[^\u003e\\[]*\\[[\\s\\S]*?\u003c!ENTITY",
+      "category": "xml",
+      "status": "as_is",
+      "evidence_cases": [
+        "misc_injection::xml_xxe_file",
+        "misc_injection::xml_xxe_remote"
+      ]
+    },
+    {
+      "pattern": "\u003cscript[^\u003e]*\u003e[^\u003c]*\u003c\\/script\\s*\u003e",
+      "category": "xss",
+      "status": "as_is",
+      "evidence_cases": [
+        "boundaries::boundary_attack_beyond_scan_limit",
+        "boundaries::boundary_attack_then_benign",
+        "boundaries::boundary_padded_attack",
+        "boundaries::boundary_split_signature",
+        "context_matrix::ctx_xss_header",
+        "context_matrix::ctx_xss_url_path",
+        "encoding::enc_base64_xss_payload",
+        "encoding::enc_mixed_encoding",
+        "encoding::enc_unicode_escape",
+        "semantic::sem_regex_plus_semantic_below_threshold",
+        "xss::xss_anchor_href_data",
+        "xss::xss_broken_tag_escape",
+        "xss::xss_encoded_script",
+        "xss::xss_html_entities",
+        "xss::xss_mixed_case",
+        "xss::xss_script_alert",
+        "xss::xss_src_doc"
+      ]
+    },
+    {
+      "pattern": "O:\\d+:\"",
+      "category": "deserialization",
+      "status": "as_is",
+      "evidence_cases": [
+        "misc_injection::deser_php_object"
+      ]
+    },
+    {
+      "pattern": "System\\.Diagnostics\\.Process\\.Start\\s*\\(|System\\.Reflection\\.|Assembly\\.Load\\s*\\(",
+      "category": "code_injection",
+      "status": "as_is",
+      "evidence_cases": [
+        "misc_injection::code_injection_system_diagnostics"
+      ]
+    },
+    {
+      "pattern": "[;|\u0026]\\s*(?:ls|cat|rm|id|whoami|uname|wget|curl|nc|netcat|socat|bash|sh|python|perl)\\b",
+      "category": "cmd_injection",
+      "status": "as_is",
+      "evidence_cases": [
+        "cmd_injection::cmdi_curl_sh",
+        "cmd_injection::cmdi_double_amp_rm",
+        "cmd_injection::cmdi_pipe_nc",
+        "cmd_injection::cmdi_semicolon_cat"
+      ]
+    },
+    {
+      "pattern": "[\\r\\n][^\\S\\r\\n]*(?:HTTP\\/[0-9.]+|Location:|Set-Cookie:)",
+      "category": "http_split",
+      "status": "as_is",
+      "evidence_cases": [
+        "misc_injection::http_split_crlf_cookie"
+      ]
+    },
+    {
+      "pattern": "\\$\\((?:[^()\\\\\\n]|\\\\.)*\\)|\\$\\{(?:[^{}\\\\\\n]|\\\\.)*\\}",
+      "category": "cmd_injection",
+      "status": "as_is",
+      "evidence_cases": [
+        "cmd_injection::cmdi_dollar_paren",
+        "cmd_injection::cmdi_ifs_obfuscation",
+        "misc_injection::log4shell_jndi_dns",
+        "misc_injection::log4shell_jndi_ldap",
+        "misc_injection::log4shell_jndi_obfuscated",
+        "misc_injection::template_dollar_brace"
+      ]
+    },
+    {
+      "pattern": "\\$\\{[^}]*(?:@[\\w.]+@|\\b\\w+\\s*\\(|\\d+\\s*[*/%+\\-]\\s*\\d+)[^}]*\\}",
+      "category": "template",
+      "status": "as_is",
+      "evidence_cases": [
+        "misc_injection::template_dollar_brace"
+      ]
+    },
+    {
+      "pattern": "\\([\\s]*[|\u0026][\\s]*\\([^)(]+=[*]",
+      "category": "ldap",
+      "status": "as_is",
+      "evidence_cases": [
+        "misc_injection::ldap_injection_uid"
+      ]
+    },
+    {
+      "pattern": "\\(\\s*[\u0026|]\\s*",
+      "category": "ldap",
+      "status": "as_is",
+      "evidence_cases": [
+        "misc_injection::ldap_injection_password",
+        "misc_injection::ldap_injection_uid"
+      ]
+    },
+    {
+      "pattern": "\\)\\s*\\(\\s*(?:[\u0026|!]|(?::)?(?:[a-zA-Z][\\w.-]*|\\d+(?:\\.\\d+)*)(?:;[\\w.-]+)*(?::[\\w.-]+)*\\s*:?[=~\u003c\u003e])",
+      "category": "ldap",
+      "status": "as_is",
+      "evidence_cases": [
+        "misc_injection::ldap_injection_uid"
+      ]
+    },
+    {
+      "pattern": "\\*\\)[|\u0026]?\\(+\\s*(?::)?(?:[a-zA-Z][\\w.-]*|\\d+(?:\\.\\d+)*)(?:;[\\w.-]+)*(?::[\\w.-]+)*\\s*:?=",
+      "category": "ldap",
+      "status": "as_is",
+      "evidence_cases": [
+        "misc_injection::ldap_injection_uid"
+      ]
+    },
+    {
+      "pattern": "\\*\\s*\\)+\\s*(?:[|\u0026!]\\s*)?\\(+\\s*(?:[\u0026|!]|(?::)?(?:[a-zA-Z][\\w.-]*|\\d+(?:\\.\\d+)*)(?:;[\\w.-]+)*(?::[\\w.-]+)*\\s*:?=)",
+      "category": "ldap",
+      "status": "as_is",
+      "evidence_cases": [
+        "misc_injection::ldap_injection_password",
+        "misc_injection::ldap_injection_uid"
+      ]
+    },
+    {
+      "pattern": "\\.\\.[\\\\/]",
+      "category": "path_traversal",
+      "status": "as_is",
+      "evidence_cases": [
+        "path_traversal::trav_double_encoded",
+        "path_traversal::trav_url_encoded"
+      ]
+    },
+    {
+      "pattern": "\\[\\$(?:where|gt|gte|lt|lte|ne|eq|regex|in|nin|nor|and|or|not|all|size|exists|type|mod|options|expr|function|elemMatch)\\]",
+      "category": "nosql",
+      "status": "as_is",
+      "evidence_cases": [
+        "misc_injection::nosql_ne_null"
+      ]
+    },
+    {
+      "pattern": "\\b(?:eval|system|exec|shell_exec|passthru|popen|proc_open|create_function)\\s*\\(",
+      "category": "cmd_injection",
+      "status": "as_is",
+      "evidence_cases": [
+        "binary_bodies::binary_attack_padded_webshell",
+        "binary_bodies::binary_attack_pickle_opcodes",
+        "cmd_injection::cmdi_eval_base64",
+        "cmd_injection::cmdi_node_child_process",
+        "cmd_injection::cmdi_python_exec",
+        "inclusion_sensitive_recon::incl_data_uri",
+        "misc_injection::code_injection_eval_request",
+        "misc_injection::deser_pickle_reduce",
+        "semantic::sem_regex_plus_semantic_below_threshold"
+      ]
+    },
+    {
+      "pattern": "\\bassert\\s*\\(\\s*\\$",
+      "category": "cmd_injection",
+      "status": "as_is",
+      "evidence_cases": [
+        "cmd_injection::cmdi_php_assert"
+      ]
+    },
+    {
+      "pattern": "__proto__\\s*(?:\\[|\\.)|\\[\\s*[\\\"']?__proto__[\\\"']?\\s*\\]|constructor\\s*\\[\\s*[\\\"']?prototype[\\\"']?\\s*\\]|\\[\\s*[\\\"']?constructor[\\\"']?\\s*\\]\\s*\\[\\s*[\\\"']?prototype[\\\"']?\\s*\\]",
+      "category": "proto_pollution",
+      "status": "as_is",
+      "evidence_cases": [
+        "misc_injection::proto_pollution_bracket"
+      ]
+    },
+    {
+      "pattern": "cos\\n",
+      "category": "deserialization",
+      "status": "as_is",
+      "evidence_cases": [
+        "binary_bodies::binary_attack_pickle_opcodes",
+        "misc_injection::deser_pickle_reduce"
+      ]
+    },
+    {
+      "pattern": "j[\\t\\r\\n]*a[\\t\\r\\n]*v[\\t\\r\\n]*a[\\t\\r\\n]*s[\\t\\r\\n]*c[\\t\\r\\n]*r[\\t\\r\\n]*i[\\t\\r\\n]*p[\\t\\r\\n]*t[\\t\\r\\n]*:\\s*[^\\s]+",
+      "category": "xss",
+      "status": "as_is",
+      "evidence_cases": [
+        "xss::xss_form_action",
+        "xss::xss_iframe_javascript",
+        "xss::xss_javascript_uri",
+        "xss::xss_object_data"
+      ]
+    },
+    {
+      "pattern": "javascript:\\s*[^\\s]+",
+      "category": "xss",
+      "status": "as_is",
+      "evidence_cases": [
+        "xss::xss_form_action",
+        "xss::xss_iframe_javascript",
+        "xss::xss_javascript_uri",
+        "xss::xss_object_data"
+      ]
+    },
+    {
+      "pattern": "'\\s*(?:[\\);]+\\s*)?--|'[\\);]*#(?:\\n|\\Z)",
+      "category": "sqli",
+      "status": "translated",
+      "translation": "'\\s*(?:[\\);]+\\s*)?--|'[\\);]*#(?:\\n|\\z)",
+      "construct": "\\Z (Python absolute end anchor) -\u003e \\z",
+      "evidence_cases": [
+        "sqli::sqli_comment_bypass",
+        "sqli::sqli_load_file",
+        "sqli::sqli_waitfor_delay",
+        "sqli::sqli_xp_cmdshell"
+      ],
+      "verified_on": [
+        "sqli::sqli_comment_bypass",
+        "sqli::sqli_load_file",
+        "sqli::sqli_waitfor_delay",
+        "sqli::sqli_xp_cmdshell"
+      ]
+    },
+    {
+      "pattern": "\\A[/\\\\]?(?:[\\w.\\-~%]+[/\\\\])*[\\w.\\-~%]*\\.(?:ts|tsx|jsx|py|rb|java|go|rs|php|pl|sh|sql)(?:[/\\\\][\\w.\\-~%]*)*(?:\\?\\S*)?\\s*\\Z",
+      "category": "sensitive_file",
+      "status": "translated",
+      "translation": "\\A[/\\\\]?(?:[\\w.\\-~%]+[/\\\\])*[\\w.\\-~%]*\\.(?:ts|tsx|jsx|py|rb|java|go|rs|php|pl|sh|sql)(?:[/\\\\][\\w.\\-~%]*)*(?:\\?\\S*)?\\s*\\z",
+      "construct": "\\Z (Python absolute end anchor) -\u003e \\z",
+      "evidence_cases": [
+        "inclusion_sensitive_recon::recon_joomla_installer",
+        "inclusion_sensitive_recon::recon_phpmyadmin",
+        "inclusion_sensitive_recon::recon_wp_admin",
+        "inclusion_sensitive_recon::recon_wp_login"
+      ],
+      "verified_on": [
+        "inclusion_sensitive_recon::recon_joomla_installer",
+        "inclusion_sensitive_recon::recon_phpmyadmin",
+        "inclusion_sensitive_recon::recon_wp_admin",
+        "inclusion_sensitive_recon::recon_wp_login"
+      ]
+    },
+    {
+      "pattern": "\\A\\s*(?:[;\u0026|]\\s*)*`\\s*(?:[A-Za-z0-9_./~]|\\$[({])(?:[^`\\\\\\n]|\\\\.)*(?:\\n\\s*)?`(?:\\s*[;\u0026|]\\s*`\\s*(?:[A-Za-z0-9_./~]|\\$[({])(?:[^`\\\\\\n]|\\\\.)*(?:\\n\\s*)?`)*\\s*(?:[;\u0026|]\\s*)*\\Z",
+      "category": "cmd_injection",
+      "status": "translated",
+      "translation": "\\A\\s*(?:[;\u0026|]\\s*)*`\\s*(?:[A-Za-z0-9_./~]|\\$[({])(?:[^`\\\\\\n]|\\\\.)*(?:\\n\\s*)?`(?:\\s*[;\u0026|]\\s*`\\s*(?:[A-Za-z0-9_./~]|\\$[({])(?:[^`\\\\\\n]|\\\\.)*(?:\\n\\s*)?`)*\\s*(?:[;\u0026|]\\s*)*\\z",
+      "construct": "\\Z (Python absolute end anchor) -\u003e \\z",
+      "evidence_cases": [
+        "cmd_injection::cmdi_backtick"
+      ],
+      "verified_on": [
+        "cmd_injection::cmdi_backtick"
+      ]
+    },
+    {
+      "pattern": "(?:\u003c[A-Za-z/](?:[^\u003c\u003e]*[^\u003c\u003e\\s/])?(?\u003c!=)(?\u003c!=\\\")(?\u003c!=')[\\s/]+(?:onwebkitplaybacktargetavailabilitychanged|oncontentvisibilityautostatechange|onwebkitpresentationmodechanged|onwebkitmouseforcewillbegin|onwebkitanimationiteration|onsecuritypolicyviolation|onwebkitmouseforcechanged|onvalidationstatuschange|onwebkitfullscreenchange|onwebkitwillrevealbottom|onwebkitanimationstart|onwebkitmouseforcedown|onbeforescriptexecute|onmozfullscreenchange|onwebkittransitionend|onafterscriptexecute|onanimationiteration|onlostpointercapture|onscrollsnapchanging|onunhandledrejection|onwebkitanimationend|onwebkitmouseforceup|ondeviceorientation|ongotpointercapture|onbeforedeactivate|onfullscreenchange|onpointerrawupdate|onreadystatechange|onrejectionhandled|onscrollsnapchange|ontransitioncancel|onanimationcancel|onbeforeeditfocus|oncontextrestored|ondatasetcomplete|onselectionchange|ontransitionstart|onanimationstart|onbeforeactivate|oncanplaythrough|ondatasetchanged|ondurationchange|onlanguagechange|onlayoutcomplete|onloadedmetadata|onpropertychange|oncontrolselect|ondataavailable|ongesturechange|onmediacomplete|onpointercancel|onpromptdismiss|ontransitionend|ontransitionrun|onwebkitneedkey|onanimationend|onbeforetoggle|onbeforeunload|onbeforeupdate|ondevicemotion|onfilterchange|ongesturestart|onmessageerror|onpointerenter|onpointerleave|onpromptaction|onsyncrestored|onvolumechange|onafterupdate|onbeforeinput|onbeforematch|onbeforepaste|onbeforeprint|oncontextlost|oncontextmenu|onerrorupdate|onlosecapture|onpointerdown|onpointermove|onpointerover|onresizestart|onrowinserted|onselectstart|ontouchcancel|ontrackchange|onafterprint|onbeforecopy|oncellchange|ondeactivate|ongestureend|onhashchange|onloadeddata|onmediaerror|onmouseenter|onmouseleave|onmousewheel|onpagereveal|onpointerout|onratechange|onslotchange|ontimeupdate|ontouchstart|onbeforecut|oncuechange|ondragenter|ondragleave|ondragstart|onloadstart|onmousedown|onmousemove|onmouseover|onmovestart|onoutofsync|onpointerup|onresizeend|onrowdelete|onrowsenter|onscrollend|ontimeerror|ontouchmove|onactivate|onauxclick|ondblclick|ondragdrop|ondragexit|ondragover|onfocusout|onformdata|onkeypress|onlocation|onmouseout|onpagehide|onpageshow|onpageswap|onpopstate|onprogress|ontouchend|oncanplay|oncommand|ondragend|onemptied|onfocusin|oninvalid|onkeydown|onmessage|onmouseup|onmoveend|onoffline|onplaying|onreverse|onrowexit|onseeking|onstalled|onstorage|onsuspend|onurlflip|onwaiting|onbounce|oncancel|onchange|onfinish|ononline|onrepeat|onresize|onresume|onscroll|onsearch|onseeked|onselect|onsubmit|ontoggle|onunload|onabort|onbegin|onclick|onclose|onended|onerror|onfocus|oninput|onkeyup|onpaste|onpause|onreset|onstart|onwheel|onblur|oncopy|ondrag|ondrop|onhelp|onload|onmove|onplay|onredo|onseek|onstop|onundo|oncut|onend)\\s*=\\s{0,20}(?:[\\\"'][^\\\"']*[\\\"']|[^\\s\u003e]+))",
+      "category": "xss",
+      "status": "unmatchable",
+      "constructs": [
+        "negative lookbehind (?\u003c!...)"
+      ],
+      "evidence_cases": [
+        "semantic::sem_regex_plus_semantic_below_threshold",
+        "xss::xss_body_onload",
+        "xss::xss_details_ontoggle",
+        "xss::xss_event_handler_nested_quote",
+        "xss::xss_img_onerror",
+        "xss::xss_input_autofocus",
+        "xss::xss_marquee_onstart",
+        "xss::xss_select_onchange",
+        "xss::xss_svg_onload",
+        "xss::xss_video_source"
+      ],
+      "detection_limit": "RE2 cannot compile this pattern (negative lookbehind (?\u003c!...)): an RE2-only engine would not run it and matches depending on those constructs (the listed evidence cases) would go undetected there. The shipped engine compiles it via regexp2 with the spec MatchTimeout; this entry documents the RE2 posture of specs/impl/go.md option 1, not a shipped detection gap."
+    },
+    {
+      "pattern": "(?:\\A|[;,:\\n])\\s*filename\\s*=\\s*[\\\"'][^\\\"']*\\.(?:php\\d*|phtml|shtml|asax|ascx|ashx|asmx|aspx|bash|jspx|phar|phps|asa|asp|bat|cer|cfc|cfm|cgi|cmd|exe|hta|jsp|msi|pht|vbe|vbs|war|wsf|js|pl|py|rb|sh|ws)(?![A-Za-z0-9])(?:[^ \\\"'][^\\\"']*)?\\.(?:docx|jpeg|pptx|tiff|webm|webp|xlsx|avi|bmp|doc|gif|ico|jpg|mkv|mov|mp3|mp4|odt|pdf|png|ppt|svg|tif|wav|xls)[\\\"']",
+      "category": "file_upload",
+      "status": "unmatchable",
+      "constructs": [
+        "negative lookahead (?!...)"
+      ],
+      "evidence_cases": [
+        "misc_injection::file_upload_double_ext"
+      ],
+      "detection_limit": "RE2 cannot compile this pattern (negative lookahead (?!...)): an RE2-only engine would not run it and matches depending on those constructs (the listed evidence cases) would go undetected there. The shipped engine compiles it via regexp2 with the spec MatchTimeout; this entry documents the RE2 posture of specs/impl/go.md option 1, not a shipped detection gap."
+    },
+    {
+      "pattern": "(?:\\A|[;|\u0026])\\s*/?(?:[\\w.-]+/)*(?:env\\s+/?(?:[\\w.-]+/)*)?(?:bash|sh|ksh|csh|tsch|zsh|ash)\\s+-[a-zA-Z]+(?:\\s+(?:'[^']*'|\\\"[^\\\"]*\\\"|[^\\s;|\u0026]+))?(?=\\s*(?:[;|\u0026]|\\Z))",
+      "category": "cmd_injection",
+      "status": "unmatchable",
+      "constructs": [
+        "positive lookahead (?=...)"
+      ],
+      "evidence_cases": [
+        "cmd_injection::cmdi_bash_dash_c"
+      ],
+      "detection_limit": "RE2 cannot compile this pattern (positive lookahead (?=...)): an RE2-only engine would not run it and matches depending on those constructs (the listed evidence cases) would go undetected there. The shipped engine compiles it via regexp2 with the spec MatchTimeout; this entry documents the RE2 posture of specs/impl/go.md option 1, not a shipped detection gap."
+    },
+    {
+      "pattern": "(?:^|\\s|/)(?:(?\u003c=://)[^\\s/@]*@)?(?:localhost\\.?|127\\.0\\.0\\.1|0\\.0\\.0\\.0|\\[::(?:\\d*)\\]|\\[::ffff:127\\.0\\.0\\.1\\]|169\\.254(?:\\.\\d{1,3}){2}|192\\.168(?:\\.\\d{1,3}){2}|10(?:\\.\\d{1,3}){3}|172\\.(?:1[6-9]|2[0-9]|3[01])(?:\\.\\d{1,3}){2}|metadata\\.google\\.internal|metadata\\.goog|100\\.100\\.100\\.200)(?::\\d+)?(?:\\s|$|/)",
+      "category": "ssrf",
+      "status": "unmatchable",
+      "constructs": [
+        "positive lookbehind (?\u003c=...)"
+      ],
+      "evidence_cases": [
+        "cmd_injection::cmdi_curl_sh",
+        "cmd_injection::cmdi_newline_wget",
+        "cmd_injection::cmdi_pipe_nc",
+        "inclusion_sensitive_recon::incl_remote_http",
+        "misc_injection::log4shell_jndi_ldap",
+        "misc_injection::log4shell_jndi_obfuscated",
+        "misc_injection::xml_xxe_remote"
+      ],
+      "detection_limit": "RE2 cannot compile this pattern (positive lookbehind (?\u003c=...)): an RE2-only engine would not run it and matches depending on those constructs (the listed evidence cases) would go undetected there. The shipped engine compiles it via regexp2 with the spec MatchTimeout; this entry documents the RE2 posture of specs/impl/go.md option 1, not a shipped detection gap."
+    },
+    {
+      "pattern": "(?\u003c![A-Za-z0-9+/])(?-i:rO0AB)",
+      "category": "deserialization",
+      "status": "unmatchable",
+      "constructs": [
+        "negative lookbehind (?\u003c!...)"
+      ],
+      "evidence_cases": [
+        "misc_injection::deser_java_base64"
+      ],
+      "detection_limit": "RE2 cannot compile this pattern (negative lookbehind (?\u003c!...)): an RE2-only engine would not run it and matches depending on those constructs (the listed evidence cases) would go undetected there. The shipped engine compiles it via regexp2 with the spec MatchTimeout; this entry documents the RE2 posture of specs/impl/go.md option 1, not a shipped detection gap."
+    },
+    {
+      "pattern": "(?\u003c!`)`(?:[A-Za-z0-9_./~]|\\$[({])(?:[^`\\\\\\n]|\\\\.)*`",
+      "category": "cmd_injection",
+      "status": "unmatchable",
+      "constructs": [
+        "negative lookbehind (?\u003c!...)"
+      ],
+      "evidence_cases": [
+        "binary_bodies::binary_text_backtick_embedded_sample0",
+        "binary_bodies::binary_text_backtick_embedded_sample1",
+        "binary_bodies::binary_text_backtick_embedded_sample2"
+      ],
+      "detection_limit": "RE2 cannot compile this pattern (negative lookbehind (?\u003c!...)): an RE2-only engine would not run it and matches depending on those constructs (the listed evidence cases) would go undetected there. The shipped engine compiles it via regexp2 with the spec MatchTimeout; this entry documents the RE2 posture of specs/impl/go.md option 1, not a shipped detection gap."
+    },
+    {
+      "pattern": "(?i)\\b(?:OR|AND)\\s*(\\d+|'[^']*'|\\\"[^\\\"]*\\\"|[@:$][A-Za-z_]\\w*)\\s*=\\s*\\1\\b",
+      "category": "sqli",
+      "status": "unmatchable",
+      "constructs": [
+        "backreference (\\1)"
+      ],
+      "evidence_cases": [
+        "sqli::sqli_or_tautology",
+        "sqli::sqli_sqlite_version"
+      ],
+      "detection_limit": "RE2 cannot compile this pattern (backreference (\\1)): an RE2-only engine would not run it and matches depending on those constructs (the listed evidence cases) would go undetected there. The shipped engine compiles it via regexp2 with the spec MatchTimeout; this entry documents the RE2 posture of specs/impl/go.md option 1, not a shipped detection gap."
+    },
+    {
+      "pattern": "(?i)\\bSELECT\\b(?:(?!\\bSELECT\\b)[\\w\\s,\\*().])*?\\bFROM\\b",
+      "category": "sqli",
+      "status": "unmatchable",
+      "constructs": [
+        "negative lookahead (?!...)"
+      ],
+      "evidence_cases": [
+        "context_matrix::ctx_sqli_narrow_body",
+        "context_matrix::ctx_sqli_narrow_header",
+        "semantic::sem_structural_dense",
+        "sqli::sqli_double_query",
+        "sqli::sqli_information_schema",
+        "sqli::sqli_union_password"
+      ],
+      "detection_limit": "RE2 cannot compile this pattern (negative lookahead (?!...)): an RE2-only engine would not run it and matches depending on those constructs (the listed evidence cases) would go undetected there. The shipped engine compiles it via regexp2 with the spec MatchTimeout; this entry documents the RE2 posture of specs/impl/go.md option 1, not a shipped detection gap."
+    },
+    {
+      "pattern": "(c[A-Za-z_][A-Za-z0-9_]{0,100}(?:\\.[A-Za-z_][A-Za-z0-9_]{0,100}){0,20}\\n[A-Za-z_][A-Za-z0-9_]{0,100}\\n)[^ \\t]{0,100}?[Rb]",
+      "category": "deserialization",
+      "status": "unmatchable",
+      "constructs": [
+        "repeat-size limit (RE2 rejects: error parsing regexp: invalid repeat count: `{0,20}`)"
+      ],
+      "evidence_cases": [
+        "misc_injection::deser_pickle_reduce"
+      ],
+      "detection_limit": "RE2 cannot compile this pattern (repeat-size limit (RE2 rejects: error parsing regexp: invalid repeat count: `{0,20}`)): an RE2-only engine would not run it and matches depending on those constructs (the listed evidence cases) would go undetected there. The shipped engine compiles it via regexp2 with the spec MatchTimeout; this entry documents the RE2 posture of specs/impl/go.md option 1, not a shipped detection gap."
+    },
+    {
+      "pattern": "://(?:[^/@\\s]*@)?((?:0[xX][0-9a-fA-F]+|0[0-7]+|[1-9]\\d*|0)(?:\\.(?:0[xX][0-9a-fA-F]+|0[0-7]+|[1-9]\\d*|0)){0,3})(?=[:/\\s]|$)",
+      "category": "ssrf",
+      "status": "unmatchable",
+      "constructs": [
+        "positive lookahead (?=...)"
+      ],
+      "evidence_cases": [
+        "cmd_injection::cmdi_curl_sh",
+        "cmd_injection::cmdi_newline_wget",
+        "inclusion_sensitive_recon::incl_remote_http",
+        "misc_injection::log4shell_jndi_ldap",
+        "misc_injection::log4shell_jndi_obfuscated",
+        "misc_injection::xml_xxe_remote"
+      ],
+      "detection_limit": "RE2 cannot compile this pattern (positive lookahead (?=...)): an RE2-only engine would not run it and matches depending on those constructs (the listed evidence cases) would go undetected there. The shipped engine compiles it via regexp2 with the spec MatchTimeout; this entry documents the RE2 posture of specs/impl/go.md option 1, not a shipped detection gap."
+    },
+    {
+      "pattern": "\\A(?:(?!\\n).)*(?:boot\\.ini|win\\.ini|system\\.ini|config\\.sys)(?:[\u0026#;,\\\"'\u003c\u003e]|\\s*\\Z)",
+      "category": "dir_traversal",
+      "status": "unmatchable",
+      "constructs": [
+        "negative lookahead (?!...)"
+      ],
+      "evidence_cases": [
+        "path_traversal::trav_double_backslash",
+        "path_traversal::trav_windows_ini"
+      ],
+      "detection_limit": "RE2 cannot compile this pattern (negative lookahead (?!...)): an RE2-only engine would not run it and matches depending on those constructs (the listed evidence cases) would go undetected there. The shipped engine compiles it via regexp2 with the spec MatchTimeout; this entry documents the RE2 posture of specs/impl/go.md option 1, not a shipped detection gap."
+    },
+    {
+      "pattern": "\\A(?:(?!\\n).)*etc/(?:passwd|shadow|group|hosts|motd|issue|mysql/my\\.cnf|ssh/ssh_config)(?:[\u0026#;,\\\"'\u003c\u003e]|\\s*\\Z)",
+      "category": "dir_traversal",
+      "status": "unmatchable",
+      "constructs": [
+        "negative lookahead (?!...)"
+      ],
+      "evidence_cases": [
+        "boundaries::boundary_binary_noise_payload_gap_kept",
+        "cmd_injection::cmdi_ifs_obfuscation",
+        "cmd_injection::cmdi_semicolon_cat",
+        "context_matrix::ctx_trav_header",
+        "context_matrix::ctx_trav_query_param",
+        "context_matrix::ctx_trav_request_body",
+        "context_matrix::ctx_trav_unknown",
+        "context_matrix::ctx_trav_url_path",
+        "encoding::enc_base64_cmd_payload",
+        "misc_injection::deser_php_object",
+        "misc_injection::xml_xxe_file",
+        "path_traversal::trav_absolute_etc",
+        "path_traversal::trav_deep_padding",
+        "path_traversal::trav_dots_repetition",
+        "path_traversal::trav_double_dot_slash",
+        "path_traversal::trav_double_encoded",
+        "path_traversal::trav_etc_shadow",
+        "path_traversal::trav_url_encoded",
+        "sqli::sqli_load_file"
+      ],
+      "detection_limit": "RE2 cannot compile this pattern (negative lookahead (?!...)): an RE2-only engine would not run it and matches depending on those constructs (the listed evidence cases) would go undetected there. The shipped engine compiles it via regexp2 with the spec MatchTimeout; this entry documents the RE2 posture of specs/impl/go.md option 1, not a shipped detection gap."
+    },
+    {
+      "pattern": "\\A(?:(?!\\n).)*proc/self/environ(?:[\u0026#;,\\\"'\u003c\u003e]|\\s*\\Z)",
+      "category": "dir_traversal",
+      "status": "unmatchable",
+      "constructs": [
+        "negative lookahead (?!...)"
+      ],
+      "evidence_cases": [
+        "path_traversal::trav_proc_self_env"
+      ],
+      "detection_limit": "RE2 cannot compile this pattern (negative lookahead (?!...)): an RE2-only engine would not run it and matches depending on those constructs (the listed evidence cases) would go undetected there. The shipped engine compiles it via regexp2 with the spec MatchTimeout; this entry documents the RE2 posture of specs/impl/go.md option 1, not a shipped detection gap."
+    },
+    {
+      "pattern": "\\A[/\\\\](?:(?!(?:management|config_dump|credentials|system[/\\\\]version|version[/\\\\]system)(?:[/\\\\]|\\Z))[\\w.\\-~%]+[/\\\\])*(?:management|config_dump|credentials|system[/\\\\]version|version[/\\\\]system)(?:[/\\\\][\\w.\\-~%]*)*(?:\\?\\S*)?\\s*\\Z",
+      "category": "recon",
+      "status": "unmatchable",
+      "constructs": [
+        "negative lookahead (?!...)"
+      ],
+      "evidence_cases": [
+        "inclusion_sensitive_recon::sensitive_aws_credentials"
+      ],
+      "detection_limit": "RE2 cannot compile this pattern (negative lookahead (?!...)): an RE2-only engine would not run it and matches depending on those constructs (the listed evidence cases) would go undetected there. The shipped engine compiles it via regexp2 with the spec MatchTimeout; this entry documents the RE2 posture of specs/impl/go.md option 1, not a shipped detection gap."
+    },
+    {
+      "pattern": "\\A[/\\\\]?(?:(?!(?:\\.htaccess|\\.htpasswd|\\.DS_Store|Thumbs\\.db|\\.npmrc|\\.dockerenv|web\\.config)(?:[/\\\\]|\\Z))[\\w.\\-~%]+[/\\\\])*(?:\\.htaccess|\\.htpasswd|\\.DS_Store|Thumbs\\.db|\\.npmrc|\\.dockerenv|web\\.config)(?:[/\\\\][\\w.\\-~%]*)*(?:\\?\\S*)?\\s*\\Z",
+      "category": "cms_probing",
+      "status": "unmatchable",
+      "constructs": [
+        "negative lookahead (?!...)"
+      ],
+      "evidence_cases": [
+        "inclusion_sensitive_recon::sensitive_htpasswd"
+      ],
+      "detection_limit": "RE2 cannot compile this pattern (negative lookahead (?!...)): an RE2-only engine would not run it and matches depending on those constructs (the listed evidence cases) would go undetected there. The shipped engine compiles it via regexp2 with the spec MatchTimeout; this entry documents the RE2 posture of specs/impl/go.md option 1, not a shipped detection gap."
+    },
+    {
+      "pattern": "\\A[/\\\\]?(?:(?!(?:actuator|server-status|telescope)(?:[/\\\\]|\\Z))[\\w.\\-~%]+[/\\\\])*(?:actuator|server-status|telescope)(?:[/\\\\][\\w.\\-~%]*)*(?:\\?\\S*)?\\s*\\Z",
+      "category": "recon",
+      "status": "unmatchable",
+      "constructs": [
+        "negative lookahead (?!...)"
+      ],
+      "evidence_cases": [
+        "inclusion_sensitive_recon::recon_actuator",
+        "inclusion_sensitive_recon::recon_server_status"
+      ],
+      "detection_limit": "RE2 cannot compile this pattern (negative lookahead (?!...)): an RE2-only engine would not run it and matches depending on those constructs (the listed evidence cases) would go undetected there. The shipped engine compiles it via regexp2 with the spec MatchTimeout; this entry documents the RE2 posture of specs/impl/go.md option 1, not a shipped detection gap."
+    },
+    {
+      "pattern": "\\A[/\\\\]?(?:(?!(?:wp-(?:admin|login|content|includes|config)|administrator|xmlrpc)\\.?(?:php)?(?:[/\\\\]|\\Z))[\\w.\\-~%]+[/\\\\])*(?:wp-(?:admin|login|content|includes|config)|administrator|xmlrpc)\\.?(?:php)?(?:[/\\\\][\\w.\\-~%]*)*(?:\\?\\S*)?\\s*\\Z",
+      "category": "cms_probing",
+      "status": "unmatchable",
+      "constructs": [
+        "negative lookahead (?!...)"
+      ],
+      "evidence_cases": [
+        "inclusion_sensitive_recon::recon_wp_admin",
+        "inclusion_sensitive_recon::recon_wp_login"
+      ],
+      "detection_limit": "RE2 cannot compile this pattern (negative lookahead (?!...)): an RE2-only engine would not run it and matches depending on those constructs (the listed evidence cases) would go undetected there. The shipped engine compiles it via regexp2 with the spec MatchTimeout; this entry documents the RE2 posture of specs/impl/go.md option 1, not a shipped detection gap."
+    },
+    {
+      "pattern": "\\A[/\\\\]?(?:(?![\\w.\\-~%]*\\.(?:bak|backup|old|orig|save|swp|swo|tmp|temp)(?:[/\\\\]|\\Z))[\\w.\\-~%]+[/\\\\])*[\\w.\\-~%]*\\.(?:bak|backup|old|orig|save|swp|swo|tmp|temp)(?:[/\\\\][\\w.\\-~%]*)*(?:\\?\\S*)?\\s*\\Z",
+      "category": "cms_probing",
+      "status": "unmatchable",
+      "constructs": [
+        "negative lookahead (?!...)"
+      ],
+      "evidence_cases": [
+        "inclusion_sensitive_recon::sensitive_config_bak"
+      ],
+      "detection_limit": "RE2 cannot compile this pattern (negative lookahead (?!...)): an RE2-only engine would not run it and matches depending on those constructs (the listed evidence cases) would go undetected there. The shipped engine compiles it via regexp2 with the spec MatchTimeout; this entry documents the RE2 posture of specs/impl/go.md option 1, not a shipped detection gap."
+    },
+    {
+      "pattern": "\\A[/\\\\]?(?:(?!\\.(?:git|svn|hg|bzr)(?:[/\\\\]|\\Z))[\\w.\\-~%]+[/\\\\])*\\.(?:git|svn|hg|bzr)(?:[/\\\\][\\w.\\-~%]*)*(?:\\?\\S*)?\\s*\\Z",
+      "category": "sensitive_file",
+      "status": "unmatchable",
+      "constructs": [
+        "negative lookahead (?!...)"
+      ],
+      "evidence_cases": [
+        "inclusion_sensitive_recon::sensitive_git_config"
+      ],
+      "detection_limit": "RE2 cannot compile this pattern (negative lookahead (?!...)): an RE2-only engine would not run it and matches depending on those constructs (the listed evidence cases) would go undetected there. The shipped engine compiles it via regexp2 with the spec MatchTimeout; this entry documents the RE2 posture of specs/impl/go.md option 1, not a shipped detection gap."
+    },
+    {
+      "pattern": "\\A[/\\\\]?(?:(?!\\.env(?:\\.\\w+)?(?:[/\\\\]|\\Z))[\\w.\\-~%]+[/\\\\])*\\.env(?:\\.\\w+)?(?:[/\\\\][\\w.\\-~%]*)*(?:\\?\\S*)?\\s*\\Z",
+      "category": "sensitive_file",
+      "status": "unmatchable",
+      "constructs": [
+        "negative lookahead (?!...)"
+      ],
+      "evidence_cases": [
+        "inclusion_sensitive_recon::sensitive_env_file"
+      ],
+      "detection_limit": "RE2 cannot compile this pattern (negative lookahead (?!...)): an RE2-only engine would not run it and matches depending on those constructs (the listed evidence cases) would go undetected there. The shipped engine compiles it via regexp2 with the spec MatchTimeout; this entry documents the RE2 posture of specs/impl/go.md option 1, not a shipped detection gap."
+    },
+    {
+      "pattern": "\\w/\\*(?!!)[^*]*\\*/\\w",
+      "category": "sqli",
+      "status": "unmatchable",
+      "constructs": [
+        "negative lookahead (?!...)"
+      ],
+      "evidence_cases": [
+        "sqli::sqli_inline_comment_obfuscation"
+      ],
+      "detection_limit": "RE2 cannot compile this pattern (negative lookahead (?!...)): an RE2-only engine would not run it and matches depending on those constructs (the listed evidence cases) would go undetected there. The shipped engine compiles it via regexp2 with the spec MatchTimeout; this entry documents the RE2 posture of specs/impl/go.md option 1, not a shipped detection gap."
+    },
+    {
+      "pattern": "\\{\\{(?![^\\}]*\\d{4}-\\d{1,2}-\\d{1,2}(?!\\d))(?=[^\\}]*(?:@[\\w.]+@|\\b\\w+\\(\\s*\\)|['\\\"]?\\d+['\\\"]?\\s*[*/%+\\-]\\s*['\\\"]?\\d+['\\\"]?))[^\\}]*\\}\\}",
+      "category": "template",
+      "status": "unmatchable",
+      "constructs": [
+        "negative lookahead (?!...)",
+        "positive lookahead (?=...)"
+      ],
+      "evidence_cases": [
+        "misc_injection::template_jinja_expr"
+      ],
+      "detection_limit": "RE2 cannot compile this pattern (negative lookahead (?!...), positive lookahead (?=...)): an RE2-only engine would not run it and matches depending on those constructs (the listed evidence cases) would go undetected there. The shipped engine compiles it via regexp2 with the spec MatchTimeout; this entry documents the RE2 posture of specs/impl/go.md option 1, not a shipped detection gap."
+    }
+  ]
+}
