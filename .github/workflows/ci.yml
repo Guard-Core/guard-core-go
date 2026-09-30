@@ -56,6 +56,10 @@ jobs:
 
       - name: go vet
         run: go vet ./...
+      - name: staticcheck
+        run: |
+          GOTOOLCHAIN=auto go install honnef.co/go/tools/cmd/staticcheck@latest
+          staticcheck ./...
 
       - name: go test (unit)
         run: go test ./...
