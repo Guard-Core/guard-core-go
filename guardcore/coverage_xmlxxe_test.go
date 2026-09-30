@@ -28,43 +28,6 @@ func TestFirstAtOrAfter(t *testing.T) {
 	}
 }
 
-func TestXMLSystemFinditer(t *testing.T) {
-	// A SYSTEM keyword inside an ENTITY/DOCTYPE declaration is flagged.
-	t1 := newScanText("<ENTITY a SYSTEM b>")
-	got := xmlSystemFinditer(t1)
-	if len(got) != 1 || got[0].text() != "<ENTITY a SYSTEM b>" {
-		t.Fatalf("system entity must match once, got %v", got)
-	}
-	// Two independent declarations both match.
-	t2 := newScanText("<ENTITY a SYSTEM b><ENTITY c SYSTEM d>")
-	got = xmlSystemFinditer(t2)
-	if len(got) != 2 {
-		t.Fatalf("both declarations must match, got %d", len(got))
-	}
-	// A second prefix opening before the first declaration closed is
-	// consumed by the first match's span.
-	t3 := newScanText("<ENTITY a<ENTITY c SYSTEM d>")
-	got = xmlSystemFinditer(t3)
-	if len(got) != 1 || got[0].start() != 0 {
-		t.Fatalf("overlapping prefixes fold into one match, got %v", got)
-	}
-	// Declarations without the SYSTEM keyword are ignored.
-	if got := xmlSystemFinditer(newScanText("<ENTITY x>")); len(got) != 0 {
-		t.Fatalf("plain entities must not match, got %v", got)
-	}
-	if got := xmlSystemFinditer(newScanText("<ENTITY a b c>")); len(got) != 0 {
-		t.Fatalf("entities without SYSTEM must not match, got %v", got)
-	}
-	// A prefix with no closing angle bracket ends the scan quietly.
-	if got := xmlSystemFinditer(newScanText("<ENTITY a SYSTEM b><ENTITY x SYSTEM")); len(got) != 1 {
-		t.Fatalf("trailing unterminated prefix must keep earlier matches, got %d", len(got))
-	}
-	// No prefix at all.
-	if got := xmlSystemFinditer(newScanText("plain text")); len(got) != 0 {
-		t.Fatalf("plain text must not match, got %v", got)
-	}
-}
-
 func TestXMLInternalEntityFinditer(t *testing.T) {
 	// A DOCTYPE with an internal subset containing an ENTITY is flagged.
 	t1 := newScanText("<!DOCTYPE x [<!ENTITY a SYSTEM \"b\">]>")

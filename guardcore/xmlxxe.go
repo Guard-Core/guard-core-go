@@ -12,9 +12,6 @@ var xmlSchemeRE = mustCompile(`https?://`, regexp2.IgnoreCase, windowTimeout)
 var xmlW3OrgRE = mustCompile(`(?:www\.)?w3\.org/`, regexp2.IgnoreCase, windowTimeout)
 var xmlClass12RE = mustCompile(`[>\[]`, 0, windowTimeout)
 var xmlClass3RE = mustCompile(`["'>]`, 0, windowTimeout)
-var xmlGTRE = mustCompile(`>`, 0, windowTimeout)
-var xmlSystemPrefixRE = mustCompile(`<(?:ENTITY|DOCTYPE)`, regexp2.IgnoreCase, windowTimeout)
-var xmlSystemKeywordRE = mustCompile(`SYSTEM`, regexp2.IgnoreCase, windowTimeout)
 var xmlEntityPrefixRE = mustCompile(`<!ENTITY`, regexp2.IgnoreCase, windowTimeout)
 
 func firstAtOrAfter(sorted []int, floor int) (int, bool) {
@@ -23,31 +20,6 @@ func firstAtOrAfter(sorted []int, floor int) (int, bool) {
 		return 0, false
 	}
 	return sorted[idx], true
-}
-
-func xmlSystemFinditer(t scanText) []rmatch {
-	var ends []int
-	for _, m := range findAllMatches(xmlGTRE, t) {
-		ends = append(ends, m.start())
-	}
-	var out []rmatch
-	lastEnd := 0
-	for _, prefix := range findAllMatches(xmlSystemPrefixRE, t) {
-		if prefix.start() < lastEnd {
-			continue
-		}
-		end, ok := firstAtOrAfter(ends, prefix.end())
-		if !ok {
-			return out
-		}
-		lastEnd = end + 1
-		sub := scanText{s: t.str(prefix.end()+1, end-1), rs: t.rs[prefix.end()+1 : end-1], n: end - 1 - prefix.end() - 1}
-		if len(findAllMatches(xmlSystemKeywordRE, sub)) == 0 {
-			continue
-		}
-		out = append(out, matchFromIndices(t, prefix.start(), lastEnd, ""))
-	}
-	return out
 }
 
 func xmlInternalEntityFinditer(t scanText) []rmatch {
