@@ -236,6 +236,13 @@ guardcore/pipeline.go:1250
 guardcore/pipeline.go:1252
 guardcore/pipeline.go:1258
 guardcore/pipeline.go:1260
+# go 1.26 splits the function one line earlier than the local toolchain
+# (same proof as above).
+guardcore/pipeline.go:1245
+guardcore/pipeline.go:1248
+guardcore/pipeline.go:1254
+guardcore/pipeline.go:1256
+guardcore/pipeline.go:1253
 # buildChecks nil-build fallback: every spec in the table defines build, so
 # spec.build == nil cannot hold.
 guardcore/pipeline.go:1230
