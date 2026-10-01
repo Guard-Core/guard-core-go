@@ -2,6 +2,7 @@ package guardcore
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"slices"
@@ -161,6 +162,7 @@ func (e *Engine) Check(req Request) *Response {
 	if state != nil {
 		state.PipelineStartedAt = time.Now()
 	}
+	e.detectIPSpoofing(req)
 	if e.CORS != nil && IsPreflight(req) {
 		// The reference dispatch runs the preflight branch before the
 		// passthrough handler marks the request exclusion-scoped, so the
@@ -173,8 +175,20 @@ func (e *Engine) Check(req Request) *Response {
 	}
 	if e.exclusions.matches(req.URLPath()) {
 		state.ExclusionScoped = true
+		// Reference RequestValidator.is_path_excluded: the path_excluded
+		// event rides once per path per TTL window (the validator's
+		// _path_excluded_event_cache dedups repeat emissions).
+		e.emitPathExcludedEvent(req)
 	}
 	if routeConfig := e.Routes.Get(state.GuardRouteID); routeConfig != nil && routeConfig.HasBypass("all") && !e.Config.PassiveMode {
+		// Reference BypassHandler.handle_security_bypass: the all-checks
+		// bypass announces itself before the passthrough.
+		emitBusEvent(e.Config, EventSecurityBypass, req, "all_checks_bypassed",
+			"Route configured to bypass all security checks",
+			map[string]any{
+				"bypassed_checks": routeConfig.BypassedChecks,
+				"endpoint":        redactEndpointForDisplay(req.URLPath(), e.Config),
+			})
 		return nil
 	}
 	resp := e.pipeline.Execute(req)
@@ -267,6 +281,61 @@ type exclusionMatcher struct {
 	cfg     *SecurityConfig
 	source  []string
 	entries []string
+	// emittedPaths is the reference _path_excluded_event_cache: one
+	// path_excluded event per path per TTL window (TTLCache(1000, 300)).
+	emittedPaths map[string]time.Time
+}
+
+// detectIPSpoofing mirrors _utils/ip_extraction.py's untrusted-proxy arm:
+// an X-Forwarded-For chain on a request whose connecting address is not a
+// configured trusted proxy is a spoof attempt (suspicious_request, handler
+// ip_extraction). Trusted proxies run the real chain walk in the adapters;
+// the engine surface pins the detection verdict.
+func (e *Engine) detectIPSpoofing(req Request) {
+	if len(e.Config.TrustedProxies) == 0 {
+		return
+	}
+	forwarded, ok := req.Headers().Get("X-Forwarded-For")
+	if !ok || forwarded == "" {
+		return
+	}
+	peer := req.ClientHost()
+	if peer == "" || ipMatchesList(peer, e.Config.TrustedProxies) {
+		return
+	}
+	bus := busFor(e.Config)
+	if bus == nil {
+		return
+	}
+	bus.SendHandlerEventRequest(EventSuspiciousRequest, "ip_extraction", req, "spoofing_detected",
+		fmt.Sprintf("Potential IP spoof attempt: X-Forwarded-For header %s", forwarded), "", nil)
+}
+
+// emitPathExcludedEvent announces a path exclusion, deduplicated per path
+// on the reference TTL cache semantics.
+func (e *Engine) emitPathExcludedEvent(req Request) {
+	path := req.URLPath()
+	now := time.Now()
+	e.exclusions.mu.Lock()
+	if e.exclusions.emittedPaths == nil {
+		e.exclusions.emittedPaths = map[string]time.Time{}
+	}
+	if stamp, ok := e.exclusions.emittedPaths[path]; ok && now.Sub(stamp) < 300*time.Second {
+		e.exclusions.mu.Unlock()
+		return
+	}
+	if len(e.exclusions.emittedPaths) >= 1000 {
+		e.exclusions.emittedPaths = map[string]time.Time{}
+	}
+	e.exclusions.emittedPaths[path] = now
+	exclusions := append([]string(nil), e.Config.ExcludePaths...)
+	e.exclusions.mu.Unlock()
+	emitBusEvent(e.Config, EventPathExcluded, req, "security_checks_bypassed",
+		fmt.Sprintf("Path %s excluded from security checks", path),
+		map[string]any{
+			"excluded_path":         path,
+			"configured_exclusions": exclusions,
+		})
 }
 
 func (m *exclusionMatcher) matches(path string) bool {

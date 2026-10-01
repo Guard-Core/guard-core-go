@@ -317,10 +317,15 @@ func TestReferenceRateLimitTierEventPayloads(t *testing.T) {
 			check := &rateLimitCheck{cfg: cfg}
 			req := newTestRequest(t, nil)
 			check.emitRateLimitEvent(req, "203.0.113.9", "hook reason stays with the hook", tt.outcome)
-			if len(agent.events) != 1 {
-				t.Fatalf("exactly one event must emit, got %v", agent.eventTypes())
+			// Every tripped tier first carries the manager rate_limited
+			// envelope (_handle_rate_limit_exceeded), then the tier event.
+			if len(agent.events) != 2 {
+				t.Fatalf("the manager and tier events must both emit, got %v", agent.eventTypes())
 			}
-			event := agent.events[0]
+			if agent.events[0].EventType != EventRateLimited {
+				t.Fatalf("the manager envelope must ride first, got %v", agent.eventTypes())
+			}
+			event := agent.events[1]
 			if event.EventType != tt.wantType {
 				t.Fatalf("event type drifted: %q, want %q", event.EventType, tt.wantType)
 			}
@@ -564,6 +569,7 @@ func TestReferenceIPBanFailedEventCarriesIP(t *testing.T) {
 	req := newTestRequest(t, nil)
 	// An unparseable target fails the ban manager's own validation, the
 	// same Ban-error column the reference's escalation failure covers.
+	check.recordCategories(cfg, "not-an-ip", []string{"sqli"})
 	if applied := check.registerViolations(cfg, req, "not-an-ip", []string{"sqli"}); applied {
 		t.Fatal("the failed ban must not report applied")
 	}

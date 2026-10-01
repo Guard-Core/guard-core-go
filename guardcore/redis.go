@@ -6,6 +6,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
+	"net/url"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -63,6 +67,11 @@ type RedisManager struct {
 	cfg    RedisConfig
 	client redis.UniversalClient
 	ctx    context.Context
+
+	// mu guards agent (and lazily created clients); the reference manager
+	// serializes connects through _connection_lock.
+	mu    sync.Mutex
+	agent AgentHandler
 }
 
 func NewRedisManager(cfg RedisConfig) *RedisManager {
@@ -82,6 +91,9 @@ func (m *RedisManager) Initialize() error {
 	}
 	opts, err := redis.ParseURL(m.cfg.URL)
 	if err != nil {
+		m.emitRedisEvent(EventRedisError, "connection_failed",
+			fmt.Sprintf("Redis connection failed: %v", err),
+			map[string]any{"redis_url": redactRedisURL(m.cfg.URL), "error_type": "connection_error"})
 		return newGuardRedisError("Redis connection failed")
 	}
 	opts.DialTimeout = redisConnectTimeout
@@ -93,10 +105,71 @@ func (m *RedisManager) Initialize() error {
 	defer cancel()
 	if err := client.Ping(pingCtx).Err(); err != nil {
 		_ = client.Close()
+		m.emitRedisEvent(EventRedisError, "connection_failed",
+			fmt.Sprintf("Redis connection failed: %v", err),
+			map[string]any{"redis_url": redactRedisURL(m.cfg.URL), "error_type": "connection_error"})
 		return newGuardRedisError("Redis connection failed")
 	}
 	m.client = client
+	m.emitRedisEvent(EventRedisConnection, "connection_established",
+		"Redis connection successfully established",
+		map[string]any{"redis_url": redactRedisURL(m.cfg.URL)})
 	return nil
+}
+
+// SetAgentHandler attaches the agent handler the connection events ride
+// (the reference initialize_agent); without one the emissions are no-ops.
+func (m *RedisManager) SetAgentHandler(handler AgentHandler) {
+	m.mu.Lock()
+	m.agent = handler
+	m.mu.Unlock()
+}
+
+// emitRedisEvent mirrors _send_redis_event: handler-direct, ip "system",
+// handler "redis", kwargs in metadata, send failures logged never raised.
+func (m *RedisManager) emitRedisEvent(eventType, actionTaken, reason string, kwargs map[string]any) {
+	m.mu.Lock()
+	handler := m.agent
+	m.mu.Unlock()
+	if handler == nil {
+		return
+	}
+	event := SecurityEvent{
+		Timestamp:   time.Now().UTC(),
+		EventType:   eventType,
+		IPAddress:   "system",
+		ActionTaken: actionTaken,
+		Reason:      reason,
+		HandlerName: "redis",
+		Metadata:    kwargs,
+	}
+	if err := handler.SendEvent(event); err != nil {
+		log.Printf("Failed to send redis event to agent: %v", err)
+	}
+}
+
+// redactRedisURL mirrors _redact_redis_url: credentials dropped from the
+// netloc, host (bracketed when IPv6), port, path, query and fragment kept.
+func redactRedisURL(rawURL string) string {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		if i := strings.Index(rawURL, "://"); i > 0 {
+			return rawURL[:i+3] + "<unparseable>"
+		}
+		return "<unparseable>"
+	}
+	if parsed.Host == "" {
+		return rawURL
+	}
+	host := parsed.Hostname()
+	if strings.Contains(host, ":") {
+		host = "[" + host + "]"
+	}
+	if parsed.Port() != "" {
+		host += ":" + parsed.Port()
+	}
+	redacted := &url.URL{Scheme: parsed.Scheme, Host: host, Path: parsed.Path, RawQuery: parsed.RawQuery, Fragment: parsed.Fragment}
+	return redacted.String()
 }
 
 func (m *RedisManager) Close() error {

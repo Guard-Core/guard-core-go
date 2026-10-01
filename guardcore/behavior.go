@@ -436,9 +436,10 @@ func jsonScalarToString(v any) string {
 func (t *BehaviorTracker) ApplyAction(rule BehaviorRuleConfig, clientIP, endpointID, details string) {
 	// Reference _behavior_action_dispatch: the behavioral_violation event
 	// rides every action path (passive included, action_taken
-	// logged_only), handler behavior, metadata with the rule identity.
-	// The ban action distinguishes success (banned) from the self-DoS
-	// refusal (tracked).
+	// logged_only), handler behavior, metadata with the rule identity,
+	// rule_type promoted to the envelope column. The active-mode
+	// action_taken is the rule action itself ("log"/"alert"/"throttle"),
+	// "ban" on a successful ban and "tracked" on the self-DoS refusal.
 	if t.cfg.PassiveMode {
 		t.emitBehaviorEvent(rule, clientIP, endpointID, details, "logged_only")
 		t.logPassiveModeAction(rule, clientIP, details)
@@ -459,26 +460,28 @@ func (t *BehaviorTracker) ApplyAction(rule BehaviorRuleConfig, clientIP, endpoin
 			t.emitBehaviorEvent(rule, clientIP, endpointID, details, "tracked")
 			return
 		}
-		t.emitBehaviorEvent(rule, clientIP, endpointID, details, "banned")
+		t.emitBehaviorEvent(rule, clientIP, endpointID, details, "ban")
 		t.logAtSuspiciousLevel(fmt.Sprintf("IP %s banned for behavioral violation: %s", clientIP, details))
 	case "alert":
-		t.emitBehaviorEvent(rule, clientIP, endpointID, details, "logged")
+		t.emitBehaviorEvent(rule, clientIP, endpointID, details, "alert")
 		t.log.Printf("ALERT - Behavioral anomaly: %s", details)
 	case "log":
-		t.emitBehaviorEvent(rule, clientIP, endpointID, details, "logged")
+		t.emitBehaviorEvent(rule, clientIP, endpointID, details, "log")
 		t.logAtSuspiciousLevel(fmt.Sprintf("Behavioral anomaly detected: %s", details))
 	case "throttle":
-		t.emitBehaviorEvent(rule, clientIP, endpointID, details, "logged")
+		t.emitBehaviorEvent(rule, clientIP, endpointID, details, "throttle")
 		t.logAtSuspiciousLevel(fmt.Sprintf("Throttling IP %s: %s", clientIP, details))
 	}
 }
 
 // emitBehaviorEvent sends the behavioral_violation handler event with the
-// reference envelope.
+// reference envelope: the rule_type kwarg stays in metadata and is
+// promoted to the envelope column (_send_behavior_event).
 func (t *BehaviorTracker) emitBehaviorEvent(rule BehaviorRuleConfig, clientIP, endpointID, details, actionTaken string) {
 	if bus := busFor(t.cfg); bus != nil {
-		bus.SendHandlerEvent(EventBehaviorViolation, BehaviorHandlerName, clientIP, actionTaken,
+		bus.SendHandlerEventFull(EventBehaviorViolation, BehaviorHandlerName, clientIP, actionTaken,
 			fmt.Sprintf("Behavioral rule violated: %s", details),
+			rule.RuleType,
 			map[string]any{
 				"endpoint":  endpointID,
 				"rule_type": rule.RuleType,

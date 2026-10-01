@@ -328,7 +328,7 @@ func TestRedactedEndpointInRateLimitEvent(t *testing.T) {
 		Method:   "GET",
 		RawQuery: "token=PLACEHOLDER",
 	})
-	emitRateLimitedHandlerEvent(cfg, req, "203.0.113.99", "rate limit exceeded", rules, 100, 60)
+	emitRateLimitedHandlerEvent(cfg, req, "203.0.113.99", rules)
 	agent := cfg.AgentHandler.(*recordingAgent)
 	if len(agent.events) != 1 {
 		t.Fatal("rate_limited must reach the agent")

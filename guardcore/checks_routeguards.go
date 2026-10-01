@@ -45,9 +45,10 @@ func (c *requestSizeContentCheck) Check(req Request) *Response {
 				stashBlock(req.State(), reason, "")
 				// Reference request_size_content.py: content_filtered,
 				// decorator_type content_filtering, violation_type
-				// max_request_size.
-				emitAccessDeniedEvent(cfg, req, reason, "content_filtering", cfg.PassiveMode,
-					map[string]any{"violation_type": "max_request_size"})
+				// max_request_size (the kwarg stays in metadata and is
+				// promoted to the envelope column by the bus).
+				emitBusEvent(cfg, EventContentFiltered, req, blockedOrLoggedAction(cfg.PassiveMode), reason,
+					map[string]any{"decorator_type": "content_filtering", "violation_type": "max_request_size"})
 				if cfg.PassiveMode {
 					firePassiveBlockHook(cfg, req, "request_size_content", reason, "")
 					return nil
@@ -69,12 +70,14 @@ func (c *requestSizeContentCheck) Check(req Request) *Response {
 			}
 		}
 		if !allowed {
-			reason := fmt.Sprintf("Invalid content type: %s", contentType)
-			stashBlock(req.State(), reason, "")
-			// Reference request_size_content.py: content_filtered with the
-			// allowed types, decorator_type content_filtering.
-			emitAccessDeniedEvent(cfg, req, reason, "content_filtering", cfg.PassiveMode,
-				map[string]any{"violation_type": "content_type", "allowed_content_types": routeConfig.AllowedContentTypes})
+			// The prefixed form is the log reason; the event carries the
+			// reference "Content type not in allowed types: [...]" reason
+			// over the python list repr of the configured types.
+			logReason := fmt.Sprintf("Invalid content type: %s", contentType)
+			stashBlock(req.State(), logReason, "")
+			reason := fmt.Sprintf("Content type not in allowed types: %s", pythonListRepr(routeConfig.AllowedContentTypes))
+			emitBusEvent(cfg, EventContentFiltered, req, blockedOrLoggedAction(cfg.PassiveMode), reason,
+				map[string]any{"decorator_type": "content_filtering", "violation_type": "content_type", "allowed_content_types": routeConfig.AllowedContentTypes})
 			if cfg.PassiveMode {
 				firePassiveBlockHook(cfg, req, "request_size_content", reason, "")
 				return nil
@@ -165,6 +168,9 @@ func extractCredential(authHeader, authType string) (string, string) {
 }
 
 func (c *authenticationCheck) handleAuthFailure(cfg *SecurityConfig, req Request, routeConfig *RouteConfig, authReason, violationType string) *Response {
+	// The prefixed form is the log reason; the event carries the raw
+	// auth reason (reference _handle_auth_failure: log_activity gets
+	// "Authentication failure: {reason}", the event gets auth_reason).
 	reason := fmt.Sprintf("Authentication failure: %s", authReason)
 	stashBlock(req.State(), reason, "")
 	// Reference authentication.py emit_authentication_failed_event:
@@ -176,7 +182,7 @@ func (c *authenticationCheck) handleAuthFailure(cfg *SecurityConfig, req Request
 	if authType == "" {
 		authType = "api_key"
 	}
-	emitAccessDeniedEvent(cfg, req, reason, "authentication", cfg.PassiveMode,
+	emitAccessDeniedEvent(cfg, req, authReason, "authentication", cfg.PassiveMode,
 		map[string]any{"auth_type": authType, "violation_type": violationType})
 	if cfg.PassiveMode {
 		firePassiveBlockHook(cfg, req, "authentication", reason, "")

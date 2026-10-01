@@ -215,10 +215,24 @@ func (a *recordingAgent) SendAnomalyEvent(event guardcore.AnomalyEvent) error {
 }
 
 // corpusRejectAll is the custom_request_check marker implementation; the
-// custom_request_check event's check_function metadata quotes the
-// function's bare name.
-func corpusRejectAll(_ guardcore.Request) *guardcore.Response {
+// check_function metadata carries the marker through the config's
+// CustomRequestCheckName.
+var corpusRejectAll = func(_ guardcore.Request) *guardcore.Response {
 	return guardcore.NewResponseFactory().CreateResponse("corpus rejected", 418)
+}
+
+// makeDecoratorRequest builds the harness-shaped request the decorator
+// senders answer.
+func makeDecoratorRequest(t *testing.T, step map[string]any) guardcore.Request {
+	t.Helper()
+	return guardcore.NewRequestFactory().CreateRequest(guardcore.RequestOptions{
+		Path:       stepString(step, "url_path"),
+		Scheme:     "http",
+		Host:       "example.com",
+		Method:     "GET",
+		ClientHost: stepString(step, "client_ip"),
+		State:      &guardcore.RequestState{},
+	})
 }
 
 // eventsRouteMutator extends the pipeline mutator with the decorator knobs
@@ -327,6 +341,7 @@ func buildEventsEngine(t *testing.T, c eventsCase, agent *recordingAgent) (*guar
 		}
 		if marker, ok := c.Config["custom_request_check"].(string); ok && marker == "corpus_reject_all" {
 			sc.CustomRequestCheck = corpusRejectAll
+			sc.CustomRequestCheckName = marker
 		}
 		if len(c.GeoCountries) > 0 {
 			sc.GeoIPHandler = fakeCountryResolver(c.GeoCountries)
@@ -467,8 +482,16 @@ func driveEventsStep(t *testing.T, engine *guardcore.Engine, agent *recordingAge
 		method = "GET"
 	}
 	body, _ := raw["body"].(string)
+	if body != "" {
+		if _, has := headers["Content-Length"]; !has {
+			// The harness request pins content-length for every non-empty
+			// body (_PipelineRequest.__init__).
+			headers["Content-Length"] = fmt.Sprint(len(body))
+		}
+	}
 	req := guardcore.NewRequestFactory().CreateRequest(guardcore.RequestOptions{
 		Path:       stepString(raw, "url_path"),
+		Scheme:     "http",
 		Host:       "example.com",
 		Method:     method,
 		ClientHost: stepString(raw, "client_ip"),
@@ -640,11 +663,10 @@ func driveEventsCall(t *testing.T, engine *guardcore.Engine, agent *recordingAge
 		return driveRateLimitScriptReload(t, engine, step)
 	case "redis_connect":
 		// The reference drives RedisManager.initialize against the live
-		// Redis; the Go manager has no connection-event emission yet, so
-		// the driver performs the real connection and captures nothing.
-		return driveRedisConnect(t, eventsRedisURL(), false)
+		// Redis with the handler attached.
+		return driveRedisConnect(t, engine, eventsRedisURL(), false)
 	case "redis_connect_error":
-		return driveRedisConnect(t, "redis://127.0.0.1:59999/0", true)
+		return driveRedisConnect(t, engine, "redis://localhost:59999/0", true)
 	case "bypass":
 		// The reference drives BypassHandler.handle_security_bypass; the
 		// Go engine's route bypass short-circuits in Engine.Check, so the
@@ -676,29 +698,66 @@ func driveEventsCall(t *testing.T, engine *guardcore.Engine, agent *recordingAge
 	// the seam; those cases carry per-case reasons in the fail-closed
 	// baseline.
 	case "decorator_event":
-		return fmt.Errorf("decorator sender seam not mapped in this runner revision")
+		// The reference decorator senders route through the middleware bus
+		// (BaseSecurityDecorator.send_decorator_event); the Go bus is the
+		// same seam, so the driver calls it with the mapped event surface.
+		cfg := engine.Config
+		bus := guardcore.NewSecurityEventBus(cfg.AgentHandler, cfg, nil, guardcore.EventFilter{})
+		kwargs, _ := step["kwargs"].(map[string]any)
+		switch stepString(step, "send") {
+		case "send_access_denied_event":
+			kwargs["decorator_type"], _ = kwargs["decorator_type"].(string)
+			reason, _ := kwargs["reason"].(string)
+			bus.SendMiddlewareEvent(guardcore.EventAccessDenied, makeDecoratorRequest(t, step), "blocked", reason, kwargs)
+			return nil
+		case "send_authentication_failed_event":
+			authType, _ := kwargs["auth_type"].(string)
+			reason, _ := kwargs["reason"].(string)
+			bus.SendMiddlewareEvent(guardcore.EventAuthenticationFailed, makeDecoratorRequest(t, step), "blocked", reason,
+				map[string]any{"decorator_type": "authentication", "auth_type": authType})
+			return nil
+		default:
+			return fmt.Errorf("unknown decorator sender %q", stepString(step, "send"))
+		}
 	case "csp_report":
-		return fmt.Errorf("security headers manager emits no csp_violation event yet")
+		// The reference drives security_headers_manager.validate_csp_report
+		// with the handler attached; the Go manager's ValidateCSPReport is
+		// the same surface.
+		report, _ := step["report"].(map[string]any)
+		manager := guardcore.NewSecurityHeadersManager(guardcore.DefaultSecurityHeaders())
+		manager.SetAgentHandler(agent)
+		if !manager.ValidateCSPReport(report) {
+			return fmt.Errorf("corpus CSP report was rejected as invalid")
+		}
+		return nil
 	case "headers_applied":
-		return fmt.Errorf("security headers manager emits no security_headers_applied event yet")
+		// The reference drives security_headers_manager.get_headers with
+		// the handler attached on a cleared cache.
+		path := stepString(step, "path")
+		engine.Config.OnGeoEvent = func(guardcore.GeoEvent) {}
+		state := guardcore.DefaultSecurityHeaders()
+		manager := guardcore.NewSecurityHeadersManager(state)
+		manager.SetAgentHandler(agent)
+		manager.GetHeaders(path)
+		return nil
+	case "ipban_fault":
+		// The reference monkeypatches ban_ip to raise; the Go seam is the
+		// exported SetBanFault hook on the ban manager.
+		engine.Ban.SetBanFault(func(string) error {
+			return fmt.Errorf("corpus injected ban failure")
+		})
+		return nil
 	case "detect", "add_pattern", "remove_pattern":
 		return fmt.Errorf("sus-patterns handler telemetry seam not mapped in this runner revision")
-	case "ipban_fault":
-		return fmt.Errorf("ban fault injection seam not mapped in this runner revision")
 	default:
 		return fmt.Errorf("unknown events harness call %q", call)
 	}
 }
 
-// eventsRedisURL answers the Redis URL for the redis-backed scenarios
-// (the harness's EVENTS_REDIS_URL with the REDIS_HOST override the CI
-// conformance job and local runs share).
+// eventsRedisURL answers the harness's EVENTS_REDIS_URL: the URL is a
+// pinned envelope field, so the corpus host spelling is kept verbatim.
 func eventsRedisURL() string {
-	host := os.Getenv("REDIS_HOST")
-	if host == "" {
-		host = "127.0.0.1"
-	}
-	return "redis://" + host + ":6379/0"
+	return "redis://localhost:6379/0"
 }
 
 func redisHostAddr() string {
@@ -738,10 +797,11 @@ func driveRateLimitScriptReload(t *testing.T, engine *guardcore.Engine, step map
 }
 
 // driveRedisConnect performs a real RedisManager.Initialize against url.
-func driveRedisConnect(t *testing.T, url string, expectFailure bool) error {
+func driveRedisConnect(t *testing.T, engine *guardcore.Engine, url string, expectFailure bool) error {
 	t.Helper()
 	prefix := "guard_core:corpus_evts:"
 	manager := guardcore.NewRedisManager(guardcore.RedisConfig{URL: url, Prefix: prefix, EnableRedis: true})
+	manager.SetAgentHandler(engine.Config.AgentHandler)
 	err := manager.Initialize()
 	if expectFailure {
 		if err == nil {

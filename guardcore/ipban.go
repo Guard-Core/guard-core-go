@@ -36,6 +36,11 @@ type IPBanManager struct {
 	evictions      int
 	logger         *log.Logger
 	eventBus       *SecurityEventBus
+	// banFault is the deterministic ban-failure seam (test and
+	// conformance-runner surface for the reference harness's injected
+	// ban_ip fault); nil keeps the real path.
+	banFaultMtx sync.Mutex
+	banFault    func(ip string) error
 }
 
 func NewIPBanManager(redisHandler RedisHandler, trustedProxies []string) *IPBanManager {
@@ -177,6 +182,11 @@ func (m *IPBanManager) Ban(ip string, duration int, reason string) (bool, error)
 	ip = CanonicalizeIP(ip)
 	if err := m.assertPositiveDuration(duration); err != nil {
 		return false, err
+	}
+	if fault := m.banFaultCall(); fault != nil {
+		if err := fault(ip); err != nil {
+			return false, err
+		}
 	}
 	if refusal := m.selfDoSRefusalReason(ip); refusal != "" {
 		space := "a configured trusted proxy"
@@ -334,6 +344,22 @@ func (m *IPBanManager) Unban(ip string) error {
 
 // SetEventBus attaches the agent event stream so the manager emits the
 // reference ip_ban handler events. Safe for concurrent use.
+// SetBanFault injects a deterministic ban failure: every subsequent Ban
+// call answers with the fault's error until the seam is cleared with a
+// nil function. Test and conformance-runner seam for the reference
+// harness's monkeypatched ban_ip (events_harness ipban_fault).
+func (m *IPBanManager) SetBanFault(fault func(ip string) error) {
+	m.banFaultMtx.Lock()
+	m.banFault = fault
+	m.banFaultMtx.Unlock()
+}
+
+func (m *IPBanManager) banFaultCall() func(ip string) error {
+	m.banFaultMtx.Lock()
+	defer m.banFaultMtx.Unlock()
+	return m.banFault
+}
+
 func (m *IPBanManager) SetEventBus(bus *SecurityEventBus) {
 	m.mu.Lock()
 	m.eventBus = bus

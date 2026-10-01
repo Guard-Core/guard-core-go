@@ -114,7 +114,7 @@ func (c *customRequestCheck) Check(req Request) *Response {
 		"Custom request check returned blocking response",
 		map[string]any{
 			"response_status": blockHookStatusCode(customResponse.StatusCode),
-			"check_function":  customRequestCheckFunctionName(c.cfg.CustomRequestCheck),
+			"check_function":  customRequestCheckFunctionName(c.cfg.CustomRequestCheck, c.cfg.CustomRequestCheckName),
 		})
 	if c.cfg.PassiveMode {
 		return nil
@@ -123,10 +123,14 @@ func (c *customRequestCheck) Check(req Request) *Response {
 }
 
 // customRequestCheckFunctionName mirrors custom_request.py's
-// check_function kwarg: the function's bare name, "anonymous" when the
-// value carries none (Go closures compile to numbered names, the port
-// reports those stripped of their package path).
-func customRequestCheckFunctionName(fn func(Request) *Response) string {
+// check_function kwarg: the configured CustomRequestCheckName when the
+// adapter named its check (the reference __name__ has no Go identifier
+// equivalent), else the function's bare runtime name, "anonymous" when
+// the value carries none.
+func customRequestCheckFunctionName(fn func(Request) *Response, configuredName string) string {
+	if configuredName != "" {
+		return configuredName
+	}
 	full := runtime.FuncForPC(reflect.ValueOf(fn).Pointer()).Name()
 	if full == "" {
 		return "anonymous"

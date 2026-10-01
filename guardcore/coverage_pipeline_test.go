@@ -270,6 +270,7 @@ func TestRegisterViolationsRefusalsContinue(t *testing.T) {
 		counts: &suspiciousCountStore{m: map[string]map[string]int{}},
 	}
 	// Loopback refusals fall through without escalating.
+	c.recordCategories(cfg, "127.0.0.1", []string{"sqli"})
 	if c.registerViolations(cfg, nil, "127.0.0.1", []string{"sqli"}) {
 		t.Fatal("refused bans never escalate")
 	}

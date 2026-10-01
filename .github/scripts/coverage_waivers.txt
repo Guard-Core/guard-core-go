@@ -54,6 +54,12 @@ guardcore/checks_custom.go:131
 guardcore/checks_custom.go:141
 guardcore/checks_custom.go:132
 guardcore/checks_custom.go:142
+# coordinates after the CustomRequestCheckName parameter shifted the block
+# starts (same proof as above).
+guardcore/checks_custom.go:135
+guardcore/checks_custom.go:145
+guardcore/checks_custom.go:136
+guardcore/checks_custom.go:146
 
 # composition.go
 # Cloud.InitializeRedis failure branch: InitializeRedis errors only on a
@@ -63,15 +69,22 @@ guardcore/checks_custom.go:142
 guardcore/composition.go:106
 guardcore/composition.go:107
 guardcore/composition.go:108
-# IPBanManager.InitializeRedis returns nil unconditionally.
-guardcore/composition.go:111
+# Coordinates after the fmt import and the event-fidelity helpers shifted
+# the startup blocks (same proofs as above).
+guardcore/composition.go:108
+guardcore/composition.go:109
 guardcore/composition.go:112
+guardcore/composition.go:113
 
 # config.go
 # validateCORS error branch: it normalizes method/header case and returns
 # nil on every path.
 guardcore/config.go:373
 guardcore/config.go:374
+# coordinate after the CustomRequestCheckName field shifted the block
+# (same proof as above).
+guardcore/config.go:378
+guardcore/config.go:379
 
 # dynamicrules.go
 # writeAtomicFile write/close guards: a WriteString or Close on a freshly
@@ -191,6 +204,10 @@ guardcore/multipartscan.go:157
 # (the rebuild function returns checks only), so err != nil is defensive.
 guardcore/pipeline.go:1025
 guardcore/pipeline.go:1026
+# coordinate after the identity-violation escalation shifted the Execute
+# block (same proof as above).
+guardcore/pipeline.go:1167
+guardcore/pipeline.go:1168
 # handleRebuildError body: the function is only reachable from the
 # defensive Execute branch above (the two toolchains split its blocks
 # differently).
@@ -205,16 +222,45 @@ guardcore/pipeline.go:1113
 guardcore/pipeline.go:1115
 guardcore/pipeline.go:1117
 guardcore/pipeline.go:1119
+# handleRebuildError coordinates after the identity-violation escalation
+# and the shared counts helpers shifted the block starts (same proof).
+guardcore/pipeline.go:1246
+guardcore/pipeline.go:1249
+guardcore/pipeline.go:1251
+guardcore/pipeline.go:1255
+guardcore/pipeline.go:1257
+guardcore/pipeline.go:1259
+guardcore/pipeline.go:1261
+guardcore/pipeline.go:1247
+guardcore/pipeline.go:1250
+guardcore/pipeline.go:1252
+guardcore/pipeline.go:1258
+guardcore/pipeline.go:1260
+# go 1.26 splits the function one line earlier than the local toolchain
+# (same proof as above).
+guardcore/pipeline.go:1245
+guardcore/pipeline.go:1248
+guardcore/pipeline.go:1254
+guardcore/pipeline.go:1256
+guardcore/pipeline.go:1253
 # buildChecks nil-build fallback: every spec in the table defines build, so
 # spec.build == nil cannot hold.
 guardcore/pipeline.go:1230
 guardcore/pipeline.go:1231
+# coordinates after the escalation helpers shifted the buildChecks table
+# (same proof as above).
+guardcore/pipeline.go:1372
+guardcore/pipeline.go:1373
 
 # redis.go
 # RecordSlidingWindowHit rand guard: crypto/rand.Read cannot fail on the
 # supported platforms, so the error branch is defensive.
 guardcore/redis.go:273
 guardcore/redis.go:274
+# coordinate after the redis connection events shifted the sliding-window
+# block (same proof as above).
+guardcore/redis.go:346
+guardcore/redis.go:347
 
 # registry.go
 # init compile-failure skip: every patternTable entry compiles (the
