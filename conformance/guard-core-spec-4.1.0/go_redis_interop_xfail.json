@@ -1,0 +1,10 @@
+{
+  "_comment": "Documented divergences of the Go engine against the redis_interop corpus (kind redis_interop). Fail-closed: a failing case NOT listed here is red; a listed case that starts producing byte-identical keys is red (stale baseline); a listed case that never ran is red.",
+  "cases": {
+    "redis_interop/rio_custom_pattern_registry_write": "the Go detection corpus is a compile-time table (KNOWN_GAPS): no sus-patterns runtime registry exists, so the patterns:custom registry write has no emitter",
+    "redis_interop/rio_security_headers_csp_config": "the Go CacheConfiguration serializes the CSP block as a JSON array of directive structs with Go field names and compact separators (guardcore/securityheaders_cache.go, []CSPDirective without json tags) where the reference pins the insertion-ordered dict {directive: [sources]} in python json.dumps spacing; the reference form is the byte-equality contract of specs/08",
+    "redis_interop/rio_security_headers_custom_headers": "the Go CacheConfiguration serializes the custom-headers block with compact separators where the reference pins the python json.dumps form (\", \" and \": \" separators)",
+    "redis_interop/rio_security_headers_hsts_config": "the Go CacheConfiguration serializes the HSTS block as a struct with Go field names (MaxAge/IncludeSubdomains/Preload) and compact separators where the reference pins {\"max_age\": N, \"include_subdomains\": bool} in python json.dumps spacing"
+  },
+  "spec_version": "4.1.0"
+}

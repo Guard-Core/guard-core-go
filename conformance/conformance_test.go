@@ -190,12 +190,22 @@ func TestConformance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		// Peek the kind first: the non-detect suites (pipeline, events,
+		// redis_interop, pattern_safety) carry different case schemas.
+		var probe struct {
+			Kind string `json:"kind"`
+		}
+		if err := json.Unmarshal(data, &probe); err != nil {
+			t.Fatal(err)
+		}
+		if probe.Kind != "detect" {
+			continue
+		}
 		var cf caseFile
 		if err := json.Unmarshal(data, &cf); err != nil {
 			t.Fatal(err)
 		}
 		if cf.Kind != "detect" {
-			// Pipeline-kind suites are replayed by pipeline_test.go.
 			continue
 		}
 		caseFiles++
