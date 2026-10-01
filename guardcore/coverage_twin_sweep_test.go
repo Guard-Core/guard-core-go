@@ -27,7 +27,7 @@ func TestBehaviorViolationReachesAgentBus(t *testing.T) {
 	if event.EventType != EventBehaviorViolation || event.HandlerName != BehaviorHandlerName {
 		t.Fatalf("event envelope drifted: %+v", event)
 	}
-	if event.ActionTaken != "banned" || event.IPAddress != "203.0.113.77" {
+	if event.ActionTaken != "ban" || event.IPAddress != "203.0.113.77" {
 		t.Fatalf("action and client must ride the envelope: %+v", event)
 	}
 	if event.Metadata["endpoint"] != "ep" || event.Metadata["rule_type"] != "usage" {
@@ -205,7 +205,7 @@ func TestEmitRateLimitedHandlerEventWithoutBus(t *testing.T) {
 	}
 	rules := &RateLimitOutcome{Blocked: true, Count: 5, Window: 60, Tier: "global", Limit: 100}
 	req := newTestRequest(t, nil)
-	emitRateLimitedHandlerEvent(cfg, req, "203.0.113.99", "rate limit exceeded", rules, 100, 60)
+	emitRateLimitedHandlerEvent(cfg, req, "203.0.113.99", rules)
 }
 
 // TestEmitScriptReloadedEvent pins the NOSCRIPT recovery event: a manager

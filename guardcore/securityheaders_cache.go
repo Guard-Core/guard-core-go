@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -150,6 +151,9 @@ type SecurityHeadersManager struct {
 	cache *headersTTLCache
 	redis *RedisManager
 	log   *log.Logger
+	// agent is the handler the SecurityHeadersEventsMixin events ride
+	// (initialize_agent); nil keeps every emission a no-op.
+	agent AgentHandler
 	// keyPrefix mirrors the reference cfg_{id(config)}_ prefix: a stable
 	// per-instance token so concurrent managers never share cache keys.
 	keyPrefix string
@@ -300,15 +304,27 @@ func (m *SecurityHeadersManager) CacheConfiguration() {
 	}
 }
 
+// SetAgentHandler attaches the agent handler the mixin events ride (the
+// reference initialize_agent); nil keeps every emission a no-op.
+func (m *SecurityHeadersManager) SetAgentHandler(agent AgentHandler) {
+	m.mu.Lock()
+	m.agent = agent
+	m.mu.Unlock()
+}
+
 // GetHeaders mirrors get_headers: disabled configuration yields no
 // headers, a cache hit returns the stored map, and a miss computes
-// through the shared responseHeaders builder and caches the result.
+// through the shared responseHeaders builder, caches the result and
+// emits security_headers_applied (only on misses, only for non-empty
+// paths, only with a handler attached - SecurityHeadersEventsMixin.
+// _send_headers_applied_event's gate).
 func (m *SecurityHeadersManager) GetHeaders(requestPath string) map[string]string {
 	if m == nil {
 		return map[string]string{}
 	}
 	m.mu.Lock()
 	state := m.state
+	agent := m.agent
 	m.mu.Unlock()
 	if state == nil || !state.Enabled {
 		return map[string]string{}
@@ -319,7 +335,131 @@ func (m *SecurityHeadersManager) GetHeaders(requestPath string) map[string]strin
 	}
 	headers := responseHeaders(&SecurityConfig{SecurityHeaders: state})
 	m.cache.set(key, headers)
+	if agent != nil && requestPath != "" {
+		m.sendHeadersAppliedEvent(requestPath, headers)
+	}
 	return headers
+}
+
+// sendHeadersAppliedEvent mirrors _send_headers_applied_event: handler
+// security_headers, action headers_added, no ip, and the path/headers
+// metadata; failures are logged, never raised.
+func (m *SecurityHeadersManager) sendHeadersAppliedEvent(path string, headers map[string]string) {
+	m.mu.Lock()
+	agent := m.agent
+	m.mu.Unlock()
+	if agent == nil {
+		return
+	}
+	event := SecurityEvent{
+		Timestamp:   time.Now().UTC(),
+		EventType:   EventSecurityHeadersApplied,
+		ActionTaken: "headers_added",
+		HandlerName: "security_headers",
+		Metadata: map[string]any{
+			"path":          redactEndpointForDisplay(path, nil),
+			"headers_count": len(headers),
+			"has_csp":       headers["Content-Security-Policy"] != "",
+			"has_hsts":      headers["Strict-Transport-Security"] != "",
+		},
+	}
+	if err := agent.SendEvent(event); err != nil {
+		m.log.Printf("Failed to send headers event to agent: %v", err)
+	}
+}
+
+// ValidateCSPReport mirrors validate_csp_report: the three required
+// fields gate the verdict, the sanitized fields reach the warn log and
+// the csp_violation event rides whenever a handler is attached. The
+// return answers "is this a well-formed report".
+func (m *SecurityHeadersManager) ValidateCSPReport(report map[string]any) bool {
+	cspReport, _ := report["csp-report"].(map[string]any)
+	for _, field := range []string{"document-uri", "violated-directive", "blocked-uri"} {
+		if _, ok := cspReport[field]; !ok {
+			return false
+		}
+	}
+	safeDirective := safeCSPDirective(cspReport["violated-directive"])
+	safeBlockedURI := safeCSPURI(cspReport["blocked-uri"])
+	safeDocumentURI := safeCSPURI(cspReport["document-uri"])
+	m.log.Printf("CSP Violation: %s blocked %s on %s", safeDirective, safeBlockedURI, safeDocumentURI)
+	m.mu.Lock()
+	agent := m.agent
+	m.mu.Unlock()
+	if agent != nil {
+		m.sendCSPViolationEvent(cspReport)
+	}
+	return true
+}
+
+// sendCSPViolationEvent mirrors _send_csp_violation_event: handler
+// security_headers, action logged, the sanitized report fields in
+// metadata (source_file str()-ed like python, line_number int-or-nil).
+func (m *SecurityHeadersManager) sendCSPViolationEvent(report map[string]any) {
+	m.mu.Lock()
+	agent := m.agent
+	m.mu.Unlock()
+	if agent == nil {
+		return
+	}
+	metadata := map[string]any{
+		"document_uri":       safeCSPURI(report["document-uri"]),
+		"violated_directive": safeCSPDirective(report["violated-directive"]),
+		"blocked_uri":        safeCSPURI(report["blocked-uri"]),
+		"source_file":        safeCSPURI(report["source-file"]),
+		"line_number":        safeCSPLineNumber(report["line-number"]),
+	}
+	event := SecurityEvent{
+		Timestamp:   time.Now().UTC(),
+		EventType:   EventCSPViolation,
+		ActionTaken: "logged",
+		HandlerName: "security_headers",
+		Metadata:    metadata,
+	}
+	if err := agent.SendEvent(event); err != nil {
+		m.log.Printf("Failed to send CSP violation event to agent: %v", err)
+	}
+}
+
+// safeCSPURI mirrors _safe_csp_uri: the value is str()-ed (python None
+// becomes "None") and endpoint-redacted with the default sets.
+func safeCSPURI(value any) string {
+	return redactEndpointForDisplay(pythonStr(value), nil)
+}
+
+// safeCSPDirective mirrors _safe_csp_directive: header-value redaction
+// over the str()-ed value.
+func safeCSPDirective(value any) string {
+	return RedactHeaderValueForDisplay(pythonStr(value), nil, nil, nil)
+}
+
+// safeCSPLineNumber mirrors _safe_csp_line_number: an integer value or nil.
+func safeCSPLineNumber(value any) any {
+	switch v := value.(type) {
+	case float64:
+		return int(v)
+	case int:
+		return v
+	case string:
+		if n, err := strconv.Atoi(v); err == nil {
+			return n
+		}
+	}
+	return nil
+}
+
+// pythonStr mirrors python str(): nil renders "None", bools "true"/"false".
+func pythonStr(value any) string {
+	if value == nil {
+		return "None"
+	}
+	if b, ok := value.(bool); ok {
+		if b {
+			return "true"
+		}
+		return "false"
+	}
+	return fmt.Sprint(value)
 }
 
 // CacheStats reports the cache hit/miss counters (observability for the

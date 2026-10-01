@@ -87,5 +87,22 @@ func emitGeoEventToBus(cfg *SecurityConfig, ev GeoEvent) {
 	if handlerName == "" {
 		handlerName = IPInfoHandlerName
 	}
-	bus.SendHandlerEvent(ev.EventType, handlerName, ev.IPAddress, ev.ActionTaken, ev.Reason, metadata)
+	bus.SendHandlerEventFull(ev.EventType, handlerName, ev.IPAddress, ev.ActionTaken, ev.Reason, ev.RuleType, metadata)
+}
+
+// pythonListRepr renders a string list the way the reference embeds it in
+// event reasons (python list repr: ['a', 'b']).
+func pythonListRepr(values []string) string {
+	var b strings.Builder
+	b.WriteByte('[')
+	for i, v := range values {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteByte('\'')
+		b.WriteString(v)
+		b.WriteByte('\'')
+	}
+	b.WriteByte(']')
+	return b.String()
 }

@@ -46,9 +46,10 @@ func (c *unsupportedCheck) Check(req Request) *Response {
 }
 
 type ipSecurityCheck struct {
-	cfg  *SecurityConfig
-	ban  *IPBanManager
-	name string
+	cfg    *SecurityConfig
+	ban    *IPBanManager
+	counts *suspiciousCountStore
+	name   string
 }
 
 func (c *ipSecurityCheck) CheckName() string                  { return c.name }
@@ -358,17 +359,157 @@ func globalCountryVerdict(cfg *SecurityConfig, ip string) (string, bool) {
 // log_activity), and the passive mode still fires the hook with a null
 // status before allowing the request through.
 func (c *ipSecurityCheck) deny(req Request, ip, accessReason string) *Response {
+	// The prefixed form is the log/hook reason (reference log_activity
+	// "IP not allowed: {ip} - {reason}"); the event carries the access
+	// verdict reason alone (reference access_result.reason).
 	reason := fmt.Sprintf("IP not allowed: %s - %s", ip, accessReason)
 	stashBlock(req.State(), reason, "")
 	// Reference ip_security.py global-restriction path: ip_blocked with
-	// filter_type global.
-	emitBusEvent(c.cfg, EventIPBlocked, req, blockedOrLoggedAction(c.cfg.PassiveMode), reason,
-		map[string]any{"filter_type": "global"})
+	// the client ip_address and filter_type global kwargs.
+	emitBusEvent(c.cfg, EventIPBlocked, req, blockedOrLoggedAction(c.cfg.PassiveMode), accessReason,
+		map[string]any{"ip_address": ip, "filter_type": "global"})
 	if c.cfg.PassiveMode {
 		firePassiveBlockHook(c.cfg, req, c.CheckName(), reason, "")
 		return nil
 	}
+	// Reference _check_global_ip_restrictions: the deny escalates the
+	// identity violation (detection + threshold ban) before the 403.
+	c.escalateIdentityViolation(req, ip, "ip_blocked", accessReason)
 	return createErrorResponse(c.cfg, 403, RestrictionBlockedMsg)
+}
+
+// escalateIdentityViolation mirrors helpers.escalate_identity_violation:
+// a deny that carries an attack payload counts its categories, applies the
+// threshold ban and announces the escalation; a ban failure reports
+// ip_ban_failed and aborts the announcement exactly like the reference's
+// exception path.
+func (c *ipSecurityCheck) escalateIdentityViolation(req Request, ip, violationCategory, accessReason string) {
+	if ip == "" {
+		return
+	}
+	if state := req.State(); state != nil && state.IsWhitelisted {
+		return
+	}
+	var route *RouteConfig
+	if state := req.State(); state != nil {
+		route = state.RouteConfig
+	}
+	categories, triggerInfo := detectThreat(req, c.cfg, resolveDetectionExclusions(c.cfg, route))
+	if len(categories) == 0 || triggerInfo == "disabled_by_decorator" {
+		return
+	}
+	recordCategories(c.counts, ip, categories)
+	banned, failed := c.applyThresholdBan(req, ip, categories, triggerInfo)
+	if failed {
+		return
+	}
+	actionTaken := "tracked"
+	if banned {
+		actionTaken = "banned"
+	}
+	emitBusEvent(c.cfg, EventPenetrationAttempt, req, actionTaken,
+		fmt.Sprintf("Identity violation escalated: %s", triggerInfo),
+		map[string]any{
+			"request_count":      totalCountFor(c.counts, ip),
+			"trigger_info":       triggerInfo,
+			"violation_category": violationCategory,
+		})
+}
+
+// applyThresholdBan mirrors _try_threshold_ban over
+// _resolve_and_apply_threshold_ban: per-category threat entries first,
+// then the flat threshold over the category total. The returned failed
+// flag answers "the ban call errored" (the reference exception that skips
+// the escalation event); a refused ban is not a failure.
+func (c *ipSecurityCheck) applyThresholdBan(req Request, ip string, categories []string, triggerInfo string) (banned, failed bool) {
+	if !c.cfg.EnableIPBanning || c.ban == nil {
+		return false, false
+	}
+	for _, category := range categories {
+		threshold, duration := c.cfg.AutoBanThreshold, c.cfg.AutoBanDuration
+		if entry, ok := c.cfg.ThreatBanConfig[category]; ok {
+			threshold, duration = entry.Threshold, entry.Duration
+		}
+		if countFor(c.counts, ip, category) < threshold {
+			continue
+		}
+		applied, err := c.ban.Ban(ip, duration, "penetration:"+category)
+		if err != nil {
+			emitBusEvent(c.cfg, EventIPBanFailed, req, "ban_not_applied",
+				fmt.Sprintf("Escalation ban failed for %s: %v", ip, err),
+				map[string]any{"ip_address": ip})
+			return false, true
+		}
+		if !applied {
+			return false, false
+		}
+		logActivityReason(req, c.cfg, fmt.Sprintf("IP banned due to %s threshold: %s - %s", category, ip, triggerInfo), c.CheckName())
+		return true, false
+	}
+	total := totalCountFor(c.counts, ip)
+	if total < c.cfg.AutoBanThreshold {
+		return false, false
+	}
+	applied, err := c.ban.Ban(ip, c.cfg.AutoBanDuration, "penetration_attempt")
+	if err != nil {
+		emitBusEvent(c.cfg, EventIPBanFailed, req, "ban_not_applied",
+			fmt.Sprintf("Escalation ban failed for %s: %v", ip, err),
+			map[string]any{"ip_address": ip})
+		return false, true
+	}
+	if !applied {
+		return false, false
+	}
+	logActivityReason(req, c.cfg, fmt.Sprintf("IP banned due to suspicious activity: %s - %s", ip, triggerInfo), c.CheckName())
+	return true, false
+}
+
+// logActivityReason emits the suspicious log plus the block hook for the
+// threshold-ban path (the reference _try_threshold_ban log_activity).
+func logActivityReason(req Request, cfg *SecurityConfig, reason, checkName string) {
+	LogActivity(req, LogOptions{
+		LogType:          "suspicious",
+		Reason:           reason,
+		Level:            cfg.LogSuspiciousLevel,
+		PassiveMode:      cfg.PassiveMode,
+		CheckName:        checkName,
+		MutedCheckLogs:   cfg.MutedCheckLogs,
+		OnBlock:          cfg.OnBlock,
+		SensitiveHeaders: cfg.LogSensitiveHeaders,
+		SensitiveParams:  cfg.LogSensitiveParams,
+	})
+}
+
+// recordCategories/totalCountFor/countFor are the shared-counts helpers
+// the ip check and the suspicious check share (the reference middleware
+// suspicious_request_counts registry).
+func recordCategories(store *suspiciousCountStore, ip string, categories []string) {
+	store.mu.Lock()
+	perIP := store.m[ip]
+	if perIP == nil {
+		perIP = map[string]int{}
+		store.m[ip] = perIP
+	}
+	for _, category := range categories {
+		perIP[category]++
+	}
+	store.mu.Unlock()
+}
+
+func totalCountFor(store *suspiciousCountStore, ip string) int {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	total := 0
+	for _, count := range store.m[ip] {
+		total += count
+	}
+	return total
+}
+
+func countFor(store *suspiciousCountStore, ip, category string) int {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	return store.m[ip][category]
 }
 
 type rateLimitCheck struct {
@@ -415,19 +556,18 @@ func (c *rateLimitCheck) Check(req Request) *Response {
 	return resp
 }
 
-// emitRateLimitEvent mirrors the reference rate-limit event sites: the
-// global tier reports rate_limited (handler rate_limit, metadata with the
-// count, limit and window); dynamic endpoint tiers report
+// emitRateLimitEvent mirrors the reference rate-limit event sites: every
+// tripped tier first carries the manager rate_limited envelope (handler
+// rate_limit, full middleware columns, metadata quoting the configured
+// global limit and window via _send_rate_limit_event's display_config),
+// then the tier decorator event: dynamic endpoint tiers report
 // dynamic_rule_violation; route and geo tiers report decorator_violation
 // with their decorator classification. The tier events quote the tier's
 // CONFIGURED limit (rate_limit.py builds its reason from the config
 // values, never the tripping count). Passive mode downgrades every
 // action to logged_only.
 func (c *rateLimitCheck) emitRateLimitEvent(req Request, ip, hookReason string, outcome *RateLimitOutcome) {
-	bus := busFor(c.cfg)
-	if bus == nil {
-		return
-	}
+	emitRateLimitedHandlerEvent(c.cfg, req, ip, outcome)
 	action := blockedOrLoggedAction(c.cfg.PassiveMode)
 	switch outcome.Tier {
 	case "endpoint":
@@ -471,30 +611,28 @@ func (c *rateLimitCheck) emitRateLimitEvent(req Request, ip, hookReason string, 
 				"window":         outcome.Window,
 			})
 	default:
-		// Global tier: the reference manager event with the request
-		// count and the configured limit and window.
-		emitRateLimitedHandlerEvent(c.cfg, req, ip, hookReason, outcome, c.cfg.RateLimit, c.cfg.RateLimitWindow)
+		// Global tier: only the manager envelope rides (no decorator
+		// classification).
 	}
 }
 
-// emitRateLimitedHandlerEvent mirrors the ratelimit_handler event: the
-// handler-direct envelope carries endpoint, method, response_time and the
-// count metadata.
-func emitRateLimitedHandlerEvent(cfg *SecurityConfig, req Request, ip, reason string, outcome *RateLimitOutcome, limit, window int) {
+// emitRateLimitedHandlerEvent mirrors ratelimit_handler._send_rate_limit_
+// event: the handler-direct rate_limited envelope with the full middleware
+// columns and the display_config (global) limit and window, emitted on
+// every tripped tier.
+func emitRateLimitedHandlerEvent(cfg *SecurityConfig, req Request, ip string, outcome *RateLimitOutcome) {
 	bus := busFor(cfg)
 	if bus == nil {
 		return
 	}
-	metadata := map[string]any{
-		"request_count": outcome.Count,
-		"rate_limit":    limit,
-		"window":        window,
-	}
-	if path := req.URLPath(); path != "" {
-		metadata["endpoint"] = redactEndpointForDisplay(path, cfg)
-		metadata["method"] = req.Method()
-	}
-	bus.SendHandlerEvent(EventRateLimited, RateLimitHandlerName, ip, blockedOrLoggedAction(cfg.PassiveMode), reason, metadata)
+	reason := fmt.Sprintf("Rate limit exceeded: %d requests in %ds window", outcome.Count, cfg.RateLimitWindow)
+	bus.SendHandlerEventRequest(EventRateLimited, RateLimitHandlerName, req,
+		blockedOrLoggedAction(cfg.PassiveMode), reason, "",
+		map[string]any{
+			"request_count": outcome.Count,
+			"rate_limit":    cfg.RateLimit,
+			"window":        cfg.RateLimitWindow,
+		})
 }
 
 // routeRateConfigFrom adapts the resolved RouteConfig rate-limit tier into
@@ -559,13 +697,21 @@ func (c *suspiciousActivityCheck) Check(req Request) *Response {
 	if len(categories) == 0 {
 		return nil
 	}
+	// The reference counts the request's categories in the per-IP registry
+	// (middleware.suspicious_request_counts) at detection time, so the
+	// emitted request_count already includes this request.
+	c.recordCategories(cfg, ip, categories)
 	if cfg.PassiveMode {
-		// The reference passive-mode handler
-		// (_handle_suspicious_passive_mode) fires the hook directly with the
-		// detection trigger_info and a null status.
+		// The reference passive-mode handler (_handle_suspicious_passive_mode):
+		// the decorator reason over the trigger_info, with the request count,
+		// the passive flag and the trigger_info kwargs.
 		emitBusEvent(cfg, EventPenetrationAttempt, req, "logged_only",
-			fmt.Sprintf("Suspicious activity detected: %s: %s", ip, triggerInfo),
-			map[string]any{"request_count": c.totalCountFor(ip)})
+			fmt.Sprintf("Suspicious pattern detected (passive mode): %s", triggerInfo),
+			map[string]any{
+				"request_count": c.totalCountFor(ip),
+				"passive_mode":  true,
+				"trigger_info":  triggerInfo,
+			})
 		firePassiveBlockHook(cfg, req, "suspicious_activity", fmt.Sprintf("Suspicious activity detected: %s", ip), triggerInfo)
 		return nil
 	}
@@ -575,10 +721,13 @@ func (c *suspiciousActivityCheck) Check(req Request) *Response {
 	// (guard_core/core/checks/implementations/suspicious_activity.py).
 	stashBlock(state, fmt.Sprintf("Suspicious activity detected for IP: %s - %s", ip, triggerInfo), "")
 	// Reference suspicious_activity.py active path: penetration_attempt
-	// with the per-IP request count.
+	// with the per-IP request count and the trigger_info kwarg.
 	emitBusEvent(cfg, EventPenetrationAttempt, req, "request_blocked",
 		fmt.Sprintf("Penetration attempt detected: %s", triggerInfo),
-		map[string]any{"request_count": c.totalCountFor(ip)})
+		map[string]any{
+			"request_count": c.totalCountFor(ip),
+			"trigger_info":  triggerInfo,
+		})
 	if applied := c.registerViolations(cfg, req, ip, categories); applied {
 		return createErrorResponse(cfg, 403, SuspiciousBannedMsg)
 	}
@@ -597,22 +746,15 @@ func (c *suspiciousActivityCheck) totalCountFor(ip string) int {
 	return total
 }
 
-func (c *suspiciousActivityCheck) registerViolations(cfg *SecurityConfig, req Request, ip string, categories []string) bool {
-	c.counts.mu.Lock()
-	perIP := c.counts.m[ip]
-	if perIP == nil {
-		perIP = map[string]int{}
-		c.counts.m[ip] = perIP
-	}
-	for _, category := range categories {
-		perIP[category]++
-	}
-	categoriesCopy := make(map[string]int, len(perIP))
-	for k, v := range perIP {
-		categoriesCopy[k] = v
-	}
-	c.counts.mu.Unlock()
+// recordCategories counts the request's detection categories in the
+// per-IP registry once per request, the reference middleware.
+// suspicious_request_counts increment that happens at detection time
+// (before the penetration_attempt event quotes the total).
+func (c *suspiciousActivityCheck) recordCategories(cfg *SecurityConfig, ip string, categories []string) {
+	recordCategories(c.counts, ip, categories)
+}
 
+func (c *suspiciousActivityCheck) registerViolations(cfg *SecurityConfig, req Request, ip string, categories []string) bool {
 	if !cfg.EnableIPBanning || c.ban == nil {
 		return false
 	}
@@ -1198,7 +1340,7 @@ func buildChecks(cfg *SecurityConfig, ban *IPBanManager, rateLimit *RateLimitMan
 			return &cloudIPRefreshCheck{cfg: cfg, manager: DefaultCloudManager}
 		}},
 		{"ip_security", true, func(*SecurityConfig) bool { return true }, func(cfg *SecurityConfig) SecurityCheck {
-			return &ipSecurityCheck{cfg: cfg, ban: ban, name: "ip_security"}
+			return &ipSecurityCheck{cfg: cfg, ban: ban, counts: counts, name: "ip_security"}
 		}},
 		{"cloud_provider", false, func(cfg *SecurityConfig) bool { return cloudApplies(cfg, routeConfigs) }, func(cfg *SecurityConfig) SecurityCheck {
 			return &cloudProviderCheck{cfg: cfg, manager: DefaultCloudManager}

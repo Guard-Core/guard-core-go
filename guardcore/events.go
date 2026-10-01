@@ -256,8 +256,6 @@ func (b *SecurityEventBus) SendMiddlewareEvent(eventType string, req Request, ac
 	decoratorType, _ := kwargs["decorator_type"].(string)
 	ruleType, _ := kwargs["rule_type"].(string)
 	metadata := forwardTraceHeaders(req, cloneMetadata(kwargs))
-	delete(metadata, "decorator_type")
-	delete(metadata, "rule_type")
 	var userAgent string
 	if raw, ok := req.Headers().Get("User-Agent"); ok && raw != "" {
 		userAgent = RedactHeaderValueForDisplay(raw, b.cfg.LogSensitiveParams, b.cfg.LogSensitiveBodyFields, b.cfg.LogSensitiveHeaders)
@@ -315,6 +313,15 @@ func (b *SecurityEventBus) SendHTTPSViolationEvent(req Request, route *RouteConf
 // emitters never consult the event filter: the mute lists gate the
 // middleware stream and the metrics, not the handler families.
 func (b *SecurityEventBus) SendHandlerEvent(eventType string, handlerName string, ipAddress, actionTaken, reason string, metadata map[string]any) {
+	b.SendHandlerEventFull(eventType, handlerName, ipAddress, actionTaken, reason, "", metadata)
+}
+
+// SendHandlerEventFull is SendHandlerEvent with the optional envelope
+// columns the reference sets on some handler-family events (rule_type on
+// the behavioral violation and the geo country_blocked hop): kwargs stay
+// in metadata and the promoted columns mirror _send_behavior_event /
+// check_country_access.
+func (b *SecurityEventBus) SendHandlerEventFull(eventType string, handlerName string, ipAddress, actionTaken, reason, ruleType string, metadata map[string]any) {
 	if b == nil || b.handler == nil {
 		return
 	}
@@ -324,12 +331,72 @@ func (b *SecurityEventBus) SendHandlerEvent(eventType string, handlerName string
 		IPAddress:   ipAddress,
 		ActionTaken: actionTaken,
 		Reason:      reason,
+		RuleType:    ruleType,
 		HandlerName: handlerName,
 		Metadata:    metadata,
 	}
 	if err := b.handler.SendEvent(event); err != nil {
 		log.Printf("Failed to send %s event to agent: %v", handlerName, err)
 	}
+}
+
+// SendHandlerEventRequest is the handler-direct emitter with the full
+// middleware envelope columns (the reference _send_rate_limit_event shape:
+// the manager quotes endpoint, method and the pipeline response_time over
+// its own handler name). Like the other handler-direct emitters it never
+// consults the agent_enable_events gate or the mute filter.
+func (b *SecurityEventBus) SendHandlerEventRequest(eventType string, handlerName string, req Request, actionTaken, reason, ruleType string, kwargs map[string]any) {
+	if b == nil || b.handler == nil {
+		return
+	}
+	metadata := forwardTraceHeaders(req, cloneMetadata(kwargs))
+	var userAgent string
+	if raw, ok := req.Headers().Get("User-Agent"); ok && raw != "" {
+		userAgent = RedactHeaderValueForDisplay(raw, b.logSensitiveParams(), b.logSensitiveBodyFields(), b.logSensitiveHeaders())
+	}
+	decoratorType, _ := kwargs["decorator_type"].(string)
+	event := SecurityEvent{
+		Timestamp:     time.Now().UTC(),
+		EventType:     eventType,
+		IPAddress:     resolveClientIP(req),
+		Country:       b.lookupCountry(resolveClientIP(req)),
+		UserAgent:     userAgent,
+		ActionTaken:   actionTaken,
+		Reason:        reason,
+		Endpoint:      redactEndpointForDisplay(req.URLPath(), b.cfg),
+		Method:        req.Method(),
+		ResponseTime:  pipelineResponseTime(req),
+		DecoratorType: decoratorType,
+		RuleType:      ruleType,
+		HandlerName:   handlerName,
+		Metadata:      metadata,
+	}
+	if err := b.handler.SendEvent(event); err != nil {
+		log.Printf("Failed to send %s event to agent: %v", handlerName, err)
+	}
+}
+
+// log-sensitive accessors tolerate a nil config (handler-direct emitters
+// can run on a bus built without one).
+func (b *SecurityEventBus) logSensitiveParams() map[string]bool {
+	if b.cfg == nil {
+		return nil
+	}
+	return b.cfg.LogSensitiveParams
+}
+
+func (b *SecurityEventBus) logSensitiveBodyFields() map[string]bool {
+	if b.cfg == nil {
+		return nil
+	}
+	return b.cfg.LogSensitiveBodyFields
+}
+
+func (b *SecurityEventBus) logSensitiveHeaders() map[string]bool {
+	if b.cfg == nil {
+		return nil
+	}
+	return b.cfg.LogSensitiveHeaders
 }
 
 // MetricsCollector mirrors metrics.MetricsCollector: gated by the agent
@@ -406,7 +473,11 @@ func redactEndpointForDisplay(path string, cfg *SecurityConfig) string {
 	if parsed, ok := splitURLQuery(path); ok {
 		path, query = parsed.path, parsed.query
 	}
-	return redactURLForDisplay(path, query, cfg.LogSensitiveParams)
+	var sensitiveParams map[string]bool
+	if cfg != nil {
+		sensitiveParams = cfg.LogSensitiveParams
+	}
+	return redactURLForDisplay(path, query, sensitiveParams)
 }
 
 type urlParts struct {

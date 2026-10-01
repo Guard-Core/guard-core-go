@@ -221,8 +221,13 @@ type SecurityConfig struct {
 	BehaviorScanResponseBody            bool
 	BehaviorMaxResponseBodyInspectBytes int
 	CustomRequestCheck                  func(req Request) *Response
-	LogRequestLevel                     string
-	LogSuspiciousLevel                  string
+	// CustomRequestCheckName is the check_function name the
+	// custom_request_check event quotes when the adapter names its check
+	// (the reference python __name__ has no Go identifier equivalent);
+	// empty falls back to the function's runtime name.
+	CustomRequestCheckName string
+	LogRequestLevel        string
+	LogSuspiciousLevel     string
 
 	CloudIPRefreshInterval int
 

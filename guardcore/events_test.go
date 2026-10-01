@@ -219,8 +219,10 @@ func TestSecurityEventBusEnvelope(t *testing.T) {
 	if event.Metadata["traceparent"] != "00-trace-span-01" {
 		t.Fatalf("traceparent must forward into metadata: %+v", event.Metadata)
 	}
-	if _, hasDecorator := event.Metadata["decorator_type"]; hasDecorator {
-		t.Fatal("decorator_type is an envelope column, not metadata")
+	// The reference keeps the kwargs in metadata AND promotes them to the
+	// envelope columns (_build_event: metadata verbatim).
+	if event.Metadata["decorator_type"] != "authentication" {
+		t.Fatal("decorator_type must stay in metadata beside the column")
 	}
 	if event.Timestamp.IsZero() {
 		t.Fatal("envelope must carry a timestamp")
