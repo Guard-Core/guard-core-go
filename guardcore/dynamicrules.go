@@ -120,8 +120,40 @@ type lastKnownRulesSnapshot struct {
 // envelope shape is statically serializable (fixed field types, no
 // interface values), so encoding cannot fail; the reference's error
 // return exists for its dynamic pydantic model and has no counterpart
-// here.
+// here. The reference serializes a pydantic model whose collection fields
+// always carry their model defaults ([] and {}), so the dump normalizes
+// nil collections to the same empty defaults: the snapshot bytes stay
+// identical to the reference's regardless of how the rules struct was
+// constructed (spec 08 byte equality).
 func DumpLastKnownRulesSnapshot(rules DynamicRules) string {
+	rules.normalize()
+	if rules.IPBlacklist == nil {
+		rules.IPBlacklist = []string{}
+	}
+	if rules.IPWhitelist == nil {
+		rules.IPWhitelist = []string{}
+	}
+	if rules.BlockedCountries == nil {
+		rules.BlockedCountries = []string{}
+	}
+	if rules.WhitelistCountries == nil {
+		rules.WhitelistCountries = []string{}
+	}
+	if rules.EndpointRateLimits == nil {
+		rules.EndpointRateLimits = map[string][2]int{}
+	}
+	if rules.BlockedCloudProviders == nil {
+		rules.BlockedCloudProviders = []string{}
+	}
+	if rules.BlockedUserAgents == nil {
+		rules.BlockedUserAgents = []string{}
+	}
+	if rules.SuspiciousPatterns == nil {
+		rules.SuspiciousPatterns = []string{}
+	}
+	if rules.EmergencyWhitelist == nil {
+		rules.EmergencyWhitelist = []string{}
+	}
 	payload, _ := json.Marshal(lastKnownRulesSnapshot{
 		SchemaVersion: LastKnownRulesSnapshotSchemaVersion,
 		Rules:         rules,

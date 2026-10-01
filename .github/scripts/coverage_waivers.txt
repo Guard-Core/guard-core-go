@@ -82,6 +82,12 @@ guardcore/dynamicrules.go:684
 guardcore/dynamicrules.go:689
 guardcore/dynamicrules.go:685
 guardcore/dynamicrules.go:690
+# go 1.26/1.27 coordinates after the snapshot-dump normalization shifted
+# the block starts (same proof as above).
+guardcore/dynamicrules.go:717
+guardcore/dynamicrules.go:722
+guardcore/dynamicrules.go:718
+guardcore/dynamicrules.go:723
 
 # encodings.go
 # escape-decode failure returns: hexEscapeRE, unicodeEscapeRE,
