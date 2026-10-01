@@ -726,6 +726,44 @@ func (m *CloudManager) SetRedisHandler(redis RedisHandler) {
 	m.redisHandler = redis
 }
 
+// CloudRangeFetcher is the pinned-fetch seam signature: a fetcher answers
+// one provider's CIDR ranges and their region attribution.
+type CloudRangeFetcher func(provider string) (ranges []string, regions map[string]string, err error)
+
+// SetRangeFetcher pins the provider-range fetcher, replacing the built-in
+// provider registry for every provider the fetcher answers. Test and
+// conformance-runner seam: the reference harnesses monkeypatch
+// cloud_handler._fetch_provider_ranges
+// (specs/fixtures/tools/redis_interop_cases.py, events_harness.py); this is
+// the same injection point, without the monkeypatching. A nil fetcher
+// restores the built-in registry.
+func (m *CloudManager) SetRangeFetcher(fetcher CloudRangeFetcher) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if fetcher == nil {
+		m.testFetcher = nil
+		return
+	}
+	m.testFetcher = func(provider string) (cloudRangeSet, error) {
+		ranges, regions, err := fetcher(provider)
+		if err != nil {
+			return cloudRangeSet{}, err
+		}
+		set := newCloudRangeSet()
+		for _, cidr := range ranges {
+			masked, key, parseErr := parseCloudNetwork(cidr)
+			if parseErr != nil {
+				return cloudRangeSet{}, fmt.Errorf("corrupt fetched range %q: %w", cidr, parseErr)
+			}
+			set.networks[key] = masked
+			if region, ok := regions[cidr]; ok {
+				set.regions[key] = region
+			}
+		}
+		return set, nil
+	}
+}
+
 func (m *CloudManager) effectiveStore() CloudIPStore {
 	if m.store != nil {
 		return m.store
