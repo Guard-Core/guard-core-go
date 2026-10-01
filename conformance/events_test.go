@@ -412,47 +412,10 @@ func runEventsCase(t *testing.T, c eventsCase) ([]map[string]any, error) {
 }
 
 // prepareEventsScenario adapts the reference injection seams that map onto
-// engine construction inputs: geo_country_stub pins the GeoIP handler's
-// country answers and the blocked list, so it becomes a route-level
-// blocked_countries decorator (the reference check_country_access hop is
-// the route decorator stage) plus a stub resolver entry and a real
-// pipeline drive (the Go country verdict lives in the ip_security check).
+// engine construction inputs. (The geo_country_stub step now drives the
+// manager-level CheckCountryAccess verdict directly, the same seam the
+// reference harness pins, and needs no scenario rewrite.)
 func prepareEventsScenario(c eventsCase) eventsCase {
-	drives := make([]map[string]any, 0, len(c.Drives))
-	rewrote := false
-	for _, raw := range c.Drives {
-		if stepString(raw, "call") == "geo_country_stub" {
-			blocked := strList(raw["blocked_countries"])
-			ip := stepString(raw, "ip")
-			country := stepString(raw, "country")
-			if c.GeoCountries == nil {
-				c.GeoCountries = map[string]string{}
-			}
-			c.GeoCountries[ip] = country
-			if c.Routes == nil {
-				c.Routes = map[string]map[string]any{}
-			}
-			route := c.Routes["/api"]
-			if route == nil {
-				route = map[string]any{}
-			}
-			route["blocked_countries"] = func() []any {
-				out := make([]any, 0, len(blocked))
-				for _, b := range blocked {
-					out = append(out, b)
-				}
-				return out
-			}()
-			c.Routes["/api"] = route
-			drives = append(drives, map[string]any{"client_ip": ip, "url_path": "/api"})
-			rewrote = true
-			continue
-		}
-		drives = append(drives, raw)
-	}
-	if rewrote {
-		c.Drives = drives
-	}
 	return c
 }
 
@@ -746,6 +709,19 @@ func driveEventsCall(t *testing.T, engine *guardcore.Engine, agent *recordingAge
 		engine.Ban.SetBanFault(func(string) error {
 			return fmt.Errorf("corpus injected ban failure")
 		})
+		return nil
+	case "geo_country_stub":
+		// The reference stubs IPInfoManager.get_country and drives
+		// check_country_access; the Go manager exposes the same verdict
+		// with the pinned-answer seam.
+		engine.Config.OnGeoEvent = func(guardcore.GeoEvent) {}
+		manager := guardcore.NewIPInfoManager("corpus-token", filepath.Join(t.TempDir(), "corpus.mmdb"), guardcore.DefaultIPInfoMaxAge, engine.Config)
+		country := stepString(step, "country")
+		manager.SetCountryFunc(func(string) (string, bool) { return country, true })
+		blocked := strList(step["blocked_countries"])
+		if allowed, _ := manager.CheckCountryAccess(stepString(step, "ip"), blocked, nil); allowed {
+			return fmt.Errorf("the corpus stub expects the blocked country to deny")
+		}
 		return nil
 	case "detect", "add_pattern", "remove_pattern":
 		return fmt.Errorf("sus-patterns handler telemetry seam not mapped in this runner revision")
