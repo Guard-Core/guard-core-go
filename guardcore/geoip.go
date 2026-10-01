@@ -390,6 +390,19 @@ func (m *GeoIPManager) httpClient() *http.Client {
 	return http.DefaultClient
 }
 
+// SetDownloadEndpoint pins the download endpoint and the HTTP client used
+// to reach it (a nil client keeps the default transport). Test and
+// conformance-runner seam: the reference harnesses monkeypatch the aiohttp
+// session (specs/fixtures/tools/redis_interop_cases.py) or the download
+// method itself (events_harness.py); this is the same injection point,
+// without the monkeypatching.
+func (m *GeoIPManager) SetDownloadEndpoint(dataURL string, client *http.Client) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.dataURL = dataURL
+	m.customHTTPClient = client
+}
+
 // dbOutdated mirrors _is_db_outdated: a missing file is outdated, and a file
 // whose mtime is older than the max age is outdated too.
 func (m *GeoIPManager) dbOutdated() bool {

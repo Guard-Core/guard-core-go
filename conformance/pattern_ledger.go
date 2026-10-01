@@ -156,6 +156,17 @@ func collectCorpusPatternEvidence(casesDir string) (map[string]*ledgerPatternAcc
 		if err != nil {
 			return nil, 0, err
 		}
+		// Peek the kind first: the non-detect suites (pipeline, events,
+		// redis_interop, pattern_safety) carry different case schemas.
+		var probe struct {
+			Kind string `json:"kind"`
+		}
+		if err := json.Unmarshal(data, &probe); err != nil {
+			return nil, 0, fmt.Errorf("%s: %w", f, err)
+		}
+		if probe.Kind != "detect" {
+			continue
+		}
 		var cf ledgerCaseFile
 		if err := json.Unmarshal(data, &cf); err != nil {
 			return nil, 0, fmt.Errorf("%s: %w", f, err)
