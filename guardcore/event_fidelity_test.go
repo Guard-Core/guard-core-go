@@ -687,3 +687,87 @@ func TestEscalationFlatRefusalAnnouncesTracked(t *testing.T) {
 		t.Fatalf("the flat refusal must announce tracked, got %v", agent.eventTypes())
 	}
 }
+
+func TestCheckCountryAccessVerdicts(t *testing.T) {
+	agent := &recordingAgent{}
+	cfg, err := NewSecurityConfig(func(c *SecurityConfig) {
+		c.EnableRedis = false
+		c.EnableAgent = true
+		c.AgentHandler = agent
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.installAgentStream()
+	manager := NewIPInfoManager("corpus-token", t.TempDir()+"/db.mmdb", DefaultIPInfoMaxAge, cfg)
+	manager.SetCountryFunc(func(string) (string, bool) { return "CN", true })
+
+	// A blocked country denies and announces country_blocked.
+	allowed, country := manager.CheckCountryAccess("198.51.100.9", []string{"CN"}, nil)
+	if allowed || country != "CN" {
+		t.Fatalf("the blocked country must deny, got %v %q", allowed, country)
+	}
+	event := findEvent(agent, EventCountryBlocked)
+	if event == nil {
+		t.Fatalf("country_blocked must reach the bus, got %v", agent.eventTypes())
+	}
+	if event.HandlerName != IPInfoHandlerName || event.ActionTaken != "request_blocked" {
+		t.Fatalf("identity drifted: %+v", event)
+	}
+	if want := "Country CN is blocked"; event.Reason != want {
+		t.Fatalf("reason drifted: %q, want %q", event.Reason, want)
+	}
+	if event.RuleType != "country_blacklist" {
+		t.Fatalf("rule_type column drifted: %+v", event)
+	}
+	if event.Metadata["country"] != "CN" || event.Metadata["rule_type"] != "country_blacklist" {
+		t.Fatalf("metadata drifted: %+v", event.Metadata)
+	}
+
+	// An allowlist miss denies with the whitelist rule type.
+	agent.events = nil
+	allowed, country = manager.CheckCountryAccess("198.51.100.9", nil, []string{"US"})
+	if allowed || country != "CN" {
+		t.Fatalf("the allowlist miss must deny, got %v %q", allowed, country)
+	}
+	event = findEvent(agent, EventCountryBlocked)
+	if event == nil || event.Reason != "Country CN not in allowed list" || event.RuleType != "country_whitelist" {
+		t.Fatalf("the whitelist arm drifted: %+v", event)
+	}
+
+	// A non-empty allowlist only gates non-members: a member that is also
+	// blocklisted still denies through the blocklist arm (the reference
+	// checks the allowlist shadow first, then the blocklist verdict).
+	agent.events = nil
+	allowed, _ = manager.CheckCountryAccess("198.51.100.9", []string{"CN"}, []string{"CN"})
+	if allowed {
+		t.Fatal("an allowlisted country that is also blocked must still deny")
+	}
+	// An allowlisted country outside the blocklist passes quietly.
+	agent.events = nil
+	allowed, _ = manager.CheckCountryAccess("198.51.100.9", []string{"RU"}, []string{"CN"})
+	if !allowed {
+		t.Fatal("an allowlisted country must pass")
+	}
+	if len(agent.events) != 0 {
+		t.Fatalf("a pass must stay quiet, got %v", agent.eventTypes())
+	}
+
+	// An unresolvable country denies only under an allowlist.
+	manager.SetCountryFunc(func(string) (string, bool) { return "", false })
+	allowed, _ = manager.CheckCountryAccess("198.51.100.9", []string{"CN"}, nil)
+	if !allowed {
+		t.Fatal("an unresolved country passes without an allowlist")
+	}
+	allowed, _ = manager.CheckCountryAccess("198.51.100.9", []string{"CN"}, []string{"US"})
+	if allowed {
+		t.Fatal("an unresolved country denies under an allowlist")
+	}
+
+	// Clearing the seam restores the database lookups (the temp dir holds
+	// no database, so lookups miss).
+	manager.SetCountryFunc(nil)
+	if _, ok := manager.GetCountry("198.51.100.9"); ok {
+		t.Fatal("the restored lookups must miss without a database")
+	}
+}

@@ -110,12 +110,14 @@ type GeoIPManager struct {
 	initialized   bool
 	lastRefreshed time.Time
 
-	// test seams: clock, retry backoff sleep, HTTP transport and the
-	// download endpoint override.
+	// test seams: clock, retry backoff sleep, HTTP transport, the
+	// download endpoint override and the pinned country answers (the
+	// reference harnesses stub get_country directly).
 	now              func() time.Time
 	sleep            func(time.Duration)
 	customHTTPClient *http.Client
 	dataURL          string
+	countryFunc      func(ip string) (string, bool)
 }
 
 // GeoIPLifecycle is the optional surface an injected CountryResolver can
@@ -208,13 +210,11 @@ func (m *GeoIPManager) sleepBackoff(d time.Duration) {
 	time.Sleep(d)
 }
 
-// emitGeoEvent sends ev through the config's OnGeoEvent hook, the Go
-// counterpart of the reference _send_geo_event event-bus hop; without a
-// registered hook (or outside engine wiring) it is a no-op.
+// emitGeoEvent sends ev through the geo event channel, the Go counterpart
+// of the reference _send_geo_event handler hop: the installed bus forwards
+// it handler-direct and the OnGeoEvent hook (when registered) receives the
+// same record. Without either subscriber it is a no-op.
 func (m *GeoIPManager) emitGeoEvent(ev GeoEvent) {
-	if m.cfg == nil || m.cfg.OnGeoEvent == nil {
-		return
-	}
 	fireGeoEvent(m.cfg, ev)
 }
 
@@ -390,6 +390,57 @@ func (m *GeoIPManager) httpClient() *http.Client {
 	return http.DefaultClient
 }
 
+// SetCountryFunc pins the country answers (a nil function restores the
+// database-backed lookups). Test and conformance-runner seam: the
+// reference harnesses stub handler.get_country directly
+// (events_harness.py geo_country_stub); this is the same injection point.
+func (m *GeoIPManager) SetCountryFunc(fn func(ip string) (string, bool)) {
+	m.mu.Lock()
+	m.countryFunc = fn
+	m.mu.Unlock()
+}
+
+// CheckCountryAccess mirrors IPInfoManager.check_country_access
+// (guard_core/handlers/ipinfo_handler.py, ported 1:1 in the PHP sibling's
+// IpInfoManager.checkCountryAccess): an unresolvable country denies only
+// under an allowlist, a non-empty allowlist shadows the blocklist, and
+// both block arms announce country_blocked handler-direct with the matched
+// rule's reason and rule_type before the verdict returns.
+func (m *GeoIPManager) CheckCountryAccess(ip string, blockedCountries, whitelistCountries []string) (bool, string) {
+	country, resolved := m.GetCountry(ip)
+	if !resolved || country == "" {
+		if len(whitelistCountries) > 0 {
+			return false, ""
+		}
+		return true, ""
+	}
+	if len(whitelistCountries) > 0 && !containsCountry(whitelistCountries, country) {
+		m.emitGeoEvent(GeoEvent{
+			EventType:   EventCountryBlocked,
+			IPAddress:   ip,
+			ActionTaken: "request_blocked",
+			Reason:      fmt.Sprintf("Country %s not in allowed list", country),
+			Country:     country,
+			RuleType:    "country_whitelist",
+			HandlerName: ipinfoHandlerName,
+		})
+		return false, country
+	}
+	if containsCountry(blockedCountries, country) {
+		m.emitGeoEvent(GeoEvent{
+			EventType:   EventCountryBlocked,
+			IPAddress:   ip,
+			ActionTaken: "request_blocked",
+			Reason:      fmt.Sprintf("Country %s is blocked", country),
+			Country:     country,
+			RuleType:    "country_blacklist",
+			HandlerName: ipinfoHandlerName,
+		})
+		return false, country
+	}
+	return true, country
+}
+
 // SetDownloadEndpoint pins the download endpoint and the HTTP client used
 // to reach it (a nil client keeps the default transport). Test and
 // conformance-runner seam: the reference harnesses monkeypatch the aiohttp
@@ -451,6 +502,9 @@ func (m *GeoIPManager) GetStatus() map[string]any {
 // a failing lookup misses instead of raising (with the reference
 // geo_lookup_failed event emitted through the engine hook).
 func (m *GeoIPManager) GetCountry(ip string) (string, bool) {
+	if m.countryFunc != nil {
+		return m.countryFunc(ip)
+	}
 	m.ensureLoaded()
 	m.mu.RLock()
 	reader, failed := m.reader, m.failed
