@@ -2,16 +2,18 @@ package guardcore
 
 import (
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/dlclark/regexp2"
 )
 
 type compiledPattern struct {
-	source   string
-	re       *regexp2P
-	contexts map[string]bool
-	category string
+	source    string
+	re        *regexp2P
+	contexts  map[string]bool
+	category  string
+	prefilter []string
 }
 
 var globalPatterns []compiledPattern
@@ -27,7 +29,14 @@ func init() {
 		for _, c := range def.Contexts {
 			ctx[c] = true
 		}
-		globalPatterns = append(globalPatterns, compiledPattern{source: def.Pattern, re: re, contexts: ctx, category: def.Category})
+		compiled := compiledPattern{source: def.Pattern, re: re, contexts: ctx, category: def.Category}
+		if lits := extractLeadingLiterals(def.Pattern); lits != nil {
+			for i := range lits {
+				lits[i] = strings.ToLower(lits[i])
+			}
+			compiled.prefilter = lits
+		}
+		globalPatterns = append(globalPatterns, compiled)
 	}
 }
 
@@ -248,6 +257,9 @@ func firstAcceptedThreat(p *compiledPattern, matches []rmatch, validatorContext 
 }
 
 func checkRegexPattern(p *compiledPattern, t scanText, validatorContext string, prefix binaryPrefix) (map[string]any, bool) {
+	if p.prefilter != nil && !literalPrefilter(p.prefilter, t.s) {
+		return nil, false
+	}
 	if finder, ok := windowedFinders[p.source]; ok {
 		return firstAcceptedThreat(p, finder(t), validatorContext, prefix), false
 	}

@@ -132,6 +132,8 @@
       "category": "sqli",
       "status": "as_is",
       "evidence_cases": [
+        "cost_bodies::cost_threat_8kib",
+        "cost_bodies::cost_threat_tail_256kib",
         "encoding::enc_double_url_sqli",
         "sqli::sqli_or_string_compare",
         "sqli::sqli_url_encoded_quote"
