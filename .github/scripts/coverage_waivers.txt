@@ -287,3 +287,40 @@ guardcore/semantic.go:313
 # cannot reject.
 guardcore/templates.go:110
 guardcore/templates.go:111
+
+# findAllStrings defensive stale-match skip: regexp2 never returns a
+# match before the requested start; the guard protects the scan from
+# upstream behavior changes.
+guardcore/base64decode.go:55
+
+# cost-parity program (feat/cost-parity-corpus): defensive guards and
+# parser error-recovery branches below are unreachable through the public
+# API under normal operation; the prefilter's behavior contract is pinned
+# by literal_prefilter_test.go and the 193-case corpus.
+# findAllStrings / buildShortBase64AdditiveView / checkRegexPattern: regexp2
+# never returns a match before the requested start or an empty match for
+# the gated regexes; the guards protect the scans from upstream changes.
+guardcore/base64decode.go:239
+guardcore/base64decode.go:300
+guardcore/base64decode.go:355
+guardcore/base64decode.go:356
+guardcore/base64decode.go:369
+guardcore/registry.go:25
+guardcore/registry.go:288
+guardcore/registry.go:289
+guardcore/registry.go:305
+# extractLeadingLiterals: error-recovery returns for malformed internal
+# state; the accepted shapes are pinned by literal_prefilter_test.go.
+guardcore/literal_prefilter.go:58
+guardcore/literal_prefilter.go:65
+guardcore/literal_prefilter.go:72
+guardcore/literal_prefilter.go:74
+guardcore/literal_prefilter.go:81
+guardcore/literal_prefilter.go:90
+guardcore/literal_prefilter.go:95
+guardcore/literal_prefilter.go:101
+guardcore/literal_prefilter.go:106
+guardcore/literal_prefilter.go:112
+guardcore/literal_prefilter.go:116
+guardcore/literal_prefilter.go:122
+guardcore/literal_prefilter.go:130

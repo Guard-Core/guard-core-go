@@ -41,10 +41,14 @@ func isHexLiteral(token string) bool {
 }
 
 func findAllStrings(re *regexp2.Regexp, s string) []string {
+	// Convert to runes once: FindStringMatchStartingAt would re-convert the
+	// remaining suffix to runes on every call, which is quadratic over the
+	// scan and dominated large-body profiles.
+	runes := []rune(s)
 	var out []string
 	pos := 0
-	for pos <= len(s) {
-		m, err := re.FindStringMatchStartingAt(s, pos)
+	for pos <= len(runes) {
+		m, err := re.FindRunesMatchStartingAt(runes, pos)
 		if err != nil || m == nil {
 			break
 		}
@@ -337,11 +341,14 @@ func buildShortBase64AdditiveView(normalize func(string) string, truncate func(s
 		return ""
 	}
 	content = truncate(normalize(content))
+	// Runes once for the same reason as findAllStrings: the string API
+	// re-converts the remaining suffix on every call.
+	runes := []rune(content)
 	var fragments []string
 	attempts := 0
 	pos := 0
-	for pos <= len(content) {
-		m, err := shortBase64TokenRE.FindStringMatchStartingAt(content, pos)
+	for pos <= len(runes) {
+		m, err := shortBase64TokenRE.FindRunesMatchStartingAt(runes, pos)
 		if err != nil || m == nil {
 			break
 		}
