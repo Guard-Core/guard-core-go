@@ -338,3 +338,26 @@ guardcore/logfire_handler.go:151
 # otlpwire.go json.Marshal of the internally-built OTLP envelope cannot
 # fail (numeric + string fields only).
 guardcore/otlpwire.go:244
+# B2 enrichment commit (agent event enrichment layer): the installAgentStream
+# tracker parameter, the enriching composite wiring, the enrichment config
+# fields and the atomic currentRules field shifted the line numbers of the
+# statements waived above in composition.go, config.go and dynamicrules.go.
+# Same proofs, new coordinates. go 1.26 rows are CI's toolchain, go 1.27 rows
+# the local one; extra rows are inert on the toolchain that does not
+# produce them.
+# composition.go: Cloud.InitializeRedis failure branch and the redis
+# sub-step error arms (proofs above).
+guardcore/composition.go:124
+guardcore/composition.go:125
+guardcore/composition.go:129
+guardcore/composition.go:125
+guardcore/composition.go:126
+guardcore/composition.go:130
+# config.go: validateCORS error branch (proof above).
+guardcore/config.go:432
+guardcore/config.go:433
+# dynamicrules.go: writeAtomicFile write/close guards (proof above).
+guardcore/dynamicrules.go:723
+guardcore/dynamicrules.go:728
+guardcore/dynamicrules.go:724
+guardcore/dynamicrules.go:729
