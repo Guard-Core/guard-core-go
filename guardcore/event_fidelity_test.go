@@ -420,7 +420,7 @@ func TestEscalationEarlyReturns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.installAgentStream()
+	cfg.installAgentStream(nil)
 	check := &ipSecurityCheck{cfg: cfg, counts: &suspiciousCountStore{m: map[string]map[string]int{}}}
 	// An empty IP never escalates.
 	check.escalateIdentityViolation(newTestRequest(t, nil), "", "ip_blocked", "reason")
@@ -698,7 +698,7 @@ func TestCheckCountryAccessVerdicts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.installAgentStream()
+	cfg.installAgentStream(nil)
 	manager := NewIPInfoManager("corpus-token", t.TempDir()+"/db.mmdb", DefaultIPInfoMaxAge, cfg)
 	manager.SetCountryFunc(func(string) (string, bool) { return "CN", true })
 

@@ -276,6 +276,30 @@ func (t *BehaviorTracker) trackLocal(store map[string]map[string][]float64, buck
 	return len(timestamps)
 }
 
+// GetRecentEventCount mirrors BehaviorTracker.get_recent_event_count
+// (guard_core/handlers/behavior_handler.py): the number of locally tracked
+// usage timestamps for the ip that fall inside the sliding window, summed
+// across every endpoint bucket. An empty ip answers 0 (the reference's
+// early return). The event enricher calls this for the
+// guard.behavior.recent_event_count correlation column.
+func (t *BehaviorTracker) GetRecentEventCount(ip string, windowSeconds int) int {
+	if t == nil || ip == "" {
+		return 0
+	}
+	cutoff := float64(time.Now().UnixNano())/float64(time.Second) - float64(windowSeconds)
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	count := 0
+	for _, clients := range t.usageCounts {
+		for _, ts := range clients[ip] {
+			if ts >= cutoff {
+				count++
+			}
+		}
+	}
+	return count
+}
+
 // evictOneKey bounds the local stores when they hit the reference's
 // _MAX_TRACKED_* caps. Python evicts LRU-first via _lru_pop_or_create; the
 // Go map has no order, so one arbitrary entry is dropped, which bounds

@@ -165,12 +165,13 @@ type AgentHandler interface {
 // emitters all ride it. A nil pipeline (no AgentHandler configured) makes
 // every emission a no-op, exactly like the reference's agentless mode.
 type agentPipeline struct {
-	handler AgentHandler
-	geo     CountryResolver
-	cfg     *SecurityConfig
-	filter  EventFilter
-	bus     *SecurityEventBus
-	metrics *MetricsCollector
+	handler  AgentHandler
+	geo      CountryResolver
+	cfg      *SecurityConfig
+	filter   EventFilter
+	enricher *EventEnricher
+	bus      *SecurityEventBus
+	metrics  *MetricsCollector
 }
 
 // newAgentPipeline wires the stream; the geo resolver is attached later
@@ -188,6 +189,17 @@ func newAgentPipeline(handler AgentHandler, cfg *SecurityConfig, filter EventFil
 func (p *agentPipeline) attachGeoResolver(resolver CountryResolver) {
 	p.geo = resolver
 	p.bus.geo = resolver
+}
+
+// attachDynamicRuleMatcher hands the enricher the live DynamicRuleManager
+// once the Engine builds it (the reference build_enricher constructing the
+// rule handle when enable_dynamic_rules is on). A nil matcher or an
+// enrichment-less pipeline is a no-op; rule correlation keys then never ride.
+func (p *agentPipeline) attachDynamicRuleMatcher(matcher DynamicRuleMatcher) {
+	if p == nil || p.enricher == nil || matcher == nil {
+		return
+	}
+	p.enricher.ctx.DynamicRuleHandler = matcher
 }
 
 // agentPipelineFor returns the config's installed pipeline, or nil.
@@ -324,6 +336,13 @@ func (b *SecurityEventBus) SendHandlerEvent(eventType string, handlerName string
 func (b *SecurityEventBus) SendHandlerEventFull(eventType string, handlerName string, ipAddress, actionTaken, reason, ruleType string, metadata map[string]any) {
 	if b == nil || b.handler == nil {
 		return
+	}
+	if metadata == nil {
+		// The reference SecurityEvent model defaults metadata to an empty
+		// dict, so every emission is enrichment-eligible; a nil map here
+		// would ship the event unenriched (enricher.py's `metadata is
+		// None` early return).
+		metadata = map[string]any{}
 	}
 	event := SecurityEvent{
 		Timestamp:   time.Now().UTC(),

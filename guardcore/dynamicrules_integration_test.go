@@ -31,7 +31,7 @@ func newDynamicRulesIntegrationManager(t *testing.T) (*DynamicRuleManager, *Secu
 		c.EnableDynamicRules = true
 		c.GeoIPHandler = fakeCountryResolver{"203.0.113.50": "CN"}
 	})
-	cfg.installAgentStream()
+	cfg.installAgentStream(nil)
 	manager := NewDynamicRuleManager(cfg, mgr, NewIPBanManager(mgr, nil), busFor(cfg))
 	return manager, cfg, mgr
 }
