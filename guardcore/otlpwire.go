@@ -44,10 +44,6 @@ func otlpDoubleAttr(key string, value float64) otlpAttribute {
 	return otlpAttribute{Key: key, Value: otlpAttributeValue{DoubleValue: &double}}
 }
 
-func otlpBoolAttr(key string, value bool) otlpAttribute {
-	return otlpAttribute{Key: key, Value: otlpAttributeValue{BoolValue: &value}}
-}
-
 // otlpResourceAttributes builds the resource column: service.name plus
 // the configured extras, service.name first.
 func otlpResourceAttributes(serviceName string, extra map[string]string) []otlpAttribute {
