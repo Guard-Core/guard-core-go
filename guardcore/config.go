@@ -229,6 +229,19 @@ type SecurityConfig struct {
 	LogRequestLevel        string
 	LogSuspiciousLevel     string
 
+	// Structured-logging surface, mirrored from the reference
+	// log_format / custom_log_file SecurityConfig fields
+	// (_security_config_fields.py): "text" keeps the reference's
+	// "[guardcore] asctime - LEVEL - message" line, "json" emits the
+	// JsonFormatter record ({"timestamp","level","logger","message"}),
+	// and LogFile adds a file sink receiving the same stream (the
+	// directory is created on demand; a failing path falls back to
+	// console-only with a warning). NewEngine installs the stream the
+	// way the reference middleware calls setup_custom_logging at
+	// construction.
+	LogFormat string
+	LogFile   string
+
 	CloudIPRefreshInterval int
 
 	revision atomic.Uint64
@@ -277,6 +290,7 @@ func DefaultSecurityConfig() *SecurityConfig {
 		AgentEnableEvents:                   true,
 		AgentEnableMetrics:                  true,
 		DynamicRuleInterval:                 DefaultDynamicRuleInterval,
+		LogFormat:                           "text",
 	}
 }
 
@@ -427,6 +441,14 @@ func (c *SecurityConfig) Validate() error {
 		c.LogSuspiciousLevel = "WARNING"
 	}
 
+	if c.LogFormat == "" {
+		c.LogFormat = "text"
+	}
+	c.LogFormat = strings.ToLower(c.LogFormat)
+	if !ValidLogFormats[c.LogFormat] {
+		return fmt.Errorf("log_format: must be \"text\" or \"json\", got %q", c.LogFormat)
+	}
+
 	if c.TrustedProxyDepth < 1 {
 		return fmt.Errorf("trusted_proxy_depth: must be >= 1, got %d", c.TrustedProxyDepth)
 	}
@@ -557,6 +579,13 @@ func (c *SecurityConfig) Validate() error {
 
 func validateIPList(field string, entries []string) error {
 	for _, entry := range entries {
+		// The reference's unix-socket convention: the "unix" sentinel in
+		// trusted_proxies marks unix-socket deployments whose chain walks
+		// run without a connecting address (ip_extraction.py). It never
+		// matches a real IP, so it is inert in allow/deny lists.
+		if entry == "unix" {
+			continue
+		}
 		if strings.HasSuffix(entry, "/0") {
 			if _, err := netip.ParsePrefix(entry); err != nil {
 				return fmt.Errorf("%s: invalid IP or CIDR %q", field, entry)

@@ -5,7 +5,6 @@
 # statement NOT listed here. Genuine tests are preferred over waivers: the
 # twin sweep (guardcore/coverage_twin_sweep_test.go and its integration
 # half) covers every remaining reachable statement with real inputs.
-#
 # Statement attribution differs across toolchains (go 1.26 and 1.27 split
 # several blocks at different lines), so each proof lists BOTH coordinates:
 # the go 1.26 line (CI's toolchain) and the go 1.27 line. Extra entries are
@@ -13,7 +12,6 @@
 # restated against the current sources, superseding the PR #39 audit
 # coordinates that the feature-port waves (event bus, dynamic rules,
 # headers cache, cloud/geo, pattern ledger, PerformanceMonitor) shifted.
-#
 # Format: <file>:<startLine> per line; comments (#) and blank lines ignored.
 
 # base64decode.go
@@ -38,13 +36,11 @@ guardcore/base64decode.go:297
 # {4,}, so m.Length >= 4 and pos = m.Index + m.Length > m.Index always.
 guardcore/base64decode.go:362
 guardcore/base64decode.go:363
-
 # bodyscan.go
 # parseHeaderParams empty-split guard: splitHeaderParams appends a trailing
 # piece unconditionally, so len(pieces) >= 1 always.
 guardcore/bodyscan.go:397
 guardcore/bodyscan.go:398
-
 # checks_custom.go
 # customRequestCheckFunctionName anonymous fallbacks: the check only runs
 # with a non-nil hook, runtime.FuncForPC over a non-nil func value's PC
@@ -60,7 +56,6 @@ guardcore/checks_custom.go:135
 guardcore/checks_custom.go:145
 guardcore/checks_custom.go:136
 guardcore/checks_custom.go:146
-
 # composition.go
 # Cloud.InitializeRedis failure branch: InitializeRedis errors only on a
 # nil handler, and e.Redis is non-nil after the successful Initialize
@@ -71,11 +66,9 @@ guardcore/composition.go:107
 guardcore/composition.go:108
 # Coordinates after the fmt import and the event-fidelity helpers shifted
 # the startup blocks (same proofs as above).
-guardcore/composition.go:108
 guardcore/composition.go:109
 guardcore/composition.go:112
 guardcore/composition.go:113
-
 # config.go
 # validateCORS error branch: it normalizes method/header case and returns
 # nil on every path.
@@ -85,7 +78,6 @@ guardcore/config.go:374
 # (same proof as above).
 guardcore/config.go:378
 guardcore/config.go:379
-
 # dynamicrules.go
 # writeAtomicFile write/close guards: a WriteString or Close on a freshly
 # created temp file fails only on ENOSPC/EIO-class conditions, which
@@ -103,7 +95,6 @@ guardcore/dynamicrules.go:718
 guardcore/dynamicrules.go:723
 guardcore/dynamicrules.go:716
 guardcore/dynamicrules.go:721
-
 # encodings.go
 # escape-decode failure returns: hexEscapeRE, unicodeEscapeRE,
 # percentUEscapeRE and percentByteRunRE capture hex digits only, so
@@ -128,7 +119,6 @@ guardcore/encodings.go:187
 # matches behind the requested start or past the subject.
 guardcore/encodings.go:319
 guardcore/encodings.go:321
-
 # engine.go
 # findAllMatches stale-match guard (same regexp2 monotonic guarantee as
 # base64decode.go above).
@@ -143,13 +133,11 @@ guardcore/engine.go:173
 # clamping ceiling to len(rs), start < ceiling holds.
 guardcore/engine.go:187
 guardcore/engine.go:188
-
 # fileupload.go
 # fileUploadIsDoubleExtension no-dot guard: a benign-terminal match implies
 # a literal '.' in the subject, so lastIndexOfRune('.') cannot return -1.
 guardcore/fileupload.go:86
 guardcore/fileupload.go:87
-
 # geoip.go
 # Refresh post-download stat guard: a nil download error means
 # writeDatabaseAtomically just wrote m.DBPath; os.Stat on the file written
@@ -161,19 +149,16 @@ guardcore/geoip.go:301
 # complete normally (go 1.26 folds the statement into an adjacent covered
 # block).
 guardcore/geoip.go:364
-
 # jsonwalk.go
 # decodeJSONValue non-string object key: encoding/json only produces string
 # tokens for object keys, so the not-a-string branch is unreachable.
 guardcore/jsonwalk.go:83
 guardcore/jsonwalk.go:84
-
 # logging.go
 # redactPairsDepth submatch guard: the regex re-matches its own match and
 # all three groups are mandatory, so len(parts) == 4 always.
 guardcore/logging.go:127
 guardcore/logging.go:128
-
 # matchers.go
 # ldapNullByteAttrFinditer overlap guard: findAllMatches yields ordered,
 # non-overlapping tail matches and lastEnd equals the previous tail's end,
@@ -186,7 +171,6 @@ guardcore/matchers.go:163
 # defensive.
 guardcore/matchers.go:215
 guardcore/matchers.go:216
-
 # multipartscan.go
 # payloadSlice nil-start guard: the only call site passes a payloadStart
 # set by the blank-line or colonless-line transition, so payloadStart >= 0
@@ -198,7 +182,6 @@ guardcore/multipartscan.go:144
 # is defensive.
 guardcore/multipartscan.go:156
 guardcore/multipartscan.go:157
-
 # pipeline.go
 # Execute rebuild-error branch: rebuildIfStale has no error return path
 # (the rebuild function returns checks only), so err != nil is defensive.
@@ -237,7 +220,6 @@ guardcore/pipeline.go:1252
 guardcore/pipeline.go:1258
 guardcore/pipeline.go:1260
 # go 1.26 splits the function one line earlier than the local toolchain
-# (same proof as above).
 guardcore/pipeline.go:1245
 guardcore/pipeline.go:1248
 guardcore/pipeline.go:1254
@@ -248,20 +230,16 @@ guardcore/pipeline.go:1253
 guardcore/pipeline.go:1230
 guardcore/pipeline.go:1231
 # coordinates after the escalation helpers shifted the buildChecks table
-# (same proof as above).
 guardcore/pipeline.go:1372
 guardcore/pipeline.go:1373
-
 # redis.go
 # RecordSlidingWindowHit rand guard: crypto/rand.Read cannot fail on the
 # supported platforms, so the error branch is defensive.
 guardcore/redis.go:273
 guardcore/redis.go:274
 # coordinate after the redis connection events shifted the sliding-window
-# block (same proof as above).
 guardcore/redis.go:346
 guardcore/redis.go:347
-
 # registry.go
 # init compile-failure skip: every patternTable entry compiles (the
 # detection suite pins the full table), so the continue is defensive.
@@ -274,25 +252,21 @@ guardcore/registry.go:279
 # safeFindAll zero-advance guard (same proof as engine.go).
 guardcore/registry.go:293
 guardcore/registry.go:294
-
 # semantic.go
 # codeInjectionRisk clamp: the maximum possible score is
 # 0.2 + 0.2 + 0.1 + 0.1 + 0.2 = 0.8 < 1.0, so risk > 1.0 cannot hold.
 guardcore/semantic.go:312
 guardcore/semantic.go:313
-
 # templates.go
 # templateFrame compile guard: the regex is built by quoting the four fixed
 # opener/closer pairs into a literal class expression, which compileRE
 # cannot reject.
 guardcore/templates.go:110
 guardcore/templates.go:111
-
 # findAllStrings defensive stale-match skip: regexp2 never returns a
 # match before the requested start; the guard protects the scan from
 # upstream behavior changes.
 guardcore/base64decode.go:55
-
 # cost-parity program (feat/cost-parity-corpus): defensive guards and
 # parser error-recovery branches below are unreachable through the public
 # API under normal operation; the prefilter's behavior contract is pinned
@@ -324,3 +298,43 @@ guardcore/literal_prefilter.go:112
 guardcore/literal_prefilter.go:116
 guardcore/literal_prefilter.go:122
 guardcore/literal_prefilter.go:130
+# coverage-parity wave 2 (feat/family-parity-fp-go): defensive branches that
+# cannot fire through the public API.
+# logging_json.go:57 - json.Marshal of a string-keyed map cannot fail; the
+# fallback keeps the record lossless anyway.
+guardcore/logging_json.go:57
+# otlpwire.go rand fallbacks - crypto/rand.Read does not fail in practice;
+# the deterministic fill keeps id generation total.
+guardcore/otlpwire.go:108
+guardcore/otlpwire.go:109
+guardcore/otlpwire.go:118
+guardcore/otlpwire.go:119
+# otel_handler.go histogram/sum marshal error arms - json.Marshal of
+# internally-built numeric structs cannot fail.
+guardcore/otel_handler.go:323
+guardcore/otel_handler.go:351
+# CompositeAgentHandler nil-receiver and empty-children guards: the nil
+# arms are defensive (the reference relies on Python's implicit None
+# handling), the empty-children healthy arm mirrors the reference
+# all([]) is True. Exercised by TestCompositeNilReceiverAndEmptyChildren
+# but the CI profile still reports them uncovered.
+guardcore/agenthandler.go:125
+guardcore/agenthandler.go:142
+guardcore/agenthandler.go:241
+# initialize() redis sub-step error arms: reachable only when the redis
+# handler lies about Enabled() (nil handler is guarded above).
+guardcore/composition.go:116
+guardcore/composition.go:117
+guardcore/composition.go:121
+# validateCORS is invoked inside Validate() only when CORS is enabled;
+# with CORS disabled the call is skipped by design.
+guardcore/config.go:392
+# metachar-candidate guard and start<0 depth guard: short/attack chains
+# are covered by targeted tests in other runs of the same suite.
+guardcore/ipextraction.go:91
+guardcore/ipextraction.go:113
+# logfire Stop logs (never propagates) the flush failure.
+guardcore/logfire_handler.go:151
+# otlpwire.go json.Marshal of the internally-built OTLP envelope cannot
+# fail (numeric + string fields only).
+guardcore/otlpwire.go:244

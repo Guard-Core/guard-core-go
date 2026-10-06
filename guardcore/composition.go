@@ -38,6 +38,15 @@ func NewEngine(cfg *SecurityConfig) (*Engine, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
+	// The structured-logging switch installs the guardcore log stream
+	// before any manager is built, the way the reference middleware
+	// calls setup_custom_logging(config.custom_log_file, log_format) at
+	// construction (fastapi-guard guard/middleware.py): every component
+	// logs through the package default logger, so json / file settings
+	// shape the whole engine's output.
+	if cfg.LogFormat == "json" || cfg.LogFile != "" {
+		SetupCustomLogging(cfg.LogFile, cfg.LogFormat)
+	}
 	routes := NewRouteRegistry()
 	redisManager := NewRedisManager(RedisConfig{URL: cfg.RedisURL, Prefix: cfg.RedisPrefix, EnableRedis: cfg.EnableRedis})
 	ban := NewIPBanManager(redisManager, cfg.TrustedProxies)
@@ -162,7 +171,7 @@ func (e *Engine) Check(req Request) *Response {
 	if state != nil {
 		state.PipelineStartedAt = time.Now()
 	}
-	e.detectIPSpoofing(req)
+	e.resolveClientIdentity(req)
 	if e.CORS != nil && IsPreflight(req) {
 		// The reference dispatch runs the preflight branch before the
 		// passthrough handler marks the request exclusion-scoped, so the
@@ -286,29 +295,18 @@ type exclusionMatcher struct {
 	emittedPaths map[string]time.Time
 }
 
-// detectIPSpoofing mirrors _utils/ip_extraction.py's untrusted-proxy arm:
-// an X-Forwarded-For chain on a request whose connecting address is not a
-// configured trusted proxy is a spoof attempt (suspicious_request, handler
-// ip_extraction). Trusted proxies run the real chain walk in the adapters;
-// the engine surface pins the detection verdict.
-func (e *Engine) detectIPSpoofing(req Request) {
-	if len(e.Config.TrustedProxies) == 0 {
+// detectIPSpoofing resolves the request's client identity once per
+// dispatch (extract_client_ip, _utils/ip_extraction.py) and caches it in
+// RequestState.ClientIP: a trusted-proxy peer walks the X-Forwarded-For
+// chain under trusted_proxy_depth, an untrusted peer carrying a forwarded
+// chain is a spoof attempt (suspicious_request, handler ip_extraction),
+// and every downstream consumer (rate limits, bans, geo, behavioral keys,
+// events) keys on the resolved identity through resolveClientIP.
+func (e *Engine) resolveClientIdentity(req Request) {
+	if e.Config == nil {
 		return
 	}
-	forwarded, ok := req.Headers().Get("X-Forwarded-For")
-	if !ok || forwarded == "" {
-		return
-	}
-	peer := req.ClientHost()
-	if peer == "" || ipMatchesList(peer, e.Config.TrustedProxies) {
-		return
-	}
-	bus := busFor(e.Config)
-	if bus == nil {
-		return
-	}
-	bus.SendHandlerEventRequest(EventSuspiciousRequest, "ip_extraction", req, "spoofing_detected",
-		fmt.Sprintf("Potential IP spoof attempt: X-Forwarded-For header %s", forwarded), "", nil)
+	extractClientIP(req, e.Config)
 }
 
 // emitPathExcludedEvent announces a path exclusion, deduplicated per path
