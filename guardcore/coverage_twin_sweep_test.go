@@ -16,7 +16,7 @@ func TestBehaviorViolationReachesAgentBus(t *testing.T) {
 	cfg := behaviorTestConfig(t, func(c *SecurityConfig) {
 		c.AgentHandler = agent
 	})
-	cfg.installAgentStream()
+	cfg.installAgentStream(nil)
 	ban := NewIPBanManager(nil, nil)
 	tracker := NewBehaviorTracker(cfg, nil, ban, nil)
 	tracker.ApplyAction(BehaviorRuleConfig{RuleType: "usage", Action: "ban"}, "203.0.113.77", "ep", "details")

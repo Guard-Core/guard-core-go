@@ -72,14 +72,16 @@ type (
 )
 
 // CompositeAgentHandler fans one event/metric stream out to N sinks,
-// ported from composite_handler.py: the filter gates by type string, a
-// failing child never fails the stream (the error is logged), start
-// failures degrade the composite without stopping the fan-out, and
-// dynamic rules resolve from the first child that provides them.
+// ported from composite_handler.py: the filter gates by type string, the
+// optional enricher stamps the guard.* keys before fan-out, a failing
+// child never fails the stream (the error is logged), start failures
+// degrade the composite without stopping the fan-out, and dynamic rules
+// resolve from the first child that provides them.
 type CompositeAgentHandler struct {
 	mu       sync.Mutex
 	handlers []AgentHandler
 	filter   EventFilter
+	enricher *EventEnricher
 	started  bool
 	failed   []string
 }
@@ -93,6 +95,16 @@ func NewCompositeAgentHandler(handlers []AgentHandler, filter *EventFilter) *Com
 	if filter != nil {
 		composite.filter = *filter
 	}
+	return composite
+}
+
+// NewCompositeAgentHandlerWithEnricher wires the fan-out with the enricher
+// the reference CompositeAgentHandler accepts: every allowed event/metric
+// is enriched before the children see it (composite_handler.py
+// send_event/send_metric: filter, enrich, fan out).
+func NewCompositeAgentHandlerWithEnricher(handlers []AgentHandler, filter *EventFilter, enricher *EventEnricher) *CompositeAgentHandler {
+	composite := NewCompositeAgentHandler(handlers, filter)
+	composite.enricher = enricher
 	return composite
 }
 
@@ -119,14 +131,17 @@ func (c *CompositeAgentHandler) FailedHandlers() []string {
 	return append([]string(nil), c.failed...)
 }
 
-// SendEvent filters by event type and fans out; child failures are
-// logged and never propagated (the reference send_event).
+// SendEvent filters by event type, enriches and fans out; child failures
+// are logged and never propagated (the reference send_event).
 func (c *CompositeAgentHandler) SendEvent(event SecurityEvent) error {
 	if c == nil {
 		return nil
 	}
 	if event.EventType != "" && !c.filter.IsEventAllowed(event.EventType) {
 		return nil
+	}
+	if c.enricher != nil {
+		c.enricher.EnrichEvent(&event)
 	}
 	for _, handler := range c.children() {
 		if err := handler.SendEvent(event); err != nil {
@@ -136,14 +151,17 @@ func (c *CompositeAgentHandler) SendEvent(event SecurityEvent) error {
 	return nil
 }
 
-// SendMetric filters by metric type and fans out; child failures are
-// logged and never propagated (the reference send_metric).
+// SendMetric filters by metric type, enriches and fans out; child failures
+// are logged and never propagated (the reference send_metric).
 func (c *CompositeAgentHandler) SendMetric(metric SecurityMetric) error {
 	if c == nil {
 		return nil
 	}
 	if metric.MetricType != "" && !c.filter.IsMetricAllowed(metric.MetricType) {
 		return nil
+	}
+	if c.enricher != nil {
+		c.enricher.EnrichMetric(&metric)
 	}
 	for _, handler := range c.children() {
 		if err := handler.SendMetric(metric); err != nil {

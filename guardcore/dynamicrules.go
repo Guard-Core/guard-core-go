@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -219,8 +220,12 @@ type DynamicRuleManager struct {
 	bus   *SecurityEventBus
 	log   *log.Logger
 
-	mu              sync.Mutex
-	currentRules    *DynamicRules
+	mu sync.Mutex
+	// currentRules is atomic so the telemetry enrichment layer can read
+	// it reentrantly (the reference's match_event reads
+	// self.current_rules with no lock, and rule events are emitted while
+	// the manager's own mutex is held).
+	currentRules    atomic.Pointer[DynamicRules]
 	lastUpdate      float64
 	activeBase      *configSnapshot
 	lastSkippedRule string
@@ -256,11 +261,12 @@ func NewDynamicRuleManager(cfg *SecurityConfig, redis *RedisManager, ban *IPBanM
 	}
 }
 
-// CurrentRules returns the active rule set, if any.
+// CurrentRules returns the active rule set, if any. The read is
+// lock-free: rule events are emitted while m.mu is held, and the
+// enrichment layer's correlation runs synchronously on that emission
+// path (the reference reads self.current_rules unlocked).
 func (m *DynamicRuleManager) CurrentRules() *DynamicRules {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.currentRules
+	return m.currentRules.Load()
 }
 
 // LastUpdate returns the wall-clock seconds of the last applied rule.
@@ -283,7 +289,7 @@ func (m *DynamicRuleManager) hasExpired(rules *DynamicRules) bool {
 // current rule exists, the rule_id differs, or the version is strictly
 // greater.
 func (m *DynamicRuleManager) shouldUpdateRules(rules *DynamicRules) bool {
-	current := m.currentRules
+	current := m.currentRules.Load()
 	if current == nil {
 		return true
 	}
@@ -309,7 +315,7 @@ func (m *DynamicRuleManager) rejectIfAlreadyExpired(rules *DynamicRules) bool {
 // rule is dropped and the base config restored (the FIRST successful
 // rule's snapshot, retained across consecutive rules).
 func (m *DynamicRuleManager) checkRuleExpiry() {
-	rules := m.currentRules
+	rules := m.currentRules.Load()
 	if rules == nil || rules.ExpiresAt == nil {
 		return
 	}
@@ -321,7 +327,7 @@ func (m *DynamicRuleManager) checkRuleExpiry() {
 		m.cfg.BumpRevision()
 	}
 	m.log.Printf("Dynamic rule %s v%d expired; restored base config", rules.RuleID, rules.Version)
-	m.currentRules = nil
+	m.currentRules.Store(nil)
 	m.activeBase = nil
 }
 
@@ -376,7 +382,7 @@ func (m *DynamicRuleManager) UpdateRules(fetch func() (*DynamicRules, error)) er
 		return err
 	}
 
-	m.currentRules = rules
+	m.currentRules.Store(rules)
 	m.lastUpdate = m.nowFunc()
 
 	m.sendRuleEvent(EventDynamicRuleApplied, "rules_updated",
@@ -392,10 +398,11 @@ func (m *DynamicRuleManager) UpdateRules(fetch func() (*DynamicRules, error)) er
 }
 
 func (m *DynamicRuleManager) currentRulesVersion() int {
-	if m.currentRules == nil {
+	rules := m.currentRules.Load()
+	if rules == nil {
 		return 0
 	}
-	return m.currentRules.Version
+	return rules.Version
 }
 
 // sendRuleEvent mirrors the _dynamic_rule_events.py emitters: the
@@ -501,7 +508,7 @@ func (m *DynamicRuleManager) applyRulesLocked(rules *DynamicRules) (err error) {
 		return fmt.Errorf("dynamic rule application failed: snapshot restored")
 	}
 
-	if m.currentRules == nil && m.activeBase == nil {
+	if m.currentRules.Load() == nil && m.activeBase == nil {
 		// _capture_active_base_snapshot: the FIRST successful rule's
 		// snapshot is retained as the base so expiry restores pre-rule
 		// state even across consecutive rules.
@@ -744,7 +751,7 @@ func (m *DynamicRuleManager) HydrateLastKnownRules() {
 		m.log.Printf("Failed to hydrate last-known dynamic rules: %v", err)
 		return
 	}
-	m.currentRules = rules
+	m.currentRules.Store(rules)
 	m.lastUpdate = m.nowFunc()
 	m.log.Printf("Hydrated last-known dynamic rules %s v%d before the update loop started", rules.RuleID, rules.Version)
 }

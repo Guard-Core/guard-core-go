@@ -321,7 +321,7 @@ func TestRedactedEndpointInRateLimitEvent(t *testing.T) {
 		c.AgentHandler = &recordingAgent{}
 		c.LogSensitiveParams = map[string]bool{"token": true}
 	})
-	cfg.installAgentStream()
+	cfg.installAgentStream(nil)
 	rules := &RateLimitOutcome{Blocked: true, Count: 5, Window: 60, Tier: "global"}
 	req := NewRequestFactory().CreateRequest(RequestOptions{
 		Path:     "/limits?token=PLACEHOLDER",
@@ -366,7 +366,7 @@ func TestEmitGeoEventToBusDefaults(t *testing.T) {
 		c.EnableRedis = false
 		c.AgentHandler = &recordingAgent{}
 	})
-	cfg.installAgentStream()
+	cfg.installAgentStream(nil)
 	// A GeoEvent without a handler name or metadata: the ipinfo default
 	// applies and the envelope stays minimal.
 	emitGeoEventToBus(cfg, GeoEvent{EventType: EventGeoLookupFailed, IPAddress: "1.2.3.4"})

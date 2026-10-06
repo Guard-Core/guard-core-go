@@ -57,8 +57,10 @@ func NewEngine(cfg *SecurityConfig) (*Engine, error) {
 	// The agent telemetry stream installs once, before the managers read
 	// it: the bus, the metrics collector, the ip_ban and rate_limit event
 	// seams and the dynamic-rule manager all hang off the config's
-	// handler.
-	cfg.installAgentStream()
+	// handler. The behavior tracker rides along so the enrichment layer
+	// can correlate events per ip (the reference build_enricher wiring the
+	// tracker into its EnrichmentContext).
+	cfg.installAgentStream(tracker)
 	if cfg.agent != nil {
 		cfg.agent.attachGeoResolver(cfg.GeoIPHandler)
 	}
@@ -70,6 +72,12 @@ func NewEngine(cfg *SecurityConfig) (*Engine, error) {
 	}
 	if cfg.EnableDynamicRules {
 		dynamicRules = NewDynamicRuleManager(cfg, redisManager, ban, busFor(cfg))
+		// The enricher's rule correlation reads the live manager (the
+		// reference singleton DynamicRuleManager: build_enricher's handle
+		// and the update loop share one instance).
+		if cfg.agent != nil {
+			cfg.agent.attachDynamicRuleMatcher(dynamicRules)
+		}
 	}
 	return &Engine{
 		Config:       cfg,

@@ -26,7 +26,7 @@ func dynamicTestConfig(t *testing.T, mutate func(*SecurityConfig)) (*SecurityCon
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.installAgentStream()
+	cfg.installAgentStream(nil)
 	return cfg, agent
 }
 
@@ -260,7 +260,7 @@ func TestDynamicRuleFailClosedRestore(t *testing.T) {
 	// contract through the internal path.
 	rules := sampleRules()
 	manager.mu.Lock()
-	manager.currentRules = nil
+	manager.currentRules.Store(nil)
 	err := manager.applyRulesLocked(rules)
 	manager.mu.Unlock()
 	if err != nil {

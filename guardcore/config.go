@@ -152,6 +152,21 @@ type SecurityConfig struct {
 	MutedEventTypes  []string
 	MutedMetricTypes []string
 
+	// Enrichment surface (enricher.py + event_types.py ENRICHMENT_KEY_*):
+	// EnableEnrichment stamps the guard.* keys (project identity, threat
+	// score, matched dynamic rule, behavior correlation) onto every event
+	// and metric through the composite handler; it is the guard-agent-gated
+	// tier, so Validate rejects it without EnableAgent (the reference
+	// validate_agent_config). AgentProjectID is the reference
+	// agent_project_id (empty = unset), OtelServiceName the reference
+	// otel_service_name (default "guard-core") and OtelResourceAttributes
+	// the reference otel_resource_attributes (the deployment.environment
+	// entry feeds the deployment-environment key).
+	EnableEnrichment       bool
+	AgentProjectID         string
+	OtelServiceName        string
+	OtelResourceAttributes map[string]string
+
 	// Dynamic-rule surface (dynamic_rule_handler.py): the update loop
 	// polls every DynamicRuleInterval seconds (reference default 300,
 	// pydantic ge=60), and DynamicRulesCachePath is the optional local
@@ -289,6 +304,7 @@ func DefaultSecurityConfig() *SecurityConfig {
 		CloudIPRefreshInterval:              DefaultCloudIPRefreshInterval,
 		AgentEnableEvents:                   true,
 		AgentEnableMetrics:                  true,
+		OtelServiceName:                     DefaultOtelServiceName,
 		DynamicRuleInterval:                 DefaultDynamicRuleInterval,
 		LogFormat:                           "text",
 	}
@@ -314,17 +330,34 @@ func (c *SecurityConfig) BumpRevision() { c.revision.Add(1) }
 const DefaultDynamicRuleInterval = 300
 
 // installAgentStream attaches the agent pipeline (bus, metrics collector,
-// event filter) to the config. The Engine calls this once at construction;
-// a nil handler leaves the config agentless and every emission inert.
-func (c *SecurityConfig) installAgentStream() {
+// event filter) to the config. The Engine calls this once at construction
+// with the behavior tracker; a nil handler leaves the config agentless and
+// every emission inert. With EnableEnrichment the raw handler is wrapped in
+// a composite carrying the EventEnricher (the reference initializer building
+// CompositeAgentHandler(handlers, event_filter, enricher) and handing it to
+// the bus and the metrics collector), so every emission path is enriched.
+func (c *SecurityConfig) installAgentStream(tracker *BehaviorTracker) {
 	if c.AgentHandler == nil {
 		c.agent = nil
 		return
 	}
-	c.agent = newAgentPipeline(c.AgentHandler, c, EventFilter{
+	filter := EventFilter{
 		MutedEventTypes:  nameSet(c.MutedEventTypes),
 		MutedMetricTypes: nameSet(c.MutedMetricTypes),
-	})
+	}
+	handler := c.AgentHandler
+	if c.EnableEnrichment {
+		enricher := NewEventEnricher(EnrichmentContext{
+			Config:          c,
+			AgentHandler:    c.AgentHandler,
+			BehaviorTracker: tracker,
+		})
+		handler = NewCompositeAgentHandlerWithEnricher([]AgentHandler{c.AgentHandler}, &filter, enricher)
+		c.agent = newAgentPipeline(handler, c, filter)
+		c.agent.enricher = enricher
+		return
+	}
+	c.agent = newAgentPipeline(handler, c, filter)
 }
 
 func nameSet(names []string) map[string]bool {
@@ -337,15 +370,22 @@ func nameSet(names []string) map[string]bool {
 
 // validateAgentSurface normalizes the agent and dynamic-rule knobs,
 // mirroring the reference field validators: the enable flags gate a
-// present handler, the event/metrics flags default true, and the
-// dynamic-rule interval carries the pydantic ge=60 bound with the 300
-// default.
+// present handler, the event/metrics flags default true, the dynamic-rule
+// interval carries the pydantic ge=60 bound with the 300 default, the
+// service name defaults to "guard-core", and enrichment is the
+// guard-agent-gated tier (validate_agent_config's enable_enrichment check).
 func (c *SecurityConfig) validateAgentSurface() error {
 	if !c.AgentEnableEvents && !c.AgentEnableMetrics && c.AgentHandler != nil {
 		// Both channels off: the handler would never be called; allowed
 		// but pointless, matching the reference where the flags simply
 		// gate the bus and collector.
 		_ = c
+	}
+	if c.EnableEnrichment && !c.EnableAgent {
+		return fmt.Errorf("enable_enrichment requires enable_agent=true; enrichment is the guard-agent-gated tier. Either enable guard-agent or set enable_enrichment=false")
+	}
+	if c.OtelServiceName == "" {
+		c.OtelServiceName = DefaultOtelServiceName
 	}
 	if c.EnableDynamicRules || c.DynamicRuleInterval != 0 {
 		if c.DynamicRuleInterval == 0 {

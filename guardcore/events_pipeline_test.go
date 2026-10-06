@@ -231,7 +231,7 @@ func TestFireGeoEventForwardsThroughBusAndHook(t *testing.T) {
 	}
 	hooked := 0
 	cfg.OnGeoEvent = func(GeoEvent) { hooked++ }
-	cfg.installAgentStream()
+	cfg.installAgentStream(nil)
 	fireGeoEvent(cfg, GeoEvent{
 		EventType:   EventCountryBlocked,
 		IPAddress:   "203.0.113.55",

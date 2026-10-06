@@ -34,7 +34,7 @@ func agentConfig(t *testing.T, mutate func(*SecurityConfig)) (*SecurityConfig, *
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.installAgentStream()
+	cfg.installAgentStream(nil)
 	return cfg, agent
 }
 
