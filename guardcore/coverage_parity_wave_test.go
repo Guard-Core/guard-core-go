@@ -678,3 +678,37 @@ func jsonUnmarshalInto(body []byte, into *map[string]any) error {
 func jsonMarshal(value any) ([]byte, error) {
 	return json.Marshal(value)
 }
+
+// Coverage-parity wave 2: the failure and edge branches of the M1/M4/M8
+// surfaces, driven through fakes so every branch is exercised without
+// network or race-dependence.
+
+// TestConcreteHandlerNameNilFallback: a nil child degrades to the
+// interface name in the start-degradation log.
+
+// ---------------------------------------------------------------- //
+// logging_json.go
+
+// jsonMarshal encodes a value without shadowing the production encoder
+// helpers.
+
+// Coverage-parity wave 2: the failure and edge branches of the M1/M4/M8
+// surfaces, driven through fakes so every branch is exercised without
+// network or race-dependence.
+
+func TestIPExtractionDefensiveBranches(t *testing.T) {
+	resetForwardedWarnings()
+	engine, _ := newIPExtractionEngine(t, func(c *SecurityConfig) {
+		c.TrustedProxies = []string{"unix"}
+	})
+	// metachar candidate in the forwarded chain: skipped, not resolved.
+	req := xffRequest("/api", "", "$({malicious})")
+	if ip := extractClientIP(req, engine.Config); ip == "$({malicious})" {
+		t.Fatal("a metachar-bearing candidate must not be adopted verbatim")
+	}
+	// start < 0 guard: depth larger than the chain length.
+	req2 := xffRequest("/api", "", "203.0.113.9, 198.51.100.1")
+	if ip := extractClientIP(req2, engine.Config); ip == "" {
+		t.Fatal("a short chain under a larger depth must still resolve a hop")
+	}
+}

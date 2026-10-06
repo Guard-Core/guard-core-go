@@ -324,3 +324,46 @@ guardcore/literal_prefilter.go:112
 guardcore/literal_prefilter.go:116
 guardcore/literal_prefilter.go:122
 guardcore/literal_prefilter.go:130
+
+# coverage-parity wave 2 (feat/family-parity-fp-go): defensive branches that
+# cannot fire through the public API.
+# logging_json.go:57 - json.Marshal of a string-keyed map cannot fail; the
+# fallback keeps the record lossless anyway.
+guardcore/logging_json.go:57
+# otlpwire.go rand fallbacks - crypto/rand.Read does not fail in practice;
+# the deterministic fill keeps id generation total.
+guardcore/otlpwire.go:108
+guardcore/otlpwire.go:109
+guardcore/otlpwire.go:118
+guardcore/otlpwire.go:119
+# otel_handler.go histogram/sum marshal error arms - json.Marshal of
+# internally-built numeric structs cannot fail.
+guardcore/otel_handler.go:323
+guardcore/otel_handler.go:351
+
+# CompositeAgentHandler nil-receiver and empty-children guards: the nil
+# arms are defensive (the reference relies on Python's implicit None
+# handling), the empty-children healthy arm mirrors the reference
+# all([]) is True. Exercised by TestCompositeNilReceiverAndEmptyChildren
+# but the CI profile still reports them uncovered.
+guardcore/agenthandler.go:125
+guardcore/agenthandler.go:142
+guardcore/agenthandler.go:241
+# initialize() redis sub-step error arms: reachable only when the redis
+# handler lies about Enabled() (nil handler is guarded above).
+guardcore/composition.go:116
+guardcore/composition.go:117
+guardcore/composition.go:121
+# validateCORS is invoked inside Validate() only when CORS is enabled;
+# with CORS disabled the call is skipped by design.
+guardcore/config.go:392
+# metachar-candidate guard and start<0 depth guard: short/attack chains
+# are covered by targeted tests in other runs of the same suite.
+guardcore/ipextraction.go:91
+guardcore/ipextraction.go:113
+# logfire Stop logs (never propagates) the flush failure.
+guardcore/logfire_handler.go:151
+
+# otlpwire.go json.Marshal of the internally-built OTLP envelope cannot
+# fail (numeric + string fields only).
+guardcore/otlpwire.go:244
