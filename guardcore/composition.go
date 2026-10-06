@@ -38,6 +38,15 @@ func NewEngine(cfg *SecurityConfig) (*Engine, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
+	// The structured-logging switch installs the guardcore log stream
+	// before any manager is built, the way the reference middleware
+	// calls setup_custom_logging(config.custom_log_file, log_format) at
+	// construction (fastapi-guard guard/middleware.py): every component
+	// logs through the package default logger, so json / file settings
+	// shape the whole engine's output.
+	if cfg.LogFormat == "json" || cfg.LogFile != "" {
+		SetupCustomLogging(cfg.LogFile, cfg.LogFormat)
+	}
 	routes := NewRouteRegistry()
 	redisManager := NewRedisManager(RedisConfig{URL: cfg.RedisURL, Prefix: cfg.RedisPrefix, EnableRedis: cfg.EnableRedis})
 	ban := NewIPBanManager(redisManager, cfg.TrustedProxies)

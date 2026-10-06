@@ -229,6 +229,19 @@ type SecurityConfig struct {
 	LogRequestLevel        string
 	LogSuspiciousLevel     string
 
+	// Structured-logging surface, mirrored from the reference
+	// log_format / custom_log_file SecurityConfig fields
+	// (_security_config_fields.py): "text" keeps the reference's
+	// "[guardcore] asctime - LEVEL - message" line, "json" emits the
+	// JsonFormatter record ({"timestamp","level","logger","message"}),
+	// and LogFile adds a file sink receiving the same stream (the
+	// directory is created on demand; a failing path falls back to
+	// console-only with a warning). NewEngine installs the stream the
+	// way the reference middleware calls setup_custom_logging at
+	// construction.
+	LogFormat string
+	LogFile   string
+
 	CloudIPRefreshInterval int
 
 	revision atomic.Uint64
@@ -277,6 +290,7 @@ func DefaultSecurityConfig() *SecurityConfig {
 		AgentEnableEvents:                   true,
 		AgentEnableMetrics:                  true,
 		DynamicRuleInterval:                 DefaultDynamicRuleInterval,
+		LogFormat:                           "text",
 	}
 }
 
@@ -425,6 +439,14 @@ func (c *SecurityConfig) Validate() error {
 		c.LogSuspiciousLevel = level
 	} else {
 		c.LogSuspiciousLevel = "WARNING"
+	}
+
+	if c.LogFormat == "" {
+		c.LogFormat = "text"
+	}
+	c.LogFormat = strings.ToLower(c.LogFormat)
+	if !ValidLogFormats[c.LogFormat] {
+		return fmt.Errorf("log_format: must be \"text\" or \"json\", got %q", c.LogFormat)
 	}
 
 	if c.TrustedProxyDepth < 1 {
