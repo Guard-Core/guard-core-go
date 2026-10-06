@@ -579,6 +579,13 @@ func (c *SecurityConfig) Validate() error {
 
 func validateIPList(field string, entries []string) error {
 	for _, entry := range entries {
+		// The reference's unix-socket convention: the "unix" sentinel in
+		// trusted_proxies marks unix-socket deployments whose chain walks
+		// run without a connecting address (ip_extraction.py). It never
+		// matches a real IP, so it is inert in allow/deny lists.
+		if entry == "unix" {
+			continue
+		}
 		if strings.HasSuffix(entry, "/0") {
 			if _, err := netip.ParsePrefix(entry); err != nil {
 				return fmt.Errorf("%s: invalid IP or CIDR %q", field, entry)

@@ -24,6 +24,9 @@ type fakeSink struct {
 	flushed  int
 	healthy  bool
 	eventErr error
+	metricErr error
+	stopErr  error
+	flushErr error
 }
 
 func newFakeSink(name string) *fakeSink {
@@ -43,6 +46,9 @@ func (s *fakeSink) SendEvent(event SecurityEvent) error {
 func (s *fakeSink) SendMetric(metric SecurityMetric) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.metricErr != nil {
+		return s.metricErr
+	}
 	s.metrics = append(s.metrics, metric)
 	return nil
 }
@@ -60,6 +66,9 @@ func (s *fakeSink) Start() error {
 func (s *fakeSink) Stop() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.stopErr != nil {
+		return s.stopErr
+	}
 	s.stopped = true
 	return nil
 }
@@ -67,6 +76,9 @@ func (s *fakeSink) Stop() error {
 func (s *fakeSink) Flush() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.flushErr != nil {
+		return s.flushErr
+	}
 	s.flushed++
 	return nil
 }
