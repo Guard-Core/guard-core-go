@@ -14,19 +14,19 @@ import (
 
 // fakeSink is a recording AgentHandler with optional lifecycle surfaces.
 type fakeSink struct {
-	name     string
-	mu       sync.Mutex
-	events   []SecurityEvent
-	metrics  []SecurityMetric
-	startErr error
-	started  bool
-	stopped  bool
-	flushed  int
-	healthy  bool
-	eventErr error
+	name      string
+	mu        sync.Mutex
+	events    []SecurityEvent
+	metrics   []SecurityMetric
+	startErr  error
+	started   bool
+	stopped   bool
+	flushed   int
+	healthy   bool
+	eventErr  error
 	metricErr error
-	stopErr  error
-	flushErr error
+	stopErr   error
+	flushErr  error
 }
 
 func newFakeSink(name string) *fakeSink {
