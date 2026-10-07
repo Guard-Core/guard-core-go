@@ -651,11 +651,14 @@ func TestDetectThreatValueCapContinues(t *testing.T) {
 	}
 	req := newTestRequest(t, func(opts *RequestOptions, _ *RequestState) {
 		opts.Path = "/clean"
-		opts.RawQuery = "a=clean1&b=clean2&c=clean3"
-		opts.QueryParams = map[string]string{"a": "clean1", "b": "clean2", "c": "clean3"}
+		opts.RawQuery = "a=clean1&b=clean2&c=clean3&d=clean4"
+		opts.QueryParams = map[string]string{"a": "clean1", "b": "clean2", "c": "clean3", "d": "clean4"}
 	})
+	// All values are benign, so the verdict is deterministic regardless of
+	// the param map's random iteration order: the two scanned values pass,
+	// the rest hit the cap and never scan.
 	if categories, _ := detectThreat(req, cfg, resolveDetectionExclusions(cfg, nil)); categories != nil {
-		t.Fatalf("values beyond the cap must not scan, got %v", categories)
+		t.Fatalf("clean values must not detect, got %v", categories)
 	}
 	if !strings.Contains(buf.String(), "detection_max_scan_values (2) reached") {
 		t.Fatalf("the cap warning must fire, got %q", buf.String())
