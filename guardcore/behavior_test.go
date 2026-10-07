@@ -201,6 +201,15 @@ func TestBehaviorProcessorUsageRulesBan(t *testing.T) {
 	if got := proc.GetEndpointID(req); got != "GET:/api" {
 		t.Fatalf("endpoint id must be METHOD:path, got %q", got)
 	}
+	// A routed request keys its counters on the owned route id (the
+	// guard-core #141/#142 per-route behavioral counter contract).
+	routed := newTestRequest(t, func(opts *RequestOptions, state *RequestState) {
+		state.RouteConfig = route
+		state.GuardRouteID = "/api"
+	})
+	if got := proc.GetEndpointID(routed); got != "/api" {
+		t.Fatalf("routed requests must key counters on the route id, got %q", got)
+	}
 }
 
 func TestBehaviorProcessorGlobalReturnRulesCorrelation(t *testing.T) {

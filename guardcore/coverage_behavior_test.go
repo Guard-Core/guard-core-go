@@ -320,6 +320,23 @@ func TestBehavioralProcessorEndpoints(t *testing.T) {
 	if got := processor.GetEndpointID(runtime); got != "runtime-id" {
 		t.Fatalf("runtime ids win, got %q", got)
 	}
+	// The per-endpoint route id outranks the runtime extra (the reference
+	// get_endpoint_id reads guard_route_id first, guard-core #141/#142).
+	routed := newTestRequest(t, func(opts *RequestOptions, state *RequestState) {
+		state.GuardRouteID = "route-7"
+		state.Extras = map[string]any{"guard_endpoint_id": "runtime-id"}
+	})
+	if got := processor.GetEndpointID(routed); got != "route-7" {
+		t.Fatalf("route ids outrank runtime extras, got %q", got)
+	}
+	// An empty route id falls through to the runtime extra.
+	emptyRoute := newTestRequest(t, func(opts *RequestOptions, state *RequestState) {
+		state.GuardRouteID = ""
+		state.Extras = map[string]any{"guard_endpoint_id": "runtime-id"}
+	})
+	if got := processor.GetEndpointID(emptyRoute); got != "runtime-id" {
+		t.Fatalf("empty route ids fall through, got %q", got)
+	}
 	derived := newTestRequest(t, func(opts *RequestOptions, state *RequestState) {
 		opts.Path = "/users/42"
 		opts.Method = "get"
