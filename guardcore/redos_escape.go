@@ -349,6 +349,9 @@ func (p *reParser) parseHexEscape(start int, width int) (rune, error) {
 	if err != nil {
 		return 0, parseErrorAt("incomplete escape", start)
 	}
+	if val > maxCodePoint {
+		return 0, parseErrorAt(fmt.Sprintf("invalid escape value \\%s", text), start)
+	}
 	p.pos += width
 	return rune(val), nil
 }
