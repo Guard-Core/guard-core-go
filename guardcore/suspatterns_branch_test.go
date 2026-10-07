@@ -62,18 +62,20 @@ func TestDetectPatternMatchSemanticIdentity(t *testing.T) {
 func TestDetectCustomThreatsCountSemantic(t *testing.T) {
 	resetSusPatternsForTest(t)
 	m := DefaultSusPatternsManager
-	// a semantic threat flows through the counts (semanticCount branch)
-	result := m.Detect("../../../../../../etc/passwd%00", "203.0.113.7", "url_path", "")
-	if result.IsThreat {
-		found := false
-		for _, threat := range result.Threats {
-			if threat["type"] == "semantic" {
-				found = true
-			}
-		}
-		if !found {
-			t.Log("no semantic component in this threat")
-		}
+	// the structural-dense corpus input carries a semantic component: the
+	// counts branch runs over the mixed threat list
+	agent := &susCaptureAgent{}
+	m.SetAgentHandler(agent)
+	defer m.SetAgentHandler(nil)
+	result := m.Detect(
+		"${x} <t> (y) [z] {w} a://b c://d <b>call(f(x))</b> union select concat(database(),table_name) from information_schema.tables where 1=1 {{render(jinja(template(mustache(handlebars(ejs(pug(twig)))))))}}",
+		"203.0.113.7", "request_body", "")
+	if !result.IsThreat || len(agent.events) != 1 {
+		t.Fatalf("mixed detection wrong: %v %d", result.IsThreat, len(agent.events))
+	}
+	metadata := agent.events[0].Metadata
+	if metadata["semantic_threats"] == 0 || metadata["regex_threats"] == 0 {
+		t.Fatalf("mixed counts wrong: %v", metadata)
 	}
 }
 

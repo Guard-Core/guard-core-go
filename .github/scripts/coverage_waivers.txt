@@ -558,3 +558,18 @@ guardcore/suspatterns_registry.go:277
 guardcore/suspatterns_registry.go:278
 guardcore/suspatterns_registry.go:279
 guardcore/suspatterns_registry.go:283
+
+# PR feat/sus-patterns-registry: the remaining defensive coordinates.
+# config.go:435 - the validateCORS error return: validateCORS normalizes
+# method/header casing and always returns nil, so the error branch is
+# unreachable as written (kept for the reference validation-chain shape).
+# dynamicrules.go:733/738 - the DumpLastKnownRulesSnapshot temp-file
+# cleanup error returns (tmp.Close / os.Remove on a just-created
+# tempfile): defensive hygiene, unreachable as written.
+# suspatterns_registry.go:115 - the AddPattern engine-compile rejection:
+# every pattern compileRE rejects is rejected earlier by the safety
+# chain's builder stage, which compiles the same engine first.
+guardcore/config.go:435
+guardcore/dynamicrules.go:733
+guardcore/dynamicrules.go:738
+guardcore/suspatterns_registry.go:115
