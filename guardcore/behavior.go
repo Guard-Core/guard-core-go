@@ -559,14 +559,20 @@ func NewBehavioralProcessor(cfg *SecurityConfig, tracker *BehaviorTracker, count
 	return &BehavioralProcessor{cfg: cfg, tracker: tracker, counts: counts, log: logger}
 }
 
-// GetEndpointID mirrors get_endpoint_id: a runtime-provided
-// guard_endpoint_id (state extras) wins, else "METHOD:redacted-path".
+// GetEndpointID mirrors get_endpoint_id: the request's per-endpoint route
+// id (state.GuardRouteID) wins, then the runtime-provided guard_endpoint_id
+// (state extras), else "METHOD:redacted-path". The route-id preference is
+// the per-route behavioral counter contract (guard-core #141/#142): every
+// endpoint that owns a route id keys its usage/return counters on it.
 func (p *BehavioralProcessor) GetEndpointID(req Request) string {
 	if req == nil {
 		return ""
 	}
 	state := req.State()
 	if state != nil {
+		if state.GuardRouteID != "" {
+			return state.GuardRouteID
+		}
 		if id, ok := state.Extras["guard_endpoint_id"].(string); ok && id != "" {
 			return id
 		}
