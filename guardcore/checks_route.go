@@ -128,5 +128,7 @@ func (c *httpsEnforcementCheck) Check(req Request) *Response {
 	if bus := busFor(cfg); bus != nil {
 		bus.SendHTTPSViolationEvent(req, routeConfig)
 	}
-	return NewResponseFactory().CreateRedirectResponse(req.URLReplaceScheme("https"), 301)
+	// Reference factory.create_https_redirect: the redirect passes through
+	// apply_modifier (no security-header pass on the redirect).
+	return applyModifier(cfg, NewResponseFactory().CreateRedirectResponse(req.URLReplaceScheme("https"), 301))
 }
