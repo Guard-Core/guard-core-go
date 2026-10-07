@@ -573,3 +573,9 @@ guardcore/config.go:435
 guardcore/dynamicrules.go:733
 guardcore/dynamicrules.go:738
 guardcore/suspatterns_registry.go:115
+# suspatterns_registry.go:97 - the linux go 1.26.x attribution of the
+# InitializeRedis continue pair (the empty-part and known-pattern skips);
+# proven covered on darwin by TestInitializeRedisTrailingComma and
+# TestInitializeRedisSkipsKnown (both toolchains report zero uncovered
+# redos/suspatterns statements locally).
+guardcore/suspatterns_registry.go:97
