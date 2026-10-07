@@ -1,11 +1,8 @@
 {
-  "_comment": "Documented divergences of the Go engine against the event_stream corpus (kind events). Fail-closed: a failing case NOT listed here is red; a listed case that starts reproducing the reference envelopes is red (stale baseline); a listed case that never ran is red. The corpus-advisory xfail case (evt_decoding_error_unreachable) is skipped by the runner and needs no entry. The event-pipeline wave closed every envelope gap the engine could reproduce, and the geo lifecycle wave ported the manager-level check_country_access verdict; the remaining six are the compile-time detection corpus (three), two host error-text renderings and the harness URL artifact on https_enforced.",
+  "_comment": "Documented divergences of the Go engine against the event_stream corpus. Fail-closed: a failing case NOT listed here is red; a listed case that starts reproducing the reference verdict is red (stale baseline); a listed case that never ran is red. The three sus-patterns registry events (pattern_detected/added/removed) left this registry when the runtime registry landed (guardcore/suspatterns_registry.go); the remaining three cases are host error-text renderings and the harness URL artifact.",
   "cases": {
     "event_stream/evt_geo_lookup_failed_download": "the download-failure reason renders the Go error type ('*url.Error') where the reference pins the python exception class name ('RuntimeError'); the envelope is otherwise identical",
     "event_stream/evt_https_enforced_redirect": "the harness pins url_replace_scheme to the scheme-swapped origin without the path (pipeline_harness._PipelineRequest.url_replace_scheme); the Go engine mirrors the real adapters and renders the full request URL (https://example.com/api)",
-    "event_stream/evt_pattern_added_custom": "the Go detection corpus is a compile-time table (KNOWN_GAPS): no sus-patterns runtime registry exists, so pattern_added has no emitter",
-    "event_stream/evt_pattern_detected_xss": "the Go detection corpus is a compile-time table (KNOWN_GAPS): guardcore.Detect is a pure function with no sus-patterns telemetry seam, so pattern_detected has no emitter",
-    "event_stream/evt_pattern_removed_custom": "the Go detection corpus is a compile-time table (KNOWN_GAPS): no sus-patterns runtime registry exists, so pattern_removed has no emitter",
     "event_stream/evt_redis_error_connection_failed": "the envelope matches except the reason column, which quotes the redis-py exception rendering; the Go client renders its own dial error text"
   },
   "spec_version": "4.1.0"

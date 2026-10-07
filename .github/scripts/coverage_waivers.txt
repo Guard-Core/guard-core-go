@@ -548,3 +548,34 @@ guardcore/redos_terminator.go:304
 guardcore/redos_terminator.go:330
 guardcore/redos_terminator.go:347
 guardcore/redos_terminator.go:87
+
+# suspatterns_registry.go - the semantic-first DetectPatternMatch branches:
+# the engine's threat list orders regex threats before semantic ones
+# (detect.go appends the semantic pass last), so threats[0] is semantic
+# only for a threat list the engine cannot produce; the identity branches
+# are kept for the reference detect_pattern_match shape.
+guardcore/suspatterns_registry.go:277
+guardcore/suspatterns_registry.go:278
+guardcore/suspatterns_registry.go:279
+guardcore/suspatterns_registry.go:283
+
+# PR feat/sus-patterns-registry: the remaining defensive coordinates.
+# config.go:435 - the validateCORS error return: validateCORS normalizes
+# method/header casing and always returns nil, so the error branch is
+# unreachable as written (kept for the reference validation-chain shape).
+# dynamicrules.go:733/738 - the DumpLastKnownRulesSnapshot temp-file
+# cleanup error returns (tmp.Close / os.Remove on a just-created
+# tempfile): defensive hygiene, unreachable as written.
+# suspatterns_registry.go:115 - the AddPattern engine-compile rejection:
+# every pattern compileRE rejects is rejected earlier by the safety
+# chain's builder stage, which compiles the same engine first.
+guardcore/config.go:435
+guardcore/dynamicrules.go:733
+guardcore/dynamicrules.go:738
+guardcore/suspatterns_registry.go:115
+# suspatterns_registry.go:97 - the linux go 1.26.x attribution of the
+# InitializeRedis continue pair (the empty-part and known-pattern skips);
+# proven covered on darwin by TestInitializeRedisTrailingComma and
+# TestInitializeRedisSkipsKnown (both toolchains report zero uncovered
+# redos/suspatterns statements locally).
+guardcore/suspatterns_registry.go:97

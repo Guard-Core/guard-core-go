@@ -337,6 +337,9 @@ const DefaultDynamicRuleInterval = 300
 // CompositeAgentHandler(handlers, event_filter, enricher) and handing it to
 // the bus and the metrics collector), so every emission path is enriched.
 func (c *SecurityConfig) installAgentStream(tracker *BehaviorTracker) {
+	// The sus-patterns registry is the reference singleton: its telemetry
+	// seam follows the config's handler (nil detaches, agentless mode).
+	DefaultSusPatternsManager.SetAgentHandler(c.AgentHandler)
 	if c.AgentHandler == nil {
 		c.agent = nil
 		return

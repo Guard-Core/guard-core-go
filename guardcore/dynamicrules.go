@@ -598,11 +598,21 @@ func (m *DynamicRuleManager) applyBlockingRules(rules *DynamicRules) {
 		m.log.Printf("Dynamic rule: Blocked user agents %d pattern(s)", len(valid))
 	}
 	if len(rules.SuspiciousPatterns) > 0 {
-		// The reference adds these to the runtime sus-patterns registry;
-		// this port's detection patterns are a compile-time table, so the
-		// field is honored as a logged no-op with the same rejection
-		// honesty (never silently swallowed).
-		m.log.Printf("Dynamic rule: suspicious_patterns applied to no runtime registry in this port (patterns: %d, skipped)", len(rules.SuspiciousPatterns))
+		// The reference _apply_pattern_rules: every pattern runs through the
+		// runtime registry's safety-validated add; rejections log with the
+		// same honesty (never silently swallowed).
+		var added []string
+		for _, pattern := range rules.SuspiciousPatterns {
+			if DefaultSusPatternsManager.AddPattern(pattern, false) {
+				added = append(added, pattern)
+			}
+		}
+		if len(added) > 0 {
+			m.log.Printf("Dynamic rule: Added suspicious patterns %v", added)
+		}
+		if rejected := len(rules.SuspiciousPatterns) - len(added); rejected > 0 {
+			m.log.Printf("Dynamic rule: rejected %d suspicious pattern(s) failing the ReDoS validator", rejected)
+		}
 	}
 }
 
