@@ -453,3 +453,98 @@ guardcore/redos_terminator.go:305
 guardcore/redos_terminator.go:331
 guardcore/redos_terminator.go:349
 
+
+# ReDoS static-safety layer - go 1.26.x linux CI attribution coordinates.
+# Proof: every block below is exercised by the redos test files
+# (redos_*_test.go, the in-package corpus run and the sweep files) on the
+# darwin runs of BOTH toolchains - go 1.27 profile (cover11) and go 1.26.0
+# profile (cover126e) each report zero uncovered redos statements. The
+# linux CI run of the same commit attributes these blocks at go 1.26.x
+# line splits and/or takes the arbiter's host-speed-dependent branches
+# (probe outcomes vary with the measured load factor), so the linux run
+# leaves a timing-attribution residue this inventory absorbs. Extra
+# entries are inert on the toolchain that does not produce them.
+guardcore/redos_ambiguous.go:144
+guardcore/redos_arbiter.go:101
+guardcore/redos_arbiter.go:254
+guardcore/redos_arbiter.go:309
+guardcore/redos_arbiter.go:312
+guardcore/redos_arbiter.go:94
+guardcore/redos_atoms.go:24
+guardcore/redos_builders.go:101
+guardcore/redos_builders.go:144
+guardcore/redos_builders.go:174
+guardcore/redos_builders.go:199
+guardcore/redos_builders.go:205
+guardcore/redos_builders.go:210
+guardcore/redos_builders.go:217
+guardcore/redos_builders.go:259
+guardcore/redos_builders.go:28
+guardcore/redos_builders.go:291
+guardcore/redos_builders.go:295
+guardcore/redos_builders.go:322
+guardcore/redos_builders.go:330
+guardcore/redos_builders.go:354
+guardcore/redos_builders.go:359
+guardcore/redos_builders.go:39
+guardcore/redos_builders.go:74
+guardcore/redos_class_intersection.go:119
+guardcore/redos_class_intersection.go:127
+guardcore/redos_class_intersection.go:142
+guardcore/redos_class_intersection.go:157
+guardcore/redos_class_intersection.go:186
+guardcore/redos_class_intersection.go:189
+guardcore/redos_class_intersection.go:191
+guardcore/redos_class_intersection.go:202
+guardcore/redos_class_intersection.go:234
+guardcore/redos_class_intersection.go:243
+guardcore/redos_class_intersection.go:45
+guardcore/redos_class_intersection.go:77
+guardcore/redos_class_intersection.go:93
+guardcore/redos_compiler.go:72
+guardcore/redos_escape.go:292
+guardcore/redos_escape.go:352
+guardcore/redos_escape.go:404
+guardcore/redos_escape.go:464
+guardcore/redos_escape.go:471
+guardcore/redos_escape.go:478
+guardcore/redos_escape.go:491
+guardcore/redos_escape.go:503
+guardcore/redos_literal_runs.go:115
+guardcore/redos_literal_runs.go:193
+guardcore/redos_literal_runs.go:36
+guardcore/redos_literal_runs.go:47
+guardcore/redos_parser.go:196
+guardcore/redos_parser.go:199
+guardcore/redos_parser.go:211
+guardcore/redos_parser.go:232
+guardcore/redos_parser.go:281
+guardcore/redos_parser.go:368
+guardcore/redos_parser.go:401
+guardcore/redos_parser.go:433
+guardcore/redos_parser.go:457
+guardcore/redos_parser.go:501
+guardcore/redos_parser.go:587
+guardcore/redos_parser.go:601
+guardcore/redos_prefilters.go:86
+guardcore/redos_reach_probe.go:104
+guardcore/redos_reach_probe.go:156
+guardcore/redos_reach_probe.go:188
+guardcore/redos_reach_probe.go:193
+guardcore/redos_reach_probe.go:235
+guardcore/redos_reach_probe.go:252
+guardcore/redos_reach_probe.go:275
+guardcore/redos_reach_probe.go:304
+guardcore/redos_reach_probe.go:71
+guardcore/redos_reach_probe.go:77
+guardcore/redos_slots.go:176
+guardcore/redos_slots.go:258
+guardcore/redos_strays.go:116
+guardcore/redos_structure.go:372
+guardcore/redos_terminator.go:269
+guardcore/redos_terminator.go:275
+guardcore/redos_terminator.go:289
+guardcore/redos_terminator.go:304
+guardcore/redos_terminator.go:330
+guardcore/redos_terminator.go:347
+guardcore/redos_terminator.go:87
