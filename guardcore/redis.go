@@ -38,6 +38,18 @@ type RedisConfig struct {
 	URL         string
 	Prefix      string
 	EnableRedis bool
+	// The reference redis tuning knobs (_security_config_fields.py):
+	// SocketConnectTimeout / SocketTimeout nil keep the engine's bounded
+	// 2s defaults, a set value is used verbatim (positive, enforced at
+	// config validation). HealthCheckInterval maps onto go-redis's
+	// ConnMaxIdleTime (0 keeps the engine's 5m default); MaxConnections
+	// onto the go-redis pool size (0 keeps the go-redis default); Retries
+	// onto go-redis MaxRetries (0 disables, the reference default is 1).
+	SocketConnectTimeout *time.Duration
+	SocketTimeout        *time.Duration
+	HealthCheckInterval  time.Duration
+	MaxConnections       int
+	Retries              int
 }
 
 func DefaultRedisConfig() RedisConfig {
@@ -104,12 +116,28 @@ func (m *RedisManager) Initialize() error {
 			map[string]any{"redis_url": redactRedisURL(m.cfg.URL), "error_type": "connection_error"})
 		return newGuardRedisError("Redis connection failed")
 	}
-	opts.DialTimeout = redisConnectTimeout
-	opts.ReadTimeout = redisSocketTimeout
-	opts.WriteTimeout = redisSocketTimeout
-	opts.ConnMaxIdleTime = 5 * time.Minute
+	connectTimeout := redisConnectTimeout
+	if m.cfg.SocketConnectTimeout != nil {
+		connectTimeout = *m.cfg.SocketConnectTimeout
+	}
+	socketTimeout := redisSocketTimeout
+	if m.cfg.SocketTimeout != nil {
+		socketTimeout = *m.cfg.SocketTimeout
+	}
+	healthInterval := 5 * time.Minute
+	if m.cfg.HealthCheckInterval > 0 {
+		healthInterval = m.cfg.HealthCheckInterval
+	}
+	opts.DialTimeout = connectTimeout
+	opts.ReadTimeout = socketTimeout
+	opts.WriteTimeout = socketTimeout
+	opts.ConnMaxIdleTime = healthInterval
+	if m.cfg.MaxConnections > 0 {
+		opts.PoolSize = m.cfg.MaxConnections
+	}
+	opts.MaxRetries = m.cfg.Retries
 	client := redis.NewClient(opts)
-	pingCtx, cancel := context.WithTimeout(m.ctx, redisConnectTimeout+redisSocketTimeout)
+	pingCtx, cancel := context.WithTimeout(m.ctx, connectTimeout+socketTimeout)
 	defer cancel()
 	if err := client.Ping(pingCtx).Err(); err != nil {
 		_ = client.Close()

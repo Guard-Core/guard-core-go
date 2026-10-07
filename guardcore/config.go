@@ -94,6 +94,24 @@ type SecurityConfig struct {
 	RedisURL      string
 	RedisPrefix   string
 	RedisFailOpen bool
+	// The redis tuning knobs, mirrored from the reference
+	// redis_socket_connect_timeout / redis_socket_timeout /
+	// redis_health_check_interval / redis_max_connections / redis_retries
+	// (_security_config_fields.py). The timeout pointers are tri-state:
+	// nil keeps the engine's bounded default (2s each; the reference notes
+	// a bounded default is strongly recommended and the port keeps its
+	// timeouts mandatory-positive, so the reference's None-disables escape
+	// hatch has no Go target), a set value must be positive and is used
+	// verbatim. RedisHealthCheckInterval maps onto go-redis's
+	// ConnMaxIdleTime (the stale-socket recycle: 0 keeps the engine's 5m
+	// default), RedisMaxConnections onto the go-redis pool size (0 keeps
+	// the go-redis default), RedisRetries onto go-redis MaxRetries
+	// (default 1 like the reference; 0 disables retries).
+	RedisSocketConnectTimeout *time.Duration
+	RedisSocketTimeout        *time.Duration
+	RedisHealthCheckInterval  time.Duration
+	RedisMaxConnections       int
+	RedisRetries              int
 
 	EnableIPBanning        bool
 	AutoBanThreshold       int
@@ -253,8 +271,41 @@ type SecurityConfig struct {
 	// un-block requests. The reference custom_validators check returns the
 	// validator's response as-is (no modifier pass), and so does this port.
 	CustomResponseModifier func(resp *Response) *Response
-	LogRequestLevel        string
-	LogSuspiciousLevel     string
+	// BodyReadTimeout mirrors the reference body_read_timeout (default 3s,
+	// bounded to (0, 30]): the budget a request-body read gets before the
+	// body is treated as unavailable (the same fail-closed outcome an
+	// adapter error already produces). The reference bounds the read with
+	// asyncio.wait_for on the async tree and a daemon thread join on the
+	// sync tree; the Go port bounds every engine-side body read with a
+	// goroutine raced against this timer (the abandoned goroutine keeps
+	// running until the stream itself returns, exactly like the
+	// reference's timed-out daemon thread).
+	BodyReadTimeout time.Duration
+	// SyncBodyReadMaxConcurrent mirrors the reference
+	// sync_body_read_max_concurrent (default 64, [1, 10000]): the bound on
+	// engine-side body reads parked inside a stalled stream at once;
+	// further reads queue for the same budget and then give up with the
+	// exhaustion logged, keeping the goroutine count bounded.
+	SyncBodyReadMaxConcurrent int
+	// LogCountryCheckLevel mirrors the reference log_country_check_level
+	// (default "INFO"): the level for per-request country verdicts that
+	// are not blocks (whitelisted / not-affected); empty or unknown
+	// silences them. Blocked-country hits log at LogSuspiciousLevel
+	// instead; no-rules and no-geolocation cases always log at debug.
+	LogCountryCheckLevel string
+	// AgentStrict mirrors the reference agent_strict (default false): when
+	// true, an enabled agent that cannot be initialized (no handler wired)
+	// fails NewEngine instead of degrading to agent-off.
+	AgentStrict bool
+	// OnError mirrors the reference on_error: a best-effort callback
+	// invoked when a middleware/agent step fails. The reference fires it
+	// with the stage name, the exception and a context map; this port
+	// fires it at the same stages ("agent_init" when the agent stream
+	// cannot initialize, "geoip" when the event stream's country lookup
+	// panics). A panicking hook is contained with the reference log line.
+	OnError            func(stage string, err error, context map[string]any)
+	LogRequestLevel    string
+	LogSuspiciousLevel string
 
 	// Structured-logging surface, mirrored from the reference
 	// log_format / custom_log_file SecurityConfig fields
@@ -285,6 +336,10 @@ func DefaultSecurityConfig() *SecurityConfig {
 		EnableRedis:                         true,
 		RedisURL:                            DefaultRedisURL,
 		RedisPrefix:                         DefaultRedisPrefix,
+		RedisRetries:                        1,
+		BodyReadTimeout:                     3 * time.Second,
+		SyncBodyReadMaxConcurrent:           64,
+		LogCountryCheckLevel:                "INFO",
 		EnableIPBanning:                     true,
 		AutoBanThreshold:                    DefaultAutoBanThreshold,
 		AutoBanDuration:                     DefaultAutoBanDuration,
@@ -447,6 +502,24 @@ func (c *SecurityConfig) Validate() error {
 	if err := validateCORS(c); err != nil {
 		return err
 	}
+	if err := c.validateDetectionKnobs(); err != nil {
+		return err
+	}
+	if err := c.validateRedisKnobs(); err != nil {
+		return err
+	}
+	if c.BodyReadTimeout < 0 || c.BodyReadTimeout > 30*time.Second {
+		return fmt.Errorf("body_read_timeout: must be in (0, 30] seconds, got %v", c.BodyReadTimeout)
+	}
+	if c.SyncBodyReadMaxConcurrent < 0 || c.SyncBodyReadMaxConcurrent > 10000 {
+		return fmt.Errorf("sync_body_read_max_concurrent: must be in [1, 10000], got %d", c.SyncBodyReadMaxConcurrent)
+	}
+	if c.SyncBodyReadMaxConcurrent == 0 {
+		c.SyncBodyReadMaxConcurrent = 64
+	}
+	if c.BodyReadTimeout == 0 {
+		c.BodyReadTimeout = 3 * time.Second
+	}
 	if len(c.WhitelistCountries) > 0 && len(c.BlockedCountries) > 0 {
 		// The reference warns (UserWarning) instead of erroring: the
 		// allowlist is restrictive and shadows the blocklist.
@@ -593,6 +666,22 @@ func (c *SecurityConfig) Validate() error {
 	if c.Detection.MaxBodyInspectBytes <= 0 {
 		c.Detection.MaxBodyInspectBytes = 262144
 	}
+	// The detection scan caps default when unset; the out-of-range reject
+	// ran in validateDetectionKnobs (the reference pydantic ge/le bounds on
+	// detection_max_scan_values / detection_max_scan_chars /
+	// detection_max_json_depth).
+	if c.Detection.MaxScanValues == 0 {
+		c.Detection.MaxScanValues = 512
+	}
+	if c.Detection.MaxScanChars == 0 {
+		c.Detection.MaxScanChars = 65536
+	}
+	if c.Detection.MaxJSONDepth == 0 {
+		c.Detection.MaxJSONDepth = 32
+	}
+	// The performance-monitor options clamp inside NewPerformanceMonitor
+	// exactly like the reference constructor; zero values fall back to the
+	// reference defaults at monitor construction.
 	if c.CloudIPRefreshInterval <= 0 {
 		c.CloudIPRefreshInterval = DefaultCloudIPRefreshInterval
 	}
@@ -628,6 +717,44 @@ func (c *SecurityConfig) Validate() error {
 	}
 	if c.LogSensitiveBodyFields == nil {
 		c.LogSensitiveBodyFields = map[string]bool{}
+	}
+	return nil
+}
+
+// validateDetectionKnobs rejects explicitly out-of-range detection scan
+// caps (the zero value means "reference default", applied in Validate).
+func (c *SecurityConfig) validateDetectionKnobs() error {
+	if c.Detection.MaxScanValues != 0 && (c.Detection.MaxScanValues < 2 || c.Detection.MaxScanValues > 100000) {
+		return fmt.Errorf("detection_max_scan_values: must be within [2, 100000], got %d", c.Detection.MaxScanValues)
+	}
+	if c.Detection.MaxScanChars != 0 && (c.Detection.MaxScanChars < 1024 || c.Detection.MaxScanChars > 262144) {
+		return fmt.Errorf("detection_max_scan_chars: must be within [1024, 262144], got %d", c.Detection.MaxScanChars)
+	}
+	if c.Detection.MaxJSONDepth != 0 && (c.Detection.MaxJSONDepth < 1 || c.Detection.MaxJSONDepth > 1000) {
+		return fmt.Errorf("detection_max_json_depth: must be within [1, 1000], got %d", c.Detection.MaxJSONDepth)
+	}
+	return nil
+}
+
+// validateRedisKnobs mirrors the reference pydantic bounds on the redis
+// tuning knobs: the socket timeouts must be positive when set (nil keeps
+// the engine default), retries and the pool cap are non-negative (0
+// retries disables retrying; 0 pool size keeps the go-redis default).
+func (c *SecurityConfig) validateRedisKnobs() error {
+	if c.RedisSocketConnectTimeout != nil && *c.RedisSocketConnectTimeout <= 0 {
+		return fmt.Errorf("redis_socket_connect_timeout: must be positive when set (the port keeps its timeouts mandatory-positive), got %v", *c.RedisSocketConnectTimeout)
+	}
+	if c.RedisSocketTimeout != nil && *c.RedisSocketTimeout <= 0 {
+		return fmt.Errorf("redis_socket_timeout: must be positive when set (the port keeps its timeouts mandatory-positive), got %v", *c.RedisSocketTimeout)
+	}
+	if c.RedisHealthCheckInterval < 0 {
+		return fmt.Errorf("redis_health_check_interval: must be >= 0 (0 keeps the engine default), got %v", c.RedisHealthCheckInterval)
+	}
+	if c.RedisMaxConnections < 0 {
+		return fmt.Errorf("redis_max_connections: must be >= 0 (0 keeps the go-redis default), got %d", c.RedisMaxConnections)
+	}
+	if c.RedisRetries < 0 {
+		return fmt.Errorf("redis_retries: must be >= 0 (0 disables retries), got %d", c.RedisRetries)
 	}
 	return nil
 }

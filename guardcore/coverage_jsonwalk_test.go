@@ -52,7 +52,7 @@ func TestDecodeJSONValueUnexpectedToken(t *testing.T) {
 	if !ok {
 		t.Fatal("empty-key fixture must parse")
 	}
-	values := appendJSONWalkEntries(nil, root, "field"+embeddedJSONLeafContextSuffix, nil)
+	values := appendJSONWalkEntries(nil, root, "field"+embeddedJSONLeafContextSuffix, nil, nil)
 	for _, v := range values {
 		if v.content == "v" && v.label != "" {
 			t.Fatalf("empty keys yield empty leaf labels, got %q", v.label)
@@ -65,7 +65,7 @@ func TestAppendJSONWalkEntriesOrder(t *testing.T) {
 	if !ok {
 		t.Fatal("fixture must parse")
 	}
-	values := appendJSONWalkEntries(nil, root, requestBodyCtx, map[string]bool{"skip": true})
+	values := appendJSONWalkEntries(nil, root, requestBodyCtx, map[string]bool{"skip": true}, nil)
 	// Entries: key b, mongo operator value walk..., key a, leaf plain.
 	if len(values) == 0 {
 		t.Fatal("walks produce values")
@@ -80,7 +80,7 @@ func TestAppendJSONWalkEntriesOrder(t *testing.T) {
 	}
 	// A mongo operator key reports straight from the walk.
 	root, _ = parseOrderedJSON(`{"$where": "1"}`)
-	values = appendJSONWalkEntries(nil, root, requestBodyCtx, nil)
+	values = appendJSONWalkEntries(nil, root, requestBodyCtx, nil, nil)
 	if len(values) == 0 || values[0].forcedCategory != "nosql" || values[0].content != "$where" {
 		t.Fatalf("mongo operator keys force nosql, got %v", values)
 	}
@@ -93,7 +93,7 @@ func TestAppendJSONWalkEntriesDepthCap(t *testing.T) {
 	if !ok {
 		t.Fatal("deep fixture must parse")
 	}
-	values := appendJSONWalkEntries(nil, root, requestBodyCtx, nil)
+	values := appendJSONWalkEntries(nil, root, requestBodyCtx, nil, nil)
 	found := false
 	for _, v := range values {
 		if strings.Contains(v.content, `{"a":`) {
@@ -106,7 +106,7 @@ func TestAppendJSONWalkEntriesDepthCap(t *testing.T) {
 	// Arrays over the cap serialize too.
 	deepArray := strings.Repeat("[", jsonWalkDepthCap+2) + "1" + strings.Repeat("]", jsonWalkDepthCap+2)
 	root, _ = parseOrderedJSON(deepArray)
-	values = appendJSONWalkEntries(nil, root, requestBodyCtx, nil)
+	values = appendJSONWalkEntries(nil, root, requestBodyCtx, nil, nil)
 	found = false
 	for _, v := range values {
 		if strings.HasPrefix(v.content, "[") {
@@ -124,7 +124,7 @@ func TestAppendJSONWalkEntriesLeafReparse(t *testing.T) {
 	if !ok {
 		t.Fatal("fixture must parse")
 	}
-	values := appendJSONWalkEntries(nil, root, "field"+embeddedJSONLeafContextSuffix, nil)
+	values := appendJSONWalkEntries(nil, root, "field"+embeddedJSONLeafContextSuffix, nil, nil)
 	rawSeen, nestedSeen := false, false
 	for _, v := range values {
 		if strings.Contains(v.content, "<script>") {
@@ -142,7 +142,7 @@ func TestAppendJSONWalkEntriesLeafReparse(t *testing.T) {
 	}
 	// The top-level request_body context never re-parses leaves.
 	root, _ = parseOrderedJSON(`{"f": "{\"g\": 1}"}`)
-	values = appendJSONWalkEntries(nil, root, requestBodyCtx, nil)
+	values = appendJSONWalkEntries(nil, root, requestBodyCtx, nil, nil)
 	for _, v := range values {
 		if strings.Contains(v.context, embeddedJSONLeafContextSuffix) {
 			t.Fatal("request body leaves keep their context")

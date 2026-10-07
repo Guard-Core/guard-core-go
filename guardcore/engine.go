@@ -15,16 +15,60 @@ type Config struct {
 	MaxBodyInspectBytes    int
 	SemanticThreshold      float64
 	ThreatScoreThreshold   float64
+	// MaxScanValues mirrors the reference detection_max_scan_values
+	// (default 512, [2, 100000]): the per-request cap on individual values
+	// handed to the pattern engine across the whole penetration-detection
+	// pass; once reached the remaining values are not scanned and a
+	// one-time warning names the client IP.
+	MaxScanValues int
+	// MaxScanChars mirrors the reference detection_max_scan_chars
+	// (default 65536, [1024, 262144]): the per-request cap on total
+	// characters across every value handed to the pattern engine, counted
+	// at the same accounting point as MaxScanValues with the same
+	// fail-open warning.
+	MaxScanChars int
+	// MaxJSONDepth mirrors the reference detection_max_json_depth
+	// (default 32, [1, 1000]): a JSON container at this depth is
+	// serialized back to text and scanned as one value (still scanned,
+	// just not descended), with a one-time warning naming the client IP.
+	MaxJSONDepth int
+	// PatternValidationCachePath mirrors the reference
+	// detection_pattern_validation_cache_path: when set, the empirical
+	// cost-verdict outcome of pattern validation (probe synthesis plus the
+	// timed probes) is cached on disk keyed by pattern and flags, so a
+	// process boot reuses prior certifications instead of re-timing every
+	// custom pattern; the cheap deterministic layers always re-run.
+	PatternValidationCachePath string
+	// The performance-monitor options, mirrored from the reference
+	// detection_anomaly_threshold / detection_slow_pattern_threshold /
+	// detection_monitor_history_size / detection_max_tracked_patterns /
+	// detection_anomaly_emission_cooldown / detection_min_samples_for_anomaly
+	// (_suspatterns_state.py builds the monitor from exactly these).
+	AnomalyThreshold        float64
+	SlowPatternThreshold    float64
+	MonitorHistorySize      int
+	MaxTrackedPatterns      int
+	AnomalyEmissionCooldown float64
+	MinSamplesForAnomaly    int
 }
 
 func DefaultConfig() Config {
 	return Config{
-		CompilerTimeout:        2000 * time.Millisecond,
-		MaxContentLength:       10000,
-		PreserveAttackPatterns: true,
-		MaxBodyInspectBytes:    262144,
-		SemanticThreshold:      0.7,
-		ThreatScoreThreshold:   1.0,
+		CompilerTimeout:         2000 * time.Millisecond,
+		MaxContentLength:        10000,
+		PreserveAttackPatterns:  true,
+		MaxBodyInspectBytes:     262144,
+		SemanticThreshold:       0.7,
+		ThreatScoreThreshold:    1.0,
+		MaxScanValues:           512,
+		MaxScanChars:            65536,
+		MaxJSONDepth:            32,
+		AnomalyThreshold:        3.0,
+		SlowPatternThreshold:    0.1,
+		MonitorHistorySize:      1000,
+		MaxTrackedPatterns:      1000,
+		AnomalyEmissionCooldown: 60.0,
+		MinSamplesForAnomaly:    30,
 	}
 }
 

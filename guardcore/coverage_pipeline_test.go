@@ -300,14 +300,14 @@ func TestFirstThreatOfAndMessages(t *testing.T) {
 }
 
 func TestExtractRequestBodyValues(t *testing.T) {
-	if got := extractRequestBodyValues(nil, nil, nil); got != nil {
+	if got := extractRequestBodyValues(nil, nil, nil, nil); got != nil {
 		t.Fatal("nil configs scan nothing")
 	}
 	// A failing body read leaves the body unscanned.
 	failing := newTestRequest(t, func(opts *RequestOptions, _ *RequestState) {
 		opts.BodyFunc = func() ([]byte, error) { return nil, errors.New("read boom") }
 	})
-	if got := extractRequestBodyValues(failing, &SecurityConfig{}, nil); got != nil {
+	if got := extractRequestBodyValues(failing, &SecurityConfig{}, nil, nil); got != nil {
 		t.Fatalf("failed reads scan nothing, got %v", got)
 	}
 	// Inspection budgets truncate the scanned body.
@@ -320,7 +320,7 @@ func TestExtractRequestBodyValues(t *testing.T) {
 	req := newTestRequest(t, func(opts *RequestOptions, _ *RequestState) {
 		opts.Body = []byte("a=1b=2c=3d=4")
 	})
-	values := extractRequestBodyValues(req, scfg, nil)
+	values := extractRequestBodyValues(req, scfg, nil, nil)
 	if len(values) == 0 || !strings.Contains(values[0].content, "a=1") {
 		t.Fatalf("budgeted bodies still scan, got %v", values)
 	}

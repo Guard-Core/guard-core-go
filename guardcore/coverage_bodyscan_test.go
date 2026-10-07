@@ -11,7 +11,7 @@ func TestAppendMultipartPartValuesEmptyPart(t *testing.T) {
 	// A part with only a name and no payload yields no entries and is not
 	// scanned.
 	cfg := &SecurityConfig{DetectionBinaryMinRunLength: 4}
-	values := appendMultipartPartValues(nil, multipartPart{}, cfg, nil)
+	values := appendMultipartPartValues(nil, multipartPart{}, cfg, nil, nil)
 	if len(values) != 0 {
 		t.Fatalf("payload-less parts are not scanned, got %v", values)
 	}
@@ -100,7 +100,7 @@ func TestAppendMultipartPartValuesBinaryIslands(t *testing.T) {
 			{name: "Content-Disposition", value: `form-data; name="file"; filename="blob.bin"`},
 		},
 		payload: []byte(binaryPayload),
-	}, cfg, nil)
+	}, cfg, nil, nil)
 	found := false
 	for _, v := range values {
 		if strings.Contains(v.content, "attack payload") {

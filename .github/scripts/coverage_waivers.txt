@@ -131,6 +131,11 @@ guardcore/encodings.go:321
 # base64decode.go above).
 guardcore/engine.go:157
 guardcore/engine.go:160
+# coordinates after the detection-knob and monitor-option fields grew the
+# Config struct (same proofs as above).
+guardcore/engine.go:201
+guardcore/engine.go:216
+guardcore/engine.go:231
 # findAllMatches zero-advance guard: m.Index >= pos and zero-length matches
 # already advance (m.Length == 0 advances next by one), so next <= pos
 # cannot hold.
@@ -238,6 +243,15 @@ guardcore/pipeline.go:1275
 guardcore/pipeline.go:1278
 guardcore/pipeline.go:1279
 guardcore/pipeline.go:1282
+# coordinates after the country-verdict logging and the scan-budget block
+# grew the pipeline file (same proof).
+guardcore/pipeline.go:1327
+guardcore/pipeline.go:1330
+guardcore/pipeline.go:1333
+guardcore/pipeline.go:1336
+guardcore/pipeline.go:1339
+guardcore/pipeline.go:1340
+guardcore/pipeline.go:1343
 # go 1.27 splits the same statements one line lower.
 guardcore/pipeline.go:1267
 guardcore/pipeline.go:1270
@@ -259,6 +273,9 @@ guardcore/pipeline.go:1373
 # coordinate after the websocket detection emission helper shifted the
 # buildChecks table (same proof).
 guardcore/pipeline.go:1393
+# coordinates after the country-verdict logging and the scan-budget block
+# grew the pipeline file (same proof).
+guardcore/pipeline.go:1454
 # go 1.27 splits the same statement one line lower.
 guardcore/pipeline.go:1394
 # Execute rebuild-error return coordinate after the websocket detection
@@ -280,6 +297,9 @@ guardcore/redis.go:347
 guardcore/redis.go:354
 # go 1.27 splits the same statement one line lower.
 guardcore/redis.go:355
+# coordinate after the redis tuning-knob options grew Initialize (same
+# proof as above).
+guardcore/redis.go:382
 # websocket.go isLoopbackIP error arm: webSocketIPAllowed parses the same
 # canonical string with netip.ParseAddr before the country stage and
 # denies the unparseable case outright, so isLoopbackIP only ever sees a
@@ -408,6 +428,12 @@ guardcore/composition.go:140
 # go 1.27 splits the same statements two lines lower.
 guardcore/composition.go:137
 guardcore/composition.go:141
+# coordinates after the agent-strict check, the validation-cache install
+# and the performance-monitor install grew the constructor (same proofs
+# as above).
+guardcore/composition.go:171
+guardcore/composition.go:172
+guardcore/composition.go:176
 # config.go: validateCORS error branch (proof above).
 guardcore/config.go:432
 guardcore/config.go:433
@@ -415,6 +441,10 @@ guardcore/config.go:433
 # start (same proof).
 guardcore/config.go:447
 guardcore/config.go:448
+# coordinates after the redis/body-read/country-level/agent-strict knob
+# block shifted the Validate chain (same proof).
+guardcore/config.go:502
+guardcore/config.go:503
 # dynamicrules.go: writeAtomicFile write/close guards (proof above).
 guardcore/dynamicrules.go:723
 guardcore/dynamicrules.go:728
@@ -632,6 +662,23 @@ guardcore/config.go:435
 guardcore/dynamicrules.go:733
 guardcore/dynamicrules.go:738
 guardcore/suspatterns_registry.go:115
+# suspatterns_registry.go:135 - the AddPattern engine-compile rejection
+# coordinate after the perf-monitor field and setter grew the manager
+# (same proof as the 115 entry above).
+guardcore/suspatterns_registry.go:135
+# suspatterns_registry.go:114 - the InitializeRedis restore-skip arm:
+# exercised by TestInitializeRedisSkipsUnrestorablePattern (it passes
+# asserting the skip log); the go1.26 cover build attributes it 0.
+guardcore/suspatterns_registry.go:114
+# suspatterns_registry.go:297/298/303 - the firstPatternSource helper
+# coordinates after the perf-monitor wiring shifted the Detect tail (same
+# proofs as the shifted 277-289-era entries above).
+guardcore/suspatterns_registry.go:297
+guardcore/suspatterns_registry.go:298
+guardcore/suspatterns_registry.go:303
+# patternvalidationcache.go:98 - the json.Marshal arm over a
+# string/bool-only file struct cannot fail (defensive).
+guardcore/patternvalidationcache.go:98
 # suspatterns_registry.go:97 - the linux go 1.26.x attribution of the
 # InitializeRedis continue pair (the empty-part and known-pattern skips);
 # proven covered on darwin by TestInitializeRedisTrailingComma and

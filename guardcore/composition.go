@@ -58,12 +58,48 @@ func NewEngine(cfg *SecurityConfig) (*Engine, error) {
 		SetupCustomLogging(cfg.LogFile, cfg.LogFormat)
 	}
 	routes := NewRouteRegistry()
-	redisManager := NewRedisManager(RedisConfig{URL: cfg.RedisURL, Prefix: cfg.RedisPrefix, EnableRedis: cfg.EnableRedis})
+	redisManager := NewRedisManager(RedisConfig{
+		URL:                  cfg.RedisURL,
+		Prefix:               cfg.RedisPrefix,
+		EnableRedis:          cfg.EnableRedis,
+		SocketConnectTimeout: cfg.RedisSocketConnectTimeout,
+		SocketTimeout:        cfg.RedisSocketTimeout,
+		HealthCheckInterval:  cfg.RedisHealthCheckInterval,
+		MaxConnections:       cfg.RedisMaxConnections,
+		Retries:              cfg.RedisRetries,
+	})
 	ban := NewIPBanManager(redisManager, cfg.TrustedProxies)
 	rateLimit := NewRateLimitManager(RateLimitConfigFromSecurityConfig(cfg), redisManager, ban)
 	pipeline, counts := BuildDefaultPipeline(cfg, ban, rateLimit, routes)
 	tracker := NewBehaviorTracker(cfg, redisManager, ban, log.Default())
 	behavioral := NewBehavioralProcessor(cfg, tracker, counts, log.Default())
+	// An enabled agent with no wired handler is an agent that cannot
+	// initialize: the reference _on_agent_init_failed fires the on_error
+	// hook with the agent_init stage and lets agent_strict decide between
+	// raising and degrading to agent-off with its log lines.
+	if cfg.EnableAgent && cfg.AgentHandler == nil {
+		if err := agentInitFailure(cfg, errors.New("enable_agent is set but no agent handler is wired; the agent cannot initialize")); err != nil {
+			return nil, err
+		}
+	}
+	// The disk-backed pattern-validation cache installs when
+	// detection_pattern_validation_cache_path is set (the reference
+	// _build_enhanced_detection_state wiring the compiler's cache).
+	if cfg.Detection.PatternValidationCachePath != "" {
+		installPatternValidationCache(NewPatternValidationCache(cfg.Detection.PatternValidationCachePath))
+	}
+	// The performance monitor builds from the six detection knobs the
+	// reference _build_enhanced_detection_state feeds it, riding the
+	// default sus-patterns registry the way the reference detection state
+	// rides the singleton handler.
+	DefaultSusPatternsManager.SetPerformanceMonitor(NewPerformanceMonitor(PerformanceMonitorOptions{
+		AnomalyThreshold:        cfg.Detection.AnomalyThreshold,
+		SlowPatternThreshold:    cfg.Detection.SlowPatternThreshold,
+		HistorySize:             cfg.Detection.MonitorHistorySize,
+		MaxTrackedPatterns:      cfg.Detection.MaxTrackedPatterns,
+		AnomalyEmissionCooldown: cfg.Detection.AnomalyEmissionCooldown,
+		MinSamplesForAnomaly:    cfg.Detection.MinSamplesForAnomaly,
+	}), agentHandlerAnomalySender{handler: cfg.AgentHandler})
 	// The agent telemetry stream installs once, before the managers read
 	// it: the bus, the metrics collector, the ip_ban and rate_limit event
 	// seams and the dynamic-rule manager all hang off the config's

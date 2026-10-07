@@ -48,6 +48,12 @@ type SusPatternsManager struct {
 	redisHandler   RedisHandler
 	agentHandler   AgentHandler
 	log            *log.Logger
+	// perfMonitor is the detection performance monitor wired from the
+	// six detection knobs at composition (the reference detection state
+	// carries the monitor _build_enhanced_detection_state builds); Detect
+	// records the overall_detection metric into it.
+	perfMonitor   *PerformanceMonitor
+	anomalySender AnomalyEventSender
 }
 
 // DefaultSusPatternsManager mirrors the reference module singleton.
@@ -70,6 +76,17 @@ func NewSusPatternsManager(logger *log.Logger) *SusPatternsManager {
 func (m *SusPatternsManager) SetAgentHandler(handler AgentHandler) {
 	m.mu.Lock()
 	m.agentHandler = handler
+	m.mu.Unlock()
+}
+
+// SetPerformanceMonitor attaches the detection performance monitor and
+// its anomaly event sink (the reference detection state carrying the
+// monitor and record_metric's agent_handler argument); a nil monitor
+// silences the metrics.
+func (m *SusPatternsManager) SetPerformanceMonitor(monitor *PerformanceMonitor, sender AnomalyEventSender) {
+	m.mu.Lock()
+	m.perfMonitor = monitor
+	m.anomalySender = sender
 	m.mu.Unlock()
 }
 
@@ -107,7 +124,10 @@ func (m *SusPatternsManager) InitializeRedis(handler RedisHandler) {
 // registers it (custom entries dedupe and persist through Redis; default
 // entries append). Rejections log the redacted source and return false.
 func (m *SusPatternsManager) AddPattern(pattern string, custom bool) bool {
-	if safe, reason := ValidatePatternSafetyCost(pattern, DefaultConfig().MaxBodyInspectBytes); !safe {
+	// The empirical cost probe routes through the configured disk cache
+	// when detection_pattern_validation_cache_path is set (the reference
+	// PatternValidationCache): the deterministic gates always re-run.
+	if safe, reason := validatePatternSafetyCostCached(pattern, DefaultConfig().MaxBodyInspectBytes); !safe {
 		m.log.Printf("Rejected unsafe pattern (%s): %s...", reason, truncateRunes(RedactPatternSource(pattern), 50))
 		return false
 	}
@@ -306,6 +326,24 @@ func (m *SusPatternsManager) Detect(content, ip, context, correlationID string) 
 		result.Threats = threats
 		result.IsThreat = true
 		result.ThreatScore += float64(len(customThreats))
+	}
+
+	// The reference detect() records the overall_detection metric once
+	// per pass into the configured performance monitor (total elapsed
+	// time, content length, matched, no timeout).
+	m.mu.RLock()
+	monitor := m.perfMonitor
+	m.mu.RUnlock()
+	if monitor != nil {
+		monitor.RecordMetric(MetricObservation{
+			Pattern:       "overall_detection",
+			ExecutionTime: time.Since(start).Seconds(),
+			ContentLength: len(content),
+			Matched:       result.IsThreat,
+			Timeout:       false,
+			Agent:         agentHandlerAnomalySender{handler: m.currentAgentHandler()},
+			CorrelationID: correlationID,
+		})
 	}
 
 	if m.currentAgentHandler() == nil || !result.IsThreat {

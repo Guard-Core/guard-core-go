@@ -17,7 +17,7 @@ import (
 func base64StdEncode(b []byte) string { return base64.StdEncoding.EncodeToString(b) }
 
 func extractValuePairs(rawBody, contentType string, cfg *SecurityConfig) [][2]string {
-	values := extractBodyScanValues(rawBody, contentType, cfg, cfg.ExcludedDetectionBodyFields)
+	values := extractBodyScanValues(rawBody, contentType, cfg, cfg.ExcludedDetectionBodyFields, nil)
 	out := make([][2]string, 0, len(values))
 	for _, v := range values {
 		out = append(out, [2]string{v.context, v.content})
