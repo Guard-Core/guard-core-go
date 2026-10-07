@@ -548,3 +548,13 @@ guardcore/redos_terminator.go:304
 guardcore/redos_terminator.go:330
 guardcore/redos_terminator.go:347
 guardcore/redos_terminator.go:87
+
+# suspatterns_registry.go - the semantic-first DetectPatternMatch branches:
+# the engine's threat list orders regex threats before semantic ones
+# (detect.go appends the semantic pass last), so threats[0] is semantic
+# only for a threat list the engine cannot produce; the identity branches
+# are kept for the reference detect_pattern_match shape.
+guardcore/suspatterns_registry.go:277
+guardcore/suspatterns_registry.go:278
+guardcore/suspatterns_registry.go:279
+guardcore/suspatterns_registry.go:283

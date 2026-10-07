@@ -853,7 +853,7 @@ func detectThreat(req Request, cfg *SecurityConfig, exclusions routeDetectionExc
 			// body_json_scan._mongo_operator_key_hit.
 			return []string{v.forcedCategory}, fmt.Sprintf("JSON operator key '%s': matched pattern '%s'", v.content, mongoOperatorKeyRE.String())
 		}
-		result := Detect(v.content, resolveClientIP(req), v.context)
+		result := DefaultSusPatternsManager.Detect(v.content, resolveClientIP(req), v.context, "")
 		if !result.IsThreat {
 			continue
 		}

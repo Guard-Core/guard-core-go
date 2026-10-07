@@ -127,20 +127,21 @@ func (f EventFilter) IsMetricAllowed(metricType string) bool {
 // (middleware_events._build_event). Field names match the reference's
 // payload keys.
 type SecurityEvent struct {
-	Timestamp     time.Time      `json:"timestamp"`
-	EventType     string         `json:"event_type"`
-	IPAddress     string         `json:"ip_address"`
-	Country       string         `json:"country,omitempty"`
-	UserAgent     string         `json:"user_agent,omitempty"`
-	ActionTaken   string         `json:"action_taken"`
-	Reason        string         `json:"reason"`
-	Endpoint      string         `json:"endpoint,omitempty"`
-	Method        string         `json:"method,omitempty"`
-	ResponseTime  float64        `json:"response_time,omitempty"`
-	DecoratorType string         `json:"decorator_type,omitempty"`
-	RuleType      string         `json:"rule_type,omitempty"`
-	HandlerName   string         `json:"handler_name"`
-	Metadata      map[string]any `json:"metadata,omitempty"`
+	Timestamp      time.Time      `json:"timestamp"`
+	EventType      string         `json:"event_type"`
+	IPAddress      string         `json:"ip_address"`
+	Country        string         `json:"country,omitempty"`
+	UserAgent      string         `json:"user_agent,omitempty"`
+	ActionTaken    string         `json:"action_taken"`
+	Reason         string         `json:"reason"`
+	Endpoint       string         `json:"endpoint,omitempty"`
+	Method         string         `json:"method,omitempty"`
+	ResponseTime   float64        `json:"response_time,omitempty"`
+	DecoratorType  string         `json:"decorator_type,omitempty"`
+	RuleType       string         `json:"rule_type,omitempty"`
+	HandlerName    string         `json:"handler_name"`
+	PatternMatched string         `json:"pattern_matched,omitempty"`
+	Metadata       map[string]any `json:"metadata,omitempty"`
 }
 
 // SecurityMetric is the reference SecurityMetric envelope (metrics.py).

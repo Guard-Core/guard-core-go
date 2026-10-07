@@ -351,6 +351,12 @@ func buildEventsEngine(t *testing.T, c eventsCase, agent *recordingAgent) (*guar
 		return nil, err
 	}
 	engine, err := guardcore.NewEngine(cfg)
+	// The reference generator runs middleware scenarios with the
+	// sus-patterns singleton's agent handler detached (it wires the
+	// handler only inside the pattern drives); the detach happens after
+	// the engine construction because installAgentStream attaches the
+	// config's handler exactly like the reference initializer.
+	guardcore.ResetSusPatterns()
 	if err != nil {
 		return nil, err
 	}
@@ -724,7 +730,32 @@ func driveEventsCall(t *testing.T, engine *guardcore.Engine, agent *recordingAge
 		}
 		return nil
 	case "detect", "add_pattern", "remove_pattern":
-		return fmt.Errorf("sus-patterns handler telemetry seam not mapped in this runner revision")
+		// The reference events harness wires the sus-patterns singleton's
+		// agent handler per pattern scenario only; these drives mirror it,
+		// including the remove case seeding the registry without the agent
+		// so the case pins the removal event alone (totals 1 -> 0).
+		guardcore.ResetSusPatterns()
+		manager := guardcore.DefaultSusPatternsManager
+		switch call {
+		case "detect":
+			manager.SetAgentHandler(agent)
+			manager.Detect(stepString(step, "content"), stepString(step, "ip"),
+				stepString(step, "context"), "")
+		case "add_pattern":
+			manager.SetAgentHandler(agent)
+			manager.ClearCustomPatterns()
+			if !manager.AddPattern(stepString(step, "pattern"), true) {
+				return fmt.Errorf("corpus pattern rejected: %q", stepString(step, "pattern"))
+			}
+		case "remove_pattern":
+			pattern := stepString(step, "pattern")
+			manager.SeedCustomPattern(pattern)
+			manager.SetAgentHandler(agent)
+			if !manager.RemovePattern(pattern, true) {
+				return fmt.Errorf("corpus pattern not removed: %q", pattern)
+			}
+		}
+		return nil
 	default:
 		return fmt.Errorf("unknown events harness call %q", call)
 	}
