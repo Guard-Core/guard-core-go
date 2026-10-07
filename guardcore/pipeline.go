@@ -654,6 +654,15 @@ type suspiciousActivityCheck struct {
 	cfg    *SecurityConfig
 	ban    *IPBanManager
 	counts *suspiciousCountStore
+	// inertBus suppresses the check's own middleware-event emissions. The
+	// websocket detection pipeline sets it: the reference builds its
+	// websocket detection middleware over an agentless event bus
+	// (guard/websocket.py _WebSocketDetectionMiddleware constructs
+	// SecurityEventBus with agent_handler None, and send_middleware_event
+	// returns immediately without one), so detection-time
+	// penetration_attempt events go nowhere on the websocket path while
+	// counts, escalation and the on_block hook stay live.
+	inertBus bool
 }
 
 type suspiciousCountStore struct {
@@ -663,6 +672,17 @@ type suspiciousCountStore struct {
 
 func (c *suspiciousActivityCheck) CheckName() string             { return "suspicious_activity" }
 func (c *suspiciousActivityCheck) EnforcedOnExcludedPaths() bool { return false }
+
+// emitDetectionEvent routes the check's middleware events through the
+// installed bus unless the check runs with an inert stream (the websocket
+// detection pipeline).
+func (c *suspiciousActivityCheck) emitDetectionEvent(eventType string, req Request, actionTaken, reason string, kwargs map[string]any) {
+	if c.inertBus {
+		return
+	}
+	emitBusEvent(c.cfg, eventType, req, actionTaken, reason, kwargs)
+}
+
 func (c *suspiciousActivityCheck) AppliesTo(cfg *SecurityConfig) bool {
 	return cfg.EnablePenetrationDetection
 }
@@ -705,7 +725,7 @@ func (c *suspiciousActivityCheck) Check(req Request) *Response {
 		// The reference passive-mode handler (_handle_suspicious_passive_mode):
 		// the decorator reason over the trigger_info, with the request count,
 		// the passive flag and the trigger_info kwargs.
-		emitBusEvent(cfg, EventPenetrationAttempt, req, "logged_only",
+		c.emitDetectionEvent(EventPenetrationAttempt, req, "logged_only",
 			fmt.Sprintf("Suspicious pattern detected (passive mode): %s", triggerInfo),
 			map[string]any{
 				"request_count": c.totalCountFor(ip),
@@ -722,7 +742,7 @@ func (c *suspiciousActivityCheck) Check(req Request) *Response {
 	stashBlock(state, fmt.Sprintf("Suspicious activity detected for IP: %s - %s", ip, triggerInfo), "")
 	// Reference suspicious_activity.py active path: penetration_attempt
 	// with the per-IP request count and the trigger_info kwarg.
-	emitBusEvent(cfg, EventPenetrationAttempt, req, "request_blocked",
+	c.emitDetectionEvent(EventPenetrationAttempt, req, "request_blocked",
 		fmt.Sprintf("Penetration attempt detected: %s", triggerInfo),
 		map[string]any{
 			"request_count": c.totalCountFor(ip),

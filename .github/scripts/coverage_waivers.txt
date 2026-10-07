@@ -229,6 +229,20 @@ guardcore/pipeline.go:1260
 # handleRebuildError coordinate after the custom_response_modifier pass in
 # createErrorResponse shifted the block start (same proof).
 guardcore/pipeline.go:1262
+# handleRebuildError coordinates after the websocket detection emission
+# helper shifted the block (same proof).
+guardcore/pipeline.go:1266
+guardcore/pipeline.go:1269
+guardcore/pipeline.go:1272
+guardcore/pipeline.go:1275
+guardcore/pipeline.go:1278
+guardcore/pipeline.go:1279
+guardcore/pipeline.go:1282
+# go 1.27 splits the same statements one line lower.
+guardcore/pipeline.go:1267
+guardcore/pipeline.go:1270
+guardcore/pipeline.go:1276
+guardcore/pipeline.go:1280
 # go 1.26 splits the function one line earlier than the local toolchain
 guardcore/pipeline.go:1245
 guardcore/pipeline.go:1248
@@ -242,6 +256,17 @@ guardcore/pipeline.go:1231
 # coordinates after the escalation helpers shifted the buildChecks table
 guardcore/pipeline.go:1372
 guardcore/pipeline.go:1373
+# coordinate after the websocket detection emission helper shifted the
+# buildChecks table (same proof).
+guardcore/pipeline.go:1393
+# go 1.27 splits the same statement one line lower.
+guardcore/pipeline.go:1394
+# Execute rebuild-error return coordinate after the websocket detection
+# emission helper shifted the Execute block (same proof as the rebuild
+# entries above).
+guardcore/pipeline.go:1188
+# go 1.27 splits the same statement one line lower.
+guardcore/pipeline.go:1189
 # redis.go
 # RecordSlidingWindowHit rand guard: crypto/rand.Read cannot fail on the
 # supported platforms, so the error branch is defensive.
@@ -250,6 +275,18 @@ guardcore/redis.go:274
 # coordinate after the redis connection events shifted the sliding-window
 guardcore/redis.go:346
 guardcore/redis.go:347
+# coordinate after the connected() helper shifted the sliding-window block
+# (same proof as above).
+guardcore/redis.go:354
+# go 1.27 splits the same statement one line lower.
+guardcore/redis.go:355
+# websocket.go isLoopbackIP error arm: webSocketIPAllowed parses the same
+# canonical string with netip.ParseAddr before the country stage and
+# denies the unparseable case outright, so isLoopbackIP only ever sees a
+# parsed address.
+guardcore/websocket.go:196
+# go 1.27 splits the same statement one line lower.
+guardcore/websocket.go:197
 # registry.go
 # init compile-failure skip: every patternTable entry compiles (the
 # detection suite pins the full table), so the continue is defensive.
@@ -363,6 +400,14 @@ guardcore/composition.go:129
 guardcore/composition.go:125
 guardcore/composition.go:126
 guardcore/composition.go:130
+# coordinates after the websocket guard fields on Engine shifted the
+# startup block (same proofs as above).
+guardcore/composition.go:135
+guardcore/composition.go:136
+guardcore/composition.go:140
+# go 1.27 splits the same statements two lines lower.
+guardcore/composition.go:137
+guardcore/composition.go:141
 # config.go: validateCORS error branch (proof above).
 guardcore/config.go:432
 guardcore/config.go:433

@@ -85,6 +85,14 @@ func (m *RedisManager) Prefix() string { return m.cfg.Prefix }
 
 func (m *RedisManager) Enabled() bool { return m.cfg.EnableRedis }
 
+// connected reports whether Initialize has established the client
+// connection (a configured-but-never-connected manager reports Enabled
+// true and connected false). Initialize owns the write; callers run the
+// guard after startup, so no lock is taken here.
+func (m *RedisManager) connected() bool {
+	return m.client != nil
+}
+
 func (m *RedisManager) Initialize() error {
 	if !m.cfg.EnableRedis {
 		return nil
