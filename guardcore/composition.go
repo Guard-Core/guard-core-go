@@ -29,6 +29,16 @@ type Engine struct {
 	exclusions     exclusionMatcher
 	initializeOnce sync.Once
 	initializeErr  error
+	// suspiciousCounts is the shared per-IP suspicious-activity registry
+	// backing both the HTTP pipeline's suspicious_activity check and the
+	// websocket guard's detection pass (the reference
+	// _resolve_shared_suspicious_counts hands the HTTP middleware's
+	// suspicious_request_counts dict to the websocket detection
+	// middleware).
+	suspiciousCounts *suspiciousCountStore
+	// wsRedisWarn carries the reference make_guard_websocket
+	// enable_redis-without-handler warning, emitted once per engine.
+	wsRedisWarn sync.Once
 }
 
 func NewEngine(cfg *SecurityConfig) (*Engine, error) {
@@ -80,17 +90,18 @@ func NewEngine(cfg *SecurityConfig) (*Engine, error) {
 		}
 	}
 	return &Engine{
-		Config:       cfg,
-		Routes:       routes,
-		Redis:        redisManager,
-		Ban:          ban,
-		RateLimit:    rateLimit,
-		Behavior:     tracker,
-		behaviorProc: behavioral,
-		Cloud:        DefaultCloudManager,
-		CORS:         newCORSPolicy(cfg),
-		DynamicRules: dynamicRules,
-		pipeline:     pipeline,
+		Config:           cfg,
+		Routes:           routes,
+		Redis:            redisManager,
+		Ban:              ban,
+		RateLimit:        rateLimit,
+		Behavior:         tracker,
+		behaviorProc:     behavioral,
+		Cloud:            DefaultCloudManager,
+		CORS:             newCORSPolicy(cfg),
+		DynamicRules:     dynamicRules,
+		pipeline:         pipeline,
+		suspiciousCounts: counts,
 		exclusions: exclusionMatcher{
 			cfg: cfg,
 		},
