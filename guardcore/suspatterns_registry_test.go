@@ -15,6 +15,12 @@ func resetSusPatternsForTest(t *testing.T) {
 	DefaultSusPatternsManager.mu.Lock()
 	DefaultSusPatternsManager.patterns = nil
 	DefaultSusPatternsManager.compiled = nil
+	// The performance monitor and its anomaly sender are composition-time
+	// wiring on the singleton (NewEngine installs them); tests detached
+	// from engine construction must not inherit an accumulated monitor or
+	// a stale sender.
+	DefaultSusPatternsManager.perfMonitor = nil
+	DefaultSusPatternsManager.anomalySender = nil
 	DefaultSusPatternsManager.mu.Unlock()
 	t.Cleanup(func() { ResetSusPatterns() })
 }
