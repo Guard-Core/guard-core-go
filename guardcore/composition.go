@@ -278,6 +278,16 @@ func (e *Engine) CORSResponseHeaders(req Request) map[string]string {
 	return e.CORS.buildResponseHeaders(req.Headers())
 }
 
+// ModifyResponse runs the configured CustomResponseModifier over an
+// adapter-owned pass-through response, mirroring the reference response
+// factory's apply_modifier at the tail of process_response: the adapter
+// composes Engine.ResponseHeaders and Engine.CORSResponseHeaders first and
+// calls this last (guard_core/core/responses/factory.py process_response
+// order). Blocked responses returned from Check already carry the modifier.
+func (e *Engine) ModifyResponse(resp *Response) *Response {
+	return applyModifier(e.Config, resp)
+}
+
 func (e *Engine) Close() error {
 	if e.DynamicRules != nil {
 		e.DynamicRules.Stop()

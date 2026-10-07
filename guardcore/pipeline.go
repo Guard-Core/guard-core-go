@@ -947,11 +947,12 @@ func createErrorResponse(cfg *SecurityConfig, statusCode int, defaultMessage str
 	}
 	response := NewResponseFactory().CreateResponse(message, statusCode)
 	// The reference error factory applies the security headers on every error
-	// response (guard_core/core/responses/factory.py apply_security_headers).
+	// response (guard_core/core/responses/factory.py apply_security_headers),
+	// then runs the custom_response_modifier last (factory apply_modifier).
 	for name, value := range responseHeaders(cfg) {
 		response.SetHeader(name, value)
 	}
-	return response
+	return applyModifier(cfg, response)
 }
 
 func errorResponse(cfg *SecurityConfig, statusCode int, message string) *Response {
@@ -959,7 +960,7 @@ func errorResponse(cfg *SecurityConfig, statusCode int, message string) *Respons
 	for name, value := range responseHeaders(cfg) {
 		response.SetHeader(name, value)
 	}
-	return response
+	return applyModifier(cfg, response)
 }
 
 func resolveClientIP(req Request) string {

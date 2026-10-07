@@ -56,6 +56,13 @@ guardcore/checks_custom.go:135
 guardcore/checks_custom.go:145
 guardcore/checks_custom.go:136
 guardcore/checks_custom.go:146
+# coordinates after the CustomResponseModifier field and the modifier pass
+# in the custom_request check shifted the block starts (same proof as
+# above).
+guardcore/checks_custom.go:138
+guardcore/checks_custom.go:148
+guardcore/checks_custom.go:139
+guardcore/checks_custom.go:149
 # composition.go
 # Cloud.InitializeRedis failure branch: InitializeRedis errors only on a
 # nil handler, and e.Redis is non-nil after the successful Initialize
@@ -219,6 +226,9 @@ guardcore/pipeline.go:1250
 guardcore/pipeline.go:1252
 guardcore/pipeline.go:1258
 guardcore/pipeline.go:1260
+# handleRebuildError coordinate after the custom_response_modifier pass in
+# createErrorResponse shifted the block start (same proof).
+guardcore/pipeline.go:1262
 # go 1.26 splits the function one line earlier than the local toolchain
 guardcore/pipeline.go:1245
 guardcore/pipeline.go:1248
@@ -356,6 +366,10 @@ guardcore/composition.go:130
 # config.go: validateCORS error branch (proof above).
 guardcore/config.go:432
 guardcore/config.go:433
+# coordinates after the CustomResponseModifier field shifted the block
+# start (same proof).
+guardcore/config.go:447
+guardcore/config.go:448
 # dynamicrules.go: writeAtomicFile write/close guards (proof above).
 guardcore/dynamicrules.go:723
 guardcore/dynamicrules.go:728

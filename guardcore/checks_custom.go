@@ -119,7 +119,10 @@ func (c *customRequestCheck) Check(req Request) *Response {
 	if c.cfg.PassiveMode {
 		return nil
 	}
-	return customResponse
+	// Reference custom_request.py: in blocking mode the callback's response
+	// passes through the response factory's apply_modifier before it is
+	// returned (the custom_validators check returns its response as-is).
+	return applyModifier(c.cfg, customResponse)
 }
 
 // customRequestCheckFunctionName mirrors custom_request.py's

@@ -241,6 +241,18 @@ type SecurityConfig struct {
 	// (the reference python __name__ has no Go identifier equivalent);
 	// empty falls back to the function's runtime name.
 	CustomRequestCheckName string
+	// CustomResponseModifier mirrors the reference custom_response_modifier
+	// SecurityConfig field (_security_config_fields.py): a user callback the
+	// response factory runs over engine-produced responses before they leave
+	// the middleware (guard_core/core/responses/factory.py apply_modifier:
+	// error responses, the https redirect, the custom_request blocking
+	// response, and the passthrough response last). A panic inside the
+	// callback is contained; the unmodified response goes out. Returning nil
+	// keeps the incoming response: the reference Callable type cannot return
+	// None, and reading Go's nil as "drop the block" would silently
+	// un-block requests. The reference custom_validators check returns the
+	// validator's response as-is (no modifier pass), and so does this port.
+	CustomResponseModifier func(resp *Response) *Response
 	LogRequestLevel        string
 	LogSuspiciousLevel     string
 
