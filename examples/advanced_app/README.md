@@ -95,7 +95,7 @@ copy-paste-driven reference code.
 - Route-scoped guards through `RouteRegistry` (`RequiredHeaders` on
   `/admin/*`)
 - `OnBlock` hook: the telemetry seam for
-  [guard-agent-go](https://github.com/rennf93/guard-agent-go) wiring
+  [guard-agent-go](https://github.com/Guard-Core/guard-agent-go) wiring
   (comment-level guidance in `internal/config/config.go`; `EnableAgent` is
   fail-closed in this port, so the hook is the integration point)
 

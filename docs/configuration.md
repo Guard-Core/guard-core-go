@@ -148,7 +148,7 @@ Hook panics are recovered and logged; they never affect the verdict.
     Guard Agent telemetry is not implemented in this port yet
     (`EnableAgent` is fail-closed and returns an unsupported-feature error).
     Until the agent event pipeline lands, forward `OnBlock` payloads to
-    [guard-agent-go](https://github.com/rennf93/guard-agent-go) from your own
+    [guard-agent-go](https://github.com/Guard-Core/guard-agent-go) from your own
     hook implementation. See `examples/advanced_app` for a worked example.
 
 ## Detector tuning

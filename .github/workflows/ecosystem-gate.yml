@@ -32,13 +32,13 @@ jobs:
       fail-fast: false
       matrix:
         consumer:
-          - repo: rennf93/nethttp-guard
+          - repo: Guard-Core/nethttp-guard
             path: nethttp-guard
-          - repo: rennf93/gin-guard
+          - repo: Guard-Core/gin-guard
             path: gin-guard
-          - repo: rennf93/echo-guard
+          - repo: Guard-Core/echo-guard
             path: echo-guard
-          - repo: rennf93/fiber-guard
+          - repo: Guard-Core/fiber-guard
             path: fiber-guard
 
     services:

@@ -2,7 +2,7 @@
 
 guard-core-go does not ship agent telemetry yet: setting `EnableAgent` fails
 config validation (`enable_agent: Guard Agent telemetry is not implemented in
-this port yet`). Until [guard-agent-go](https://github.com/rennf93/guard-agent-go)
+this port yet`). Until [guard-agent-go](https://github.com/Guard-Core/guard-agent-go)
 integration lands, the engine exposes two deliberate seams you can wire today.
 
 ## The OnBlock hook
@@ -61,9 +61,9 @@ The Go agent mirrors the Python guard-agent's API. Once its engine-event
 pipeline accepts these payloads, forward `OnBlock` events with the payload map
 as-is: the keys match the Python engine's block event fields, so the agent's
 existing consumers keep working. Until then, both example apps
-([simple](https://github.com/rennf93/guard-core-go/tree/master/examples/simple_app)
+([simple](https://github.com/Guard-Core/guard-core-go/tree/master/examples/simple_app)
 and
-[advanced](https://github.com/rennf93/guard-core-go/tree/master/examples/advanced_app))
+[advanced](https://github.com/Guard-Core/guard-core-go/tree/master/examples/advanced_app))
 log the payload from `OnBlock` as the placeholder integration.
 
 ## What the Python engine has that this port does not (yet)

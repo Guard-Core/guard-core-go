@@ -73,7 +73,7 @@ func main() {
 		// integration is not implemented in guard-core-go yet (setting
 		// EnableAgent fails config validation), so wire the agent from
 		// here: forward these payloads to guard-agent-go
-		// (https://github.com/rennf93/guard-agent-go) once its event
+		// (https://github.com/Guard-Core/guard-agent-go) once its event
 		// pipeline accepts engine events. The payload carries check_name,
 		// reason, trigger_info, passive_mode, client_ip, path, method, and
 		// status_code.

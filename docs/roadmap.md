@@ -8,7 +8,7 @@ for the detailed per-milestone notes).
 
 - **Agent event pipeline** - `EnableAgent` is fail-closed; the `OnBlock` hook
   and `RateLimitManager.SetAgentHandlerHook` are the seams until
-  [guard-agent-go](https://github.com/rennf93/guard-agent-go) integration
+  [guard-agent-go](https://github.com/Guard-Core/guard-agent-go) integration
   lands.
 - **Request body scanning** - the pipeline's suspicious-activity check scans
   the URL path, query parameters, and headers. Request bodies are not fed to

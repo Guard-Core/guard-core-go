@@ -43,7 +43,7 @@ The architecture is a strict core/adapter split. These rules are backed by the a
 Prerequisites: Go 1.25 or newer (go.mod requires `1.25.0`; CI tests `1.25.x` and `1.26.x` with `GOTOOLCHAIN=auto`). For integration tests, a reachable Redis 7 instance. There is no Makefile; commands are plain `go` commands plus the exact steps CI runs.
 
 ```
-git clone https://github.com/rennf93/guard-core-go
+git clone https://github.com/Guard-Core/guard-core-go
 cd guard-core-go
 go build ./...
 go test ./...
