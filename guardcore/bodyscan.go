@@ -81,18 +81,18 @@ var mongoOperatorKeyRE = regexp.MustCompile(`^\$(?:ne|gt|gte|lt|lte|eq|in|nin|no
 // whole-body blob fallback. Binary island reduction inside file parts uses
 // cfg.DetectionBinaryMinRunLength; field exclusions use
 // cfg.ExcludedDetectionBodyFields.
-func extractBodyScanValues(rawBody, contentType string, cfg *SecurityConfig, excludedBodyFields map[string]bool) []bodyScanValue {
+func extractBodyScanValues(rawBody, contentType string, cfg *SecurityConfig, excludedBodyFields map[string]bool, budget *detectionScanBudget) []bodyScanValue {
 	lowered := strings.ToLower(contentType)
 	excluded := excludedBodyFields
 	switch {
 	case strings.Contains(lowered, "application/x-www-form-urlencoded"):
-		return appendFormBodyValues(nil, rawBody, excluded)
+		return appendFormBodyValues(nil, rawBody, excluded, budget)
 	case strings.Contains(lowered, "multipart/form-data"):
-		return appendMultipartBodyValues(nil, rawBody, contentType, cfg, excluded)
+		return appendMultipartBodyValues(nil, rawBody, contentType, cfg, excluded, budget)
 	}
 	if strings.Contains(lowered, "json") {
 		if root, ok := parseOrderedJSON(rawBody); ok {
-			return appendJSONWalkEntries(nil, root, requestBodyCtx, excluded)
+			return appendJSONWalkEntries(nil, root, requestBodyCtx, excluded, budget)
 		}
 	}
 	var blob []bodyScanValue
@@ -104,13 +104,13 @@ func extractBodyScanValues(rawBody, contentType string, cfg *SecurityConfig, exc
 // as a request_body value, then the value as a form_field value (with the
 // embedded JSON walk taking precedence over the raw string, exactly like
 // _check_value_enhanced's embedded-JSON-first order).
-func appendFormBodyValues(values []bodyScanValue, rawBody string, excluded map[string]bool) []bodyScanValue {
+func appendFormBodyValues(values []bodyScanValue, rawBody string, excluded map[string]bool, budget *detectionScanBudget) []bodyScanValue {
 	for _, pair := range parseFormPairs(rawBody) {
 		if excluded[strings.ToLower(pair.name)] {
 			continue
 		}
 		values = append(values, bodyScanValue{content: pair.name, context: requestBodyCtx, label: "Form field name '" + pair.name + "': "})
-		values = appendFieldBodyValue(values, pair.value, formFieldContext, pair.name, excluded)
+		values = appendFieldBodyValue(values, pair.value, formFieldContext, pair.name, excluded, budget)
 	}
 	return values
 }
@@ -122,9 +122,9 @@ func appendFormBodyValues(values []bodyScanValue, rawBody string, excluded map[s
 // short-circuits the raw scan only when a leaf hits, and a clean walk that
 // reports nothing falls through to the raw-value detect (payloads hidden in
 // structural text or duplicate-key remnants still hit).
-func appendFieldBodyValue(values []bodyScanValue, content, context, label string, excluded map[string]bool) []bodyScanValue {
+func appendFieldBodyValue(values []bodyScanValue, content, context, label string, excluded map[string]bool, budget *detectionScanBudget) []bodyScanValue {
 	if root, ok := parseOrderedJSON(content); ok {
-		values = appendJSONWalkEntries(values, root, context+embeddedJSONLeafContextSuffix, excluded)
+		values = appendJSONWalkEntries(values, root, context+embeddedJSONLeafContextSuffix, excluded, budget)
 	}
 	return append(values, bodyScanValue{content: content, context: context, label: bodyFieldLabel(label)})
 }
@@ -134,7 +134,7 @@ func appendFieldBodyValue(values []bodyScanValue, content, context, label string
 // request_body blob value (Python's _scan_blob_body fallback, including the
 // no-parts-with-final-boundary case the email parser reports as
 // is_multipart() == False).
-func appendMultipartBodyValues(values []bodyScanValue, rawBody, contentType string, cfg *SecurityConfig, excludedBodyFields map[string]bool) []bodyScanValue {
+func appendMultipartBodyValues(values []bodyScanValue, rawBody, contentType string, cfg *SecurityConfig, excludedBodyFields map[string]bool, budget *detectionScanBudget) []bodyScanValue {
 	_, params := parseMediaTypeParams(contentType)
 	boundary := params["boundary"]
 	parts := parseMultipartParts(rawBody, boundary)
@@ -142,7 +142,7 @@ func appendMultipartBodyValues(values []bodyScanValue, rawBody, contentType stri
 		return append(values, bodyScanValue{content: rawBody, context: requestBodyCtx})
 	}
 	for _, part := range parts {
-		values = appendMultipartPartValues(values, part, cfg, excludedBodyFields)
+		values = appendMultipartPartValues(values, part, cfg, excludedBodyFields, budget)
 	}
 	return values
 }
@@ -154,7 +154,7 @@ func appendMultipartBodyValues(values []bodyScanValue, rawBody, contentType stri
 // with the label name scan in front of the first entry, exactly like the
 // reference scanning the label once per entry (first-hit identical). A part
 // that yields no entries is not scanned at all, like the reference.
-func appendMultipartPartValues(values []bodyScanValue, part multipartPart, cfg *SecurityConfig, excludedBodyFields map[string]bool) []bodyScanValue {
+func appendMultipartPartValues(values []bodyScanValue, part multipartPart, cfg *SecurityConfig, excludedBodyFields map[string]bool, budget *detectionScanBudget) []bodyScanValue {
 	name, hasName := partDispositionParam(part, "name")
 	filename, hasFilename := partDispositionParam(part, "filename")
 	if !hasFilename {
@@ -190,7 +190,7 @@ func appendMultipartPartValues(values []bodyScanValue, part multipartPart, cfg *
 	}
 	values = append(values, bodyScanValue{content: label, context: requestBodyCtx, label: "Multipart field name '" + label + "': "})
 	for _, entry := range entries {
-		values = appendFieldBodyValue(values, entry, ctx, label, excluded)
+		values = appendFieldBodyValue(values, entry, ctx, label, excluded, budget)
 	}
 	return values
 }

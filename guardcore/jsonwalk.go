@@ -139,7 +139,7 @@ var errUnexpectedJSONToken = jsonWalkError{}
 // reference order. Entries carry the request_body context for keys; leaves
 // carry the walk context (request_body, or a field context with the
 // ":embedded_json" suffix).
-func appendJSONWalkEntries(values []bodyScanValue, root *jsonNode, context string, excluded map[string]bool) []bodyScanValue {
+func appendJSONWalkEntries(values []bodyScanValue, root *jsonNode, context string, excluded map[string]bool, budget *detectionScanBudget) []bodyScanValue {
 	allowLeafReparse := context != requestBodyCtx
 	// Frames are consumed in order; the reference uses a LIFO stack and
 	// pushes children reversed, so children process in insertion order.
@@ -177,7 +177,8 @@ func appendJSONWalkEntries(values []bodyScanValue, root *jsonNode, context strin
 		node := f.node
 		switch {
 		case node.isObject:
-			if f.depth >= jsonWalkDepthCap {
+			if f.depth >= budgetDepthCap(budget) {
+				budget.warnJSONDepthOnce()
 				values = append(values, bodyScanValue{content: serializeCompactJSON(node), context: context, label: bodyFieldLabel(f.label)})
 				continue
 			}
@@ -185,7 +186,8 @@ func appendJSONWalkEntries(values []bodyScanValue, root *jsonNode, context strin
 				stack = append(stack, frame{isEntry: true, key: node.keys[i], item: node.values[node.keys[i]], depth: f.depth})
 			}
 		case node.isArray:
-			if f.depth >= jsonWalkDepthCap {
+			if f.depth >= budgetDepthCap(budget) {
+				budget.warnJSONDepthOnce()
 				values = append(values, bodyScanValue{content: serializeCompactJSON(node), context: context, label: bodyFieldLabel(f.label)})
 				continue
 			}
@@ -196,7 +198,7 @@ func appendJSONWalkEntries(values []bodyScanValue, root *jsonNode, context strin
 		default:
 			if allowLeafReparse {
 				if inner, ok := parseOrderedJSON(node.scalar); ok {
-					values = appendJSONWalkEntries(values, inner, context+embeddedJSONLeafContextSuffix, excluded)
+					values = appendJSONWalkEntries(values, inner, context+embeddedJSONLeafContextSuffix, excluded, budget)
 					// Clean-parse fall-through (embedded_json_scan.py +
 					// _check_value_enhanced): when the nested walk reports
 					// nothing, the raw leaf string still scans with the walk

@@ -233,8 +233,30 @@ func (b *SecurityEventBus) lookupCountry(clientIP string) string {
 	if b.geo == nil {
 		return ""
 	}
-	country, _ := b.geo.GetCountry(clientIP)
+	country, err := safeCountryLookup(b.geo, clientIP)
+	if err != nil {
+		// The reference _lookup_country catches the failing geo step,
+		// logs, fires the on_error hook with the "geoip" stage and the
+		// client_ip context, and sends the event with an empty country.
+		invokeErrorHook(b.cfg, "geoip", err, map[string]any{"client_ip": clientIP})
+		return ""
+	}
 	return country
+}
+
+// safeCountryLookup contains a panicking foreign CountryResolver: the
+// reference geo lookup raises through Python's get_country; the Go
+// interface has no error channel, so a panic is the failure mode the hook
+// observes.
+func safeCountryLookup(resolver CountryResolver, ip string) (country string, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			country = ""
+			err = fmt.Errorf("geo lookup failed: %v", r)
+		}
+	}()
+	country, _ = resolver.GetCountry(ip)
+	return country, nil
 }
 
 // forwardTraceHeaders mirrors _forward_trace_headers: traceparent and

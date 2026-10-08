@@ -325,6 +325,7 @@ func globalCountryVerdict(cfg *SecurityConfig, ip string) (string, bool) {
 	blocked := cfg.BlockedCountries
 	allowed := cfg.WhitelistCountries
 	if len(blocked) == 0 && len(allowed) == 0 {
+		logCountryCheckResult(cfg, "no_rules", ip, "")
 		return "", false
 	}
 	resolver := cfg.GeoIPHandler
@@ -332,10 +333,12 @@ func globalCountryVerdict(cfg *SecurityConfig, ip string) (string, bool) {
 		return "", false
 	}
 	if addr, err := netip.ParseAddr(ip); err == nil && addr.IsLoopback() {
+		logCountryCheckResult(cfg, "loopback_exempt", ip, "")
 		return "", false
 	}
 	country, resolved := resolver.GetCountry(ip)
 	if !resolved {
+		logCountryCheckResult(cfg, "no_geolocation", ip, "")
 		if len(allowed) > 0 {
 			return genericListBlockReason(ip), true
 		}
@@ -343,14 +346,64 @@ func globalCountryVerdict(cfg *SecurityConfig, ip string) (string, bool) {
 	}
 	if len(allowed) > 0 {
 		if containsCountry(allowed, country) {
+			logCountryCheckResult(cfg, "whitelisted", ip, country)
 			return "", false
 		}
+		logCountryCheckResult(cfg, "blocked", ip, country)
 		return fmt.Sprintf("IP from blocked country: %s", country), true
 	}
 	if containsCountry(blocked, country) {
+		logCountryCheckResult(cfg, "blocked", ip, country)
 		return fmt.Sprintf("IP from blocked country: %s", country), true
 	}
+	logCountryCheckResult(cfg, "not_affected", ip, country)
 	return "", false
+}
+
+// logCountryCheckResult mirrors _log_country_check_result
+// (guard_core/_utils/access_control.py): no-rules, no-geolocation and the
+// loopback exemption always log at debug; a blocked hit logs at
+// log_suspicious_level; the whitelisted / not-affected verdicts log at
+// log_country_check_level (empty or unknown silences them).
+func logCountryCheckResult(cfg *SecurityConfig, resultType, ip, country string) {
+	switch resultType {
+	case "no_rules":
+		log.Printf("No countries blocked or whitelisted %s - No countries blocked or whitelisted", ip)
+	case "no_geolocation":
+		log.Printf("IP not geolocated %s - IP geolocation failed", ip)
+	case "loopback_exempt":
+		log.Printf("Loopback IP exempt from country allowlist check %s", ip)
+	case "blocked":
+		if cfg == nil || cfg.LogSuspiciousLevel == "" {
+			return
+		}
+		if country != "" {
+			log.Printf("IP from blocked country %s - %s - IP from blocked country", ip, country)
+			return
+		}
+		log.Printf("IP from blocked country %s - IP from blocked country", ip)
+	case "whitelisted":
+		if cfg == nil || !validCountryLogLevel(cfg.LogCountryCheckLevel) {
+			return
+		}
+		log.Printf("IP from whitelisted country %s - %s - IP from whitelisted country", ip, country)
+	case "not_affected":
+		if cfg == nil || !validCountryLogLevel(cfg.LogCountryCheckLevel) {
+			return
+		}
+		log.Printf("IP not from blocked or whitelisted country %s - %s - IP not from blocked or whitelisted country", ip, country)
+	}
+}
+
+// validCountryLogLevel gates the non-block country verdict logs: the
+// reference level must be one of the recognized levels for the line to
+// render (None silences them entirely).
+func validCountryLogLevel(level string) bool {
+	switch level {
+	case "INFO", "DEBUG", "WARNING", "ERROR", "CRITICAL":
+		return true
+	}
+	return false
 }
 
 // deny mirrors the reference _check_global_ip_restrictions block path: the
@@ -857,8 +910,13 @@ func detectThreat(req Request, cfg *SecurityConfig, exclusions routeDetectionExc
 	// exactly like the reference. detection_scan_body=false (the reference
 	// _resolve_scan_body / _scan_body_surface gate) skips the surface
 	// entirely while headers, params, and the URL path still scan.
+	// The scan budget (the reference _scan_value_budget contextvars) spans
+	// the whole pass: URL path, params, headers and body values all count
+	// against the same caps, and the JSON depth cap rides the body
+	// extraction (the walk serializes too-deep containers back to text).
+	budget := newDetectionScanBudget(cfg, clientIPForBudget(req))
 	if exclusions.scanBody {
-		bodyValues := extractRequestBodyValues(req, cfg, exclusions.excludedBodyFields)
+		bodyValues := extractRequestBodyValues(req, cfg, exclusions.excludedBodyFields, budget)
 		for _, v := range bodyValues {
 			label := v.label
 			if label == "" {
@@ -868,6 +926,9 @@ func detectThreat(req Request, cfg *SecurityConfig, exclusions routeDetectionExc
 		}
 	}
 	for _, v := range values {
+		if budget.exhausted(v.content) {
+			continue
+		}
 		if v.forcedCategory != "" {
 			// JSON mongo-operator keys hit straight from the walk, like
 			// body_json_scan._mongo_operator_key_hit.
@@ -939,11 +1000,11 @@ func threatMessage(threat map[string]any) string {
 // once, caps it at the inspection budget, and routes it through the body
 // extraction. A body read error leaves the body unscanned, like the
 // reference's failed body read reporting a detection miss.
-func extractRequestBodyValues(req Request, cfg *SecurityConfig, excludedBodyFields map[string]bool) []bodyScanValue {
+func extractRequestBodyValues(req Request, cfg *SecurityConfig, excludedBodyFields map[string]bool, budget *detectionScanBudget) []bodyScanValue {
 	if cfg == nil {
 		return nil
 	}
-	body, err := req.Body()
+	body, err := BoundBodyRead(cfg, func() ([]byte, error) { return req.Body() })
 	if err != nil || len(body) == 0 {
 		return nil
 	}
@@ -951,7 +1012,7 @@ func extractRequestBodyValues(req Request, cfg *SecurityConfig, excludedBodyFiel
 		body = body[:budget]
 	}
 	contentType, _ := req.Headers().Get("content-type")
-	return extractBodyScanValues(string(body), contentType, cfg, excludedBodyFields)
+	return extractBodyScanValues(string(body), contentType, cfg, excludedBodyFields, budget)
 }
 
 func stashBlock(state *RequestState, reason, triggerInfo string) {
