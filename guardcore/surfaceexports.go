@@ -53,6 +53,16 @@ func (m *GeoIPManager) EntryCount() int {
 	return int(m.reader.Metadata.NodeCount)
 }
 
+// IsInitialized reports whether the MMDB reader is loaded, mirroring the
+// reference is_initialized property (ipinfo_handler.py): a pure predicate
+// over the open reader that never triggers the lazy load, so it is safe to
+// poll at any lifecycle point (the same value GetStatus reports as ready).
+func (m *GeoIPManager) IsInitialized() bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.reader != nil
+}
+
 // GetConnection exposes the underlying go-redis client (the reference
 // get_connection hands the pooled connection to adapter callbacks); nil
 // until a connection is established. The manager owns the client's

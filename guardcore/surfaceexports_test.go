@@ -77,6 +77,37 @@ func TestGeoIPEntryCount(t *testing.T) {
 	}
 }
 
+func TestGeoIPIsInitialized(t *testing.T) {
+	// The predicate is a pure read: polling it before any lookup must not
+	// trigger the lazy load (the reference is_initialized never opens the
+	// database as a side effect).
+	unloaded := NewGeoIPManager(buildTestMMDB(t, map[string]string{
+		"203.0.113.0/24": "BR",
+	}))
+	if unloaded.IsInitialized() {
+		t.Fatal("a manager whose reader never opened must report uninitialized")
+	}
+	if unloaded.EntryCount() != 0 {
+		t.Fatal("the probe must not have triggered the lazy load")
+	}
+	loaded := NewGeoIPManager(buildTestMMDB(t, map[string]string{
+		"203.0.113.0/24": "BR",
+	}))
+	loaded.ensureLoaded()
+	if !loaded.IsInitialized() {
+		t.Fatal("a manager with a loaded reader must report initialized")
+	}
+	if status := loaded.GetStatus(); status["ready"] != true {
+		t.Fatal("GetStatus ready must agree with IsInitialized")
+	}
+	if err := loaded.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if loaded.IsInitialized() {
+		t.Fatal("after Close the manager must report uninitialized")
+	}
+}
+
 func TestRedisManagerSafeOperationDisabled(t *testing.T) {
 	manager := NewRedisManager(RedisConfig{EnableRedis: false})
 	ran := false

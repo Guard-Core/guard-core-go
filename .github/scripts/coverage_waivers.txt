@@ -685,15 +685,17 @@ guardcore/patternvalidationcache.go:98
 # surface through the returned error unchanged.
 guardcore/surfaceexports.go:30
 guardcore/surfaceexports.go:38
-# surfaceexports.go:95 - Incr's client-error arm: against a live redis
+# surfaceexports.go:105 - Incr's client-error arm: against a live redis
 # the INCR cannot fail (the containment is the same wrap the
-# uninitialized-manager test exercises at 90).
-guardcore/surfaceexports.go:95
-# surfaceexports.go:136 - safeOperationBool's op-error wrap: the Exists
+# uninitialized-manager test exercises at 100); the PR #63 audit
+# recorded this statement at 95 before IsInitialized landed above it.
+guardcore/surfaceexports.go:105
+# surfaceexports.go:146 - safeOperationBool's op-error wrap: the Exists
 # closure fails only on a redis failure after a successful Initialize
 # (the wrap is the same newGuardRedisError the Initialize-failure test
-# exercises at 129).
-guardcore/surfaceexports.go:136
+# exercises at 139); the PR #63 audit recorded this statement at 136
+# before IsInitialized landed above it.
+guardcore/surfaceexports.go:146
 # suspatterns_registry.go:97 - the linux go 1.26.x attribution of the
 # InitializeRedis continue pair (the empty-part and known-pattern skips);
 # proven covered on darwin by TestInitializeRedisTrailingComma and
