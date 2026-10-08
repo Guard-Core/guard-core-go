@@ -118,7 +118,7 @@ engine.Routes.Register("strict", func(rc *guardcore.RouteConfig) {
 ## Net/http wiring
 
 The engine has no HTTP dependency. For `net/http` services either use the
-[`nethttp-guard`](https://github.com/rennf93/nethttp-guard) adapter or build
+[`nethttp-guard`](https://github.com/Guard-Core/nethttp-guard) adapter or build
 your own shim:
 
 ```go
@@ -164,5 +164,5 @@ func guardMiddleware(engine *guardcore.Engine, next http.Handler) http.Handler {
 !!! note
     For production wiring prefer the `nethttp-guard` adapter: it handles
     trusted proxy resolution, replayable bodies, and fail-closed error
-    handling. The [`examples/`](https://github.com/rennf93/guard-core-go/tree/master/examples)
+    handling. The [`examples/`](https://github.com/Guard-Core/guard-core-go/tree/master/examples)
     directory shows both a minimal and a production-style layout.

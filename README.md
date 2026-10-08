@@ -1,8 +1,8 @@
 # guard-core-go
 
-Guard Core Go: the API security core engine for Go. A framework-agnostic port of the [guard-core](https://github.com/rennf93/guard-core) detection engine that powers the Go adapters: [nethttp-guard](https://github.com/rennf93/nethttp-guard), [gin-guard](https://github.com/rennf93/gin-guard), [echo-guard](https://github.com/rennf93/echo-guard), and [fiber-guard](https://github.com/rennf93/fiber-guard).
+Guard Core Go: the API security core engine for Go. A framework-agnostic port of the [guard-core](https://github.com/Guard-Core/guard-core) detection engine that powers the Go adapters: [nethttp-guard](https://github.com/Guard-Core/nethttp-guard), [gin-guard](https://github.com/Guard-Core/gin-guard), [echo-guard](https://github.com/Guard-Core/echo-guard), and [fiber-guard](https://github.com/Guard-Core/fiber-guard).
 
-Docs: <https://rennf93.github.io/guard-core-go/>
+Docs: <https://guard-core.github.io/guard-core-go/>
 
 ## Install
 
