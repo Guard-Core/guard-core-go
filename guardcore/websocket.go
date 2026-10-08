@@ -172,10 +172,11 @@ func (e *Engine) webSocketIPAllowed(ip string) bool {
 // failed (fail-secure) and closes try-again-later; any other block closes
 // policy-violation suspicious.
 func (e *Engine) guardWebSocketDetection(req Request) *WebSocketCloseReason {
-	if e.suspiciousCounts == nil {
+	counts := e.sharedSuspiciousCounts()
+	if counts == nil {
 		return nil
 	}
-	check := &suspiciousActivityCheck{cfg: e.Config, ban: e.Ban, counts: e.suspiciousCounts, inertBus: true}
+	check := &suspiciousActivityCheck{cfg: e.Config, ban: e.Ban, counts: counts, inertBus: true}
 	if e.exclusions.matches(req.URLPath()) {
 		req.State().ExclusionScoped = true
 	}
@@ -187,6 +188,22 @@ func (e *Engine) guardWebSocketDetection(req Request) *WebSocketCloseReason {
 		return &WSCloseSuspiciousActivity
 	}
 	return nil
+}
+
+// sharedSuspiciousCounts resolves the counts store for the websocket
+// detection pass the way the reference _resolve_shared_suspicious_counts
+// does (guard/websocket.py: a get_state lookup hands the HTTP pipeline's
+// suspicious_request_counts dict to the websocket detection middleware):
+// the registered warm state's store wins when one is registered for this
+// (config, decorator) key, so a websocket guard running over its own
+// engine instance feeds the HTTP stack's per-IP counters; the engine's
+// own store is the fallback (both checks are built over one store in the
+// common single-engine deployment).
+func (e *Engine) sharedSuspiciousCounts() *suspiciousCountStore {
+	if warm := GetMiddlewareState(e.Config, e.MiddlewareStateDecorator); warm != nil && warm.Engine != nil && warm.Engine != e && warm.Engine.suspiciousCounts != nil {
+		return warm.Engine.suspiciousCounts
+	}
+	return e.suspiciousCounts
 }
 
 // isLoopbackIP mirrors _is_loopback: unparseable addresses are not

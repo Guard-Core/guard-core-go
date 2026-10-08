@@ -307,6 +307,9 @@ guardcore/redis.go:382
 guardcore/websocket.go:196
 # go 1.27 splits the same statement one line lower.
 guardcore/websocket.go:197
+# coordinate after the middleware-state counts resolution grew the
+# detection block (same proof as above).
+guardcore/websocket.go:213
 # registry.go
 # init compile-failure skip: every patternTable entry compiles (the
 # detection suite pins the full table), so the continue is defensive.
@@ -434,6 +437,12 @@ guardcore/composition.go:141
 guardcore/composition.go:171
 guardcore/composition.go:172
 guardcore/composition.go:176
+# coordinates after the middleware-state registry adoption arm and the
+# post-startup registration grew the startup block (same proofs as
+# above).
+guardcore/composition.go:229
+guardcore/composition.go:230
+guardcore/composition.go:234
 # config.go: validateCORS error branch (proof above).
 guardcore/config.go:432
 guardcore/config.go:433

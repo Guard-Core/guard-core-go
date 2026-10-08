@@ -39,6 +39,16 @@ type Engine struct {
 	// wsRedisWarn carries the reference make_guard_websocket
 	// enable_redis-without-handler warning, emitted once per engine.
 	wsRedisWarn sync.Once
+
+	// MiddlewareStateDecorator is the optional decorator identity the
+	// middleware-state registry keys on (fastapi-guard's guard_decorator,
+	// set via set_decorator_handler or adopted from app.state); set it
+	// before Initialize. Identity compares by interface equality, so a
+	// pointer value keys by object identity like the reference's
+	// (id(config), id(decorator)) pair; nil collapses into the
+	// reference's no-decorator (config, None) key, where every engine
+	// built from one config shares one warmed stack.
+	MiddlewareStateDecorator any
 }
 
 func NewEngine(cfg *SecurityConfig) (*Engine, error) {
@@ -152,6 +162,54 @@ func (e *Engine) Initialize() error {
 }
 
 func (e *Engine) startup() error {
+	// The reference warm-state adoption (_ensure_initialized's
+	// get_state branch, guard/middleware.py, and
+	// _warm_middleware_or_adopt, guard/lifespan.py): a state registered
+	// for this (config, decorator) key is adopted wholesale instead of
+	// re-initializing, so a second engine built from the same config
+	// shares the first one's redis pool, managers, pipeline and
+	// counters. A failed startup registers nothing (the reference's
+	// failed boot does not register; the next attempt retries).
+	if warm := GetMiddlewareState(e.Config, e.MiddlewareStateDecorator); warm != nil && warm.Engine != nil && warm.Engine != e {
+		e.adoptWarmState(warm.Engine)
+		return nil
+	}
+	if err := e.initializeMachinery(); err != nil {
+		return err
+	}
+	RegisterMiddlewareState(e.Config, e.MiddlewareStateDecorator, &MiddlewareState{Engine: e})
+	return nil
+}
+
+// adoptWarmState points this engine's machinery at the warmed engine's,
+// mirroring the reference _adopt_warm_state: every shared surface (route
+// registry, redis pool, ban and rate-limit managers, cloud manager, CORS
+// policy, behavior tracker, dynamic-rule manager, check pipeline,
+// behavioral processor and the suspicious-counts store) becomes the
+// registered stack's, so both engines observe and enforce through one set
+// of state. The exclusions matcher stays per-engine: it is config-derived
+// with no shared verdict state (only the once-per-path path_excluded
+// event dedup cache lives there), and it owns a mutex that must not be
+// copied. The config-level wiring (agent stream, sus-patterns monitor) is
+// shared through the config itself.
+func (e *Engine) adoptWarmState(warm *Engine) {
+	e.Routes = warm.Routes
+	e.Redis = warm.Redis
+	e.Ban = warm.Ban
+	e.RateLimit = warm.RateLimit
+	e.Cloud = warm.Cloud
+	e.CORS = warm.CORS
+	e.Behavior = warm.Behavior
+	e.DynamicRules = warm.DynamicRules
+	e.pipeline = warm.pipeline
+	e.behaviorProc = warm.behaviorProc
+	e.suspiciousCounts = warm.suspiciousCounts
+}
+
+// initializeMachinery runs the first-boot initialization I/O: the redis
+// dial with its fail-open branch, the cloud/ban/rate-limit redis
+// attachment, the geo lifecycle and the dynamic-rule loop.
+func (e *Engine) initializeMachinery() error {
 	if !e.Config.EnableRedis {
 		e.initializeGeoLifecycle(nil)
 		err := e.refreshCloudRangesWithoutRedis()
