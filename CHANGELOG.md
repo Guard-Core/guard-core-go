@@ -3,6 +3,16 @@ Release Notes
 
 ___
 
+v4.3.3 (2026-10-12)
+-------------------
+
+Parity release (v4.3.3)
+-----------------------
+
+A parity release with no functional change: the engine is tagged 4.3.3 so all five core engines (Python, TypeScript, Rust, Go, PHP) ship the same version.
+
+___
+
 v4.3.2 (2026-10-09)
 -------------------
 
