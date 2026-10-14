@@ -1,4 +1,5 @@
 site_name: guard-core-go
+site_url: https://guard-core.github.io/guard-core-go/
 site_description: API security core engine for Go - detection, rate limiting, IP banning, and cloud provider blocking
 site_author: Renn F
 repo_url: https://github.com/Guard-Core/guard-core-go
