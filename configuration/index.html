@@ -1376,11 +1376,7 @@ verdict with a payload containing <code>check_name</code>, <code>reason</code>, 
 <p>Hook panics are recovered and logged; they never affect the verdict.</p>
 <div class="admonition note">
 <p class="admonition-title">Agent wiring</p>
-<p>Guard Agent telemetry is not implemented in this port yet
-(<code>EnableAgent</code> is fail-closed and returns an unsupported-feature error).
-Until the agent event pipeline lands, forward <code>OnBlock</code> payloads to
-<a href="https://github.com/Guard-Core/guard-agent-go">guard-agent-go</a> from your own
-hook implementation. See <code>examples/advanced_app</code> for a worked example.</p>
+<p>Guard Agent telemetry is wired through <code>EnableAgent</code> plus an injected <code>AgentHandler</code>; see the agent wiring page. <code>OnBlock</code> remains available for custom block sinks.</p>
 </div>
 <h2 id="detector-tuning">Detector tuning</h2>
 <div class="highlight"><pre><span></span><code><span class="nx">cfg</span><span class="p">.</span><span class="nx">Detection</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">guardcore</span><span class="p">.</span><span class="nx">Config</span><span class="p">{</span>

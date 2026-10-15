@@ -448,17 +448,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#what-the-python-engine-has-that-this-port-does-not-yet" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What the Python engine has that this port does not (yet)
-      
-    </span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -580,17 +569,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#what-the-python-engine-has-that-this-port-does-not-yet" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What the Python engine has that this port does not (yet)
-      
-    </span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -612,10 +590,7 @@
 
 
 <h1 id="agent-wiring">Agent wiring</h1>
-<p>guard-core-go does not ship agent telemetry yet: setting <code>EnableAgent</code> fails
-config validation (<code>enable_agent: Guard Agent telemetry is not implemented in
-this port yet</code>). Until <a href="https://github.com/Guard-Core/guard-agent-go">guard-agent-go</a>
-integration lands, the engine exposes two deliberate seams you can wire today.</p>
+<p>guard-core-go ships the agent telemetry pipeline: set <code>EnableAgent</code> and inject an <code>AgentHandler</code> (for example the one from <a href="https://github.com/Guard-Core/guard-agent-go">guard-agent-go</a>) and the engine streams security events and metrics through it, and <code>EnableDynamicRules</code> pulls agent-synced rules. Without an <code>AgentHandler</code> the event bus and metrics collector are inert. On top of that the engine exposes two lower-level seams.</p>
 <h2 id="the-onblock-hook">The OnBlock hook</h2>
 <p><code>SecurityConfig.OnBlock</code> is the block-event seam. The pipeline calls it for
 every block or passive-detection verdict, right before an error response is
@@ -689,21 +664,7 @@ rate-limit Lua script is reloaded after a Redis <code>NOSCRIPT</code>:</p>
 <span class="p">})</span>
 </code></pre></div>
 <h2 id="forwarding-to-guard-agent-go">Forwarding to guard-agent-go</h2>
-<p>The Go agent mirrors the Python guard-agent's API. Once its engine-event
-pipeline accepts these payloads, forward <code>OnBlock</code> events with the payload map
-as-is: the keys match the Python engine's block event fields, so the agent's
-existing consumers keep working. Until then, both example apps
-(<a href="https://github.com/Guard-Core/guard-core-go/tree/master/examples/simple_app">simple</a>
-and
-<a href="https://github.com/Guard-Core/guard-core-go/tree/master/examples/advanced_app">advanced</a>)
-log the payload from <code>OnBlock</code> as the placeholder integration.</p>
-<h2 id="what-the-python-engine-has-that-this-port-does-not-yet">What the Python engine has that this port does not (yet)</h2>
-<ul>
-<li><code>EnableAgent</code> / agent startup initialization and heartbeat events</li>
-<li><code>ip_banned</code>, <code>ip_unbanned</code>, <code>rate_limited</code>, <code>cloud_blocked</code> security events</li>
-<li>Middleware lifecycle events (<code>request_processed</code>, <code>https_violation</code>, ...)</li>
-</ul>
-<p>Track these in the <a href="../roadmap/">roadmap</a>.</p>
+<p>Inject the agent client as <code>SecurityConfig.AgentHandler</code> (with <code>EnableAgent</code>, <code>AgentEnableEvents</code> and <code>AgentEnableMetrics</code>) to forward the engine's event and metric stream. <code>OnBlock</code> stays available for your own block-event sinks, and its payload keys match the Python engine's block event fields.</p>
 
 
 

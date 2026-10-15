@@ -593,22 +593,6 @@ differently, or deferred, is listed here (see <code>KNOWN_GAPS.md</code> in the 
 for the detailed per-milestone notes).</p>
 <h2 id="deferred">Deferred</h2>
 <ul>
-<li><strong>Agent event pipeline</strong> - <code>EnableAgent</code> is fail-closed; the <code>OnBlock</code> hook
-  and <code>RateLimitManager.SetAgentHandlerHook</code> are the seams until
-  <a href="https://github.com/Guard-Core/guard-agent-go">guard-agent-go</a> integration
-  lands.</li>
-<li><strong>Request body scanning</strong> - the pipeline's suspicious-activity check scans
-  the URL path, query parameters, and headers. Request bodies are not fed to
-  the detector yet, so payloads carried solely in a body go unflagged.</li>
-<li><strong>Security events</strong> - <code>ip_banned</code>, <code>ip_unbanned</code>, <code>rate_limited</code>,
-  <code>cloud_blocked</code>, and middleware lifecycle events are not emitted yet.</li>
-<li><strong>GeoIP downloads</strong> - <code>WhitelistCountries</code> / <code>BlockedCountries</code> and the
-  route-level country rules are enforced by the <code>ip_security</code> check over a
-  locally provisioned MMDB file (or an injected <code>CountryResolver</code>). Still
-  deferred: the IPInfo token download/refresh lifecycle, the Redis-cached
-  database copy, geographic rate limits, and <code>country_blocked</code> events.</li>
-<li><strong>Behavioral rules</strong> - <code>GlobalBehaviorRules</code> and <code>EnableDynamicRules</code> are
-  fail-closed unsupported options.</li>
 <li><strong>Redaction gate</strong> - the Python engine's generative log-redaction fuzz
   harness (the CI redaction-gate workflow) is not ported. The config surface
   exists (<code>LogSensitiveHeaders</code>, <code>LogSensitiveParams</code>,
