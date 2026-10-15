@@ -137,7 +137,9 @@ func TestCustomValidatorsCheckPassiveMode(t *testing.T) {
 	if hookFired {
 		t.Fatalf("passive hook must stay suppressed for custom_validators (ON_BLOCK_EXCLUDED_CHECK_NAMES)")
 	}
-	if !strings.Contains(buf.String(), "[PASSIVE MODE] Penetration attempt detected from") {
+	if !strings.Contains(buf.String(), "[PASSIVE MODE] Suspicious activity detected from") ||
+		strings.Contains(buf.String(), "Penetration attempt") ||
+		!strings.Contains(buf.String(), "Reason: Custom validation failed") {
 		t.Fatalf("passive suspicious log shape: %q", buf.String())
 	}
 	if req.State().BlockStash != nil {

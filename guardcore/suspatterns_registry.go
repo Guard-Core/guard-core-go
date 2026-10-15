@@ -307,8 +307,14 @@ func (m *SusPatternsManager) DetectPatternMatch(content, ip, context, correlatio
 // the reference's pattern_detected telemetry when the agent handler is
 // attached (the manager detect() flow).
 func (m *SusPatternsManager) Detect(content, ip, context, correlationID string) DetectResult {
+	return m.detect(content, ip, context, correlationID, false)
+}
+
+// detect is Detect with the semantic analyzer optionally skipped, for a
+// value from a header listed in ExcludedSemanticDetectionHeaders.
+func (m *SusPatternsManager) detect(content, ip, context, correlationID string, skipSemantic bool) DetectResult {
 	start := time.Now()
-	result := Detect(content, ip, context)
+	result := detectContent(content, ip, context, skipSemantic)
 
 	customThreats := m.scanCustomPatterns(content)
 	regexCount, semanticCount := 0, 0

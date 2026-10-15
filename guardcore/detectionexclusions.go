@@ -15,8 +15,11 @@ type routeDetectionExclusions struct {
 	excludedParams     map[string]bool
 	excludedBodyFields map[string]bool
 	excludedHeaders    map[string]bool
-	enabledCategories  map[string]bool
-	scanBody           bool
+	// semanticHeaders holds the lowercased header names whose values skip
+	// the semantic analyzer only (_resolve_semantic_excluded_headers).
+	semanticHeaders   map[string]bool
+	enabledCategories map[string]bool
+	scanBody          bool
 }
 
 func resolveDetectionExclusions(cfg *SecurityConfig, route *RouteConfig) routeDetectionExclusions {
@@ -24,6 +27,7 @@ func resolveDetectionExclusions(cfg *SecurityConfig, route *RouteConfig) routeDe
 		excludedParams:     map[string]bool{},
 		excludedBodyFields: map[string]bool{},
 		excludedHeaders:    map[string]bool{},
+		semanticHeaders:    map[string]bool{},
 		enabledCategories:  nil,
 		scanBody:           true,
 	}
@@ -51,6 +55,9 @@ func resolveDetectionExclusions(cfg *SecurityConfig, route *RouteConfig) routeDe
 		for name := range cfg.ExcludedDetectionHeaders {
 			resolved.excludedHeaders[strings.ToLower(name)] = true
 		}
+		for name := range cfg.ExcludedSemanticDetectionHeaders {
+			resolved.semanticHeaders[strings.ToLower(strings.TrimSpace(name))] = true
+		}
 	}
 	if route != nil {
 		// _resolve_excluded_params / _resolve_excluded_body_fields: a
@@ -71,6 +78,9 @@ func resolveDetectionExclusions(cfg *SecurityConfig, route *RouteConfig) routeDe
 			for name := range route.ExcludedDetectionHeaders {
 				resolved.excludedHeaders[strings.ToLower(name)] = true
 			}
+		}
+		for name := range route.ExcludedSemanticDetectionHeaders {
+			resolved.semanticHeaders[strings.ToLower(strings.TrimSpace(name))] = true
 		}
 		// _resolve_enabled_categories: a non-nil route set replaces the
 		// global set (nil on the route keeps the global resolution, which

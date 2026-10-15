@@ -422,10 +422,18 @@ func buildActivityMessage(req Request, opts LogOptions) string {
 		reasonMessage = fmt.Sprintf("Headers: %s", context["headers"]) // codeql[go/clear-text-logging]:ignore values masked by RedactSensitiveHeaders
 	case "suspicious":
 		if opts.PassiveMode {
-			details = fmt.Sprintf("[PASSIVE MODE] Penetration attempt detected from %s: %s %s", context["client_ip"], context["method"], context["url"])
-			reasonMessage = fmt.Sprintf("Headers: %s", context["headers"]) // codeql[go/clear-text-logging]:ignore values masked by RedactSensitiveHeaders
+			// Without a trigger (for example a passive rate-limit hit) the line
+			// is not a penetration attempt, so it names itself as suspicious
+			// activity and keeps the reason (guard-core e9a2c54b).
+			label := "Suspicious activity"
 			if opts.TriggerInfo != "" {
-				reasonMessage = fmt.Sprintf("Trigger: %s - %s", sanitizeForLog(opts.TriggerInfo), reasonMessage)
+				label = "Penetration attempt"
+			}
+			details = fmt.Sprintf("[PASSIVE MODE] %s detected from %s: %s %s", label, context["client_ip"], context["method"], context["url"])
+			if opts.TriggerInfo != "" {
+				reasonMessage = fmt.Sprintf("Trigger: %s - Headers: %s", sanitizeForLog(opts.TriggerInfo), context["headers"]) // codeql[go/clear-text-logging]:ignore values masked by RedactSensitiveHeaders
+			} else {
+				reasonMessage = fmt.Sprintf("Reason: %s - Headers: %s", sanitizeForLog(opts.Reason), context["headers"]) // codeql[go/clear-text-logging]:ignore values masked by RedactSensitiveHeaders
 			}
 		} else {
 			details = fmt.Sprintf("Suspicious activity detected from %s: %s %s", context["client_ip"], context["method"], context["url"])

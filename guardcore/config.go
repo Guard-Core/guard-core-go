@@ -124,11 +124,18 @@ type SecurityConfig struct {
 	RateLimitWindow    int
 	EndpointRateLimits map[string]RateLimitEntry
 
-	EnablePenetrationDetection  bool
-	EnabledDetectionCategories  []string
-	ExcludedDetectionHeaders    map[string]bool
-	ExcludedDetectionParams     map[string]bool
-	ExcludedDetectionBodyFields map[string]bool
+	EnablePenetrationDetection bool
+	EnabledDetectionCategories []string
+	ExcludedDetectionHeaders   map[string]bool
+	// ExcludedSemanticDetectionHeaders mirrors the reference
+	// excluded_semantic_detection_headers (opt-in, default empty): header
+	// names whose values skip the semantic analyzer only, matched
+	// case-insensitively. Regex category scanning of these headers is
+	// unchanged. Useful for JWT session cookies that score near the
+	// semantic threshold (for example cookie, authorization).
+	ExcludedSemanticDetectionHeaders map[string]bool
+	ExcludedDetectionParams          map[string]bool
+	ExcludedDetectionBodyFields      map[string]bool
 	// DetectionScanBody mirrors the reference detection_scan_body
 	// SecurityConfig field (default true; nil is the default): when false
 	// the body surface is not scanned at all. A route's DetectionScanBody
@@ -161,6 +168,17 @@ type SecurityConfig struct {
 	// stream and the agent-synced dynamic rules (spec 12). The agent
 	// handler itself is injected through AgentHandler; without one the
 	// event bus and metrics collector are inert no-ops.
+	// EnableDynamicRules lets the SaaS dashboard change protection at
+	// runtime without a code change: a rule bans the IPs in its
+	// ip_blacklist (for ip_ban_duration seconds), unbans the IPs in its
+	// ip_whitelist, adds its suspicious_patterns to detection, and replaces
+	// BlockedCountries, WhitelistCountries, RateLimit, RateLimitWindow,
+	// EndpointRateLimits, BlockCloudProviders, BlockedUserAgents,
+	// EnablePenetrationDetection, EnableIPBanning, EnableRateLimiting,
+	// EnableRateLimitAutoBan, AutoBanThreshold, AutoBanDuration,
+	// EmergencyMode and EmergencyWhitelist. The rules come from the agent
+	// handler, so it needs EnableAgent and an AgentHandler. A rule cannot
+	// change any other setting.
 	EnableAgent        bool
 	AgentHandler       AgentHandler
 	AgentEnableEvents  bool
@@ -351,6 +369,7 @@ func DefaultSecurityConfig() *SecurityConfig {
 		EnablePenetrationDetection:          true,
 		EnabledDetectionCategories:          categories,
 		ExcludedDetectionHeaders:            map[string]bool{},
+		ExcludedSemanticDetectionHeaders:    map[string]bool{},
 		ExcludedDetectionParams:             map[string]bool{},
 		ExcludedDetectionBodyFields:         map[string]bool{},
 		DetectionBinaryMinRunLength:         DefaultDetectionBinaryMinRunLength,
