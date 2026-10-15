@@ -146,11 +146,7 @@ cfg.OnBlock = func(req guardcore.Request, payload map[string]any) {
 Hook panics are recovered and logged; they never affect the verdict.
 
 !!! note "Agent wiring"
-    Guard Agent telemetry is not implemented in this port yet
-    (`EnableAgent` is fail-closed and returns an unsupported-feature error).
-    Until the agent event pipeline lands, forward `OnBlock` payloads to
-    [guard-agent-go](https://github.com/Guard-Core/guard-agent-go) from your own
-    hook implementation. See `examples/advanced_app` for a worked example.
+    Guard Agent telemetry is wired through `EnableAgent` plus an injected `AgentHandler`; see the agent wiring page. `OnBlock` remains available for custom block sinks.
 
 ## Detector tuning
 

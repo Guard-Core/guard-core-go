@@ -74,8 +74,8 @@ flagged as an ssrf attempt.
   the managers fall back to in-process state)
 - The `OnBlock` hook: the telemetry seam for wiring
   [guard-agent-go](https://github.com/Guard-Core/guard-agent-go) (comment-level
-  guidance in `main.go`; agent integration is not implemented in the engine
-  port yet, and `EnableAgent` fails config validation)
+  guidance in `main.go`; the engine's own agent pipeline is enabled with
+  `EnableAgent` plus an injected `AgentHandler`)
 
 ## Environment variables
 
