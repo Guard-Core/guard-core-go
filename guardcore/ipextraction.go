@@ -17,21 +17,24 @@ import (
 // RequestState.ClientIP cache.
 
 // proxyMatches mirrors _proxy_matches: a CIDR entry matches by prefix
-// membership, a bare entry matches by exact text equality with the
-// connecting address.
-func proxyMatches(connectingIP string, connectingIPObj netip.Addr, proxy string) bool {
+// membership of the parsed connecting address (an IPv4-mapped IPv6 peer is
+// never a member of an IPv4 network), a bare entry matches by exact text
+// equality with the connecting address. An unparseable CIDR is an error,
+// the reference ValueError.
+func proxyMatches(connectingIP string, connectingIPObj netip.Addr, proxy string) (bool, error) {
 	if strings.Contains(proxy, "/") {
 		prefix, err := netip.ParsePrefix(proxy)
 		if err != nil {
-			return false
+			return false, err
 		}
-		return prefix.Contains(connectingIPObj) || prefix.Contains(connectingIPObj.Unmap())
+		return prefix.Contains(connectingIPObj.WithZone("")), nil
 	}
-	return connectingIP == proxy
+	return connectingIP == proxy, nil
 }
 
 // isTrustedProxy mirrors _is_trusted_proxy: an unparseable connecting
-// address is never trusted (the reference catches ValueError and returns
+// address, or an unparseable CIDR reached before a match, is never trusted
+// (the reference catches ValueError around the whole scan and returns
 // False).
 func isTrustedProxy(connectingIP string, trustedProxies []string) bool {
 	addr, err := netip.ParseAddr(connectingIP)
@@ -39,7 +42,11 @@ func isTrustedProxy(connectingIP string, trustedProxies []string) bool {
 		return false
 	}
 	for _, proxy := range trustedProxies {
-		if proxyMatches(connectingIP, addr, proxy) {
+		matched, perr := proxyMatches(connectingIP, addr, proxy)
+		if perr != nil {
+			return false
+		}
+		if matched {
 			return true
 		}
 	}
@@ -333,10 +340,14 @@ func extractClientIP(req Request, cfg *SecurityConfig) string {
 	if host == "" {
 		forwardedFor := headerForwardedFor(req)
 		if containsEntry(cfg.TrustedProxies, "unix") {
-			return resolveClientIPFromForwardedChain(
+			resolved := resolveClientIPFromForwardedChain(
 				UnknownClientIdentity, forwardedFor,
 				cfg.TrustedProxyDepth, cfg.TrustedProxies,
 			)
+			if state != nil && resolved != UnknownClientIdentity {
+				state.ClientIP = resolved
+			}
+			return resolved
 		}
 		return ""
 	}
@@ -347,6 +358,9 @@ func extractClientIP(req Request, cfg *SecurityConfig) string {
 
 	if len(cfg.TrustedProxies) == 0 {
 		warnForwardedHeaderPreempted(connectingIP, forwardedFor)
+		if state != nil {
+			state.ClientIP = canonicalConnectingIP
+		}
 		return canonicalConnectingIP
 	}
 

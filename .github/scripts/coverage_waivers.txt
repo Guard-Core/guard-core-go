@@ -401,8 +401,8 @@ guardcore/composition.go:121
 guardcore/config.go:411
 # metachar-candidate guard and start<0 depth guard: short/attack chains
 # are covered by targeted tests in other runs of the same suite.
-guardcore/ipextraction.go:91
-guardcore/ipextraction.go:113
+guardcore/ipextraction.go:98
+guardcore/ipextraction.go:120
 # logfire Stop logs (never propagates) the flush failure.
 guardcore/logfire_handler.go:151
 # otlpwire.go json.Marshal of the internally-built OTLP envelope cannot
