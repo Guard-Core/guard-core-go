@@ -1007,32 +1007,61 @@ func detectThreat(req Request, cfg *SecurityConfig, exclusions routeDetectionExc
 		if !result.IsThreat {
 			continue
 		}
-		var categories []string
-		seen := map[string]bool{}
-		for _, threat := range result.Threats {
-			if threat["pattern"] == scanTimeBudgetExhaustedPattern {
-				// The spent time budget fails the request closed under
-				// the weighted custom category, whatever the enabled set.
-				if !seen["custom"] {
-					seen["custom"] = true
-					categories = append(categories, "custom")
-				}
-				continue
-			}
-			category, _ := threat["category"].(string)
-			if category == "" || !enabled[category] || v.skipCategories[category] || seen[category] {
-				continue
-			}
+		if categories, trigger := reportableThreat(result, enabled, v.skipCategories, v.label); trigger != "" {
+			return categories, trigger
+		}
+	}
+	return nil, ""
+}
+
+// reportableThreat applies the reference's per-component category filter to
+// one value's detection result. Regex threats (and timeouts) count only when
+// their category is enabled and not skipped for this component; semantic
+// threats are never category-filtered and report their attack_type as the
+// category (_threat_category, detection_result_builders.py). A result with no
+// threats is still a threat (reference: "Threat detected") and reports as
+// "uncategorized" (_increment_suspicious_counts). When every threat is
+// filtered out the value is not a threat: the trigger comes back empty so the
+// caller keeps scanning the next value.
+func reportableThreat(result DetectResult, enabled, skip map[string]bool, label string) ([]string, string) {
+	kept := result.Threats[:0:0]
+	var categories []string
+	seen := map[string]bool{}
+	add := func(category string) {
+		if category != "" && !seen[category] {
 			seen[category] = true
 			categories = append(categories, category)
 		}
-		if len(categories) == 0 {
-			return nil, ""
-		}
-		sort.Strings(categories)
-		return categories, v.label + threatsMessage(result.Threats)
 	}
-	return nil, ""
+	for _, threat := range result.Threats {
+		if threat["pattern"] == scanTimeBudgetExhaustedPattern {
+			// The spent time budget fails the request closed under the
+			// weighted custom category, whatever the enabled set.
+			add("custom")
+			kept = append(kept, threat)
+			continue
+		}
+		if kind, _ := threat["type"].(string); kind == "semantic" {
+			attackType, _ := threat["attack_type"].(string)
+			add(attackType)
+			kept = append(kept, threat)
+			continue
+		}
+		category, _ := threat["category"].(string)
+		if category == "" || (enabled != nil && !enabled[category]) || skip[category] {
+			continue
+		}
+		add(category)
+		kept = append(kept, threat)
+	}
+	if len(result.Threats) > 0 && len(kept) == 0 {
+		return nil, ""
+	}
+	if len(categories) == 0 {
+		categories = []string{"uncategorized"}
+	}
+	sort.Strings(categories)
+	return categories, label + threatsMessage(kept)
 }
 
 // splitCookieHeader splits a Cookie header on ';' into its name=value pairs

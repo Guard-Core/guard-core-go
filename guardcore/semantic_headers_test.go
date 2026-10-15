@@ -21,8 +21,7 @@ func sessionCookieHeader() string {
 
 // scanThreatCounts runs the request header scan and returns the regex and
 // semantic threat counts the pattern_detected telemetry event carries:
-// detectThreat itself reports regex categories only, so the event is where
-// a semantic hit is observable.
+// the event is where the regex and semantic split of a hit is observable.
 func scanThreatCounts(t *testing.T, cfg *SecurityConfig, route *RouteConfig, headers map[string]string) (regex, semantic int) {
 	t.Helper()
 	resetSusPatternsForTest(t)
