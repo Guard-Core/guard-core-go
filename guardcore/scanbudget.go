@@ -93,6 +93,16 @@ func (b *detectionScanBudget) timeBudgetThreat() map[string]any {
 
 const scanTimeBudgetExhaustedPattern = "scan_time_budget_exhausted"
 
+// threatScoreThreshold is the configured detection_threat_score_threshold
+// (default 1.0): the regex anomaly a request needs to count as a threat.
+// A nil budget or an unset (zero) value falls back to the default.
+func (b *detectionScanBudget) threatScoreThreshold() float64 {
+	if b != nil && b.cfg != nil && b.cfg.Detection.ThreatScoreThreshold > 0 {
+		return b.cfg.Detection.ThreatScoreThreshold
+	}
+	return 1.0
+}
+
 func (b *detectionScanBudget) valuesCap() int {
 	if b.cfg != nil && b.cfg.Detection.MaxScanValues > 0 {
 		return b.cfg.Detection.MaxScanValues

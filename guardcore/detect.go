@@ -218,7 +218,7 @@ func detectContent(content string, ip string, context string, skipSemantic bool,
 	}
 
 	threats := append(append([]map[string]any{}, regexThreats...), semanticThreats...)
-	isThreat := regexAnomaly(regexThreats) >= 1.0 || len(semanticThreats) > 0
+	isThreat := regexAnomaly(regexThreats) >= budget.threatScoreThreshold() || len(semanticThreats) > 0
 	threatScore := calculateThreatScore(regexThreats, semanticThreats)
 
 	sort.SliceStable(threats, func(i, j int) bool { return false })
