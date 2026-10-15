@@ -56,10 +56,14 @@ func BoundBodyRead(cfg *SecurityConfig, read func() ([]byte, error)) ([]byte, er
 		timeout = 3 * time.Second
 	}
 	ensureBodyReadSlots(cfg.SyncBodyReadMaxConcurrent)
+	// The read goroutine releases into the channel it acquired from, so a
+	// parked read that outlives its caller never touches a later swap of
+	// the package variable.
+	slots := bodyReadSlots
 	select {
-	case bodyReadSlots <- struct{}{}:
+	case slots <- struct{}{}:
 	case <-time.After(timeout):
-		log.Printf("sync_body_read_max_concurrent (%d) exhausted; the body read gives up and the body is treated as unavailable", cap(bodyReadSlots))
+		log.Printf("sync_body_read_max_concurrent (%d) exhausted; the body read gives up and the body is treated as unavailable", cap(slots))
 		return nil, errBodyReadBudget
 	}
 
@@ -72,7 +76,7 @@ func BoundBodyRead(cfg *SecurityConfig, read func() ([]byte, error)) ([]byte, er
 		// The read goroutine holds the slot until the stream itself
 		// returns, exactly like the reference's parked daemon thread: a
 		// timed-out caller stops waiting but the budget stays consumed.
-		defer func() { <-bodyReadSlots }()
+		defer func() { <-slots }()
 		body, err := read()
 		done <- result{body: body, err: err}
 	}()

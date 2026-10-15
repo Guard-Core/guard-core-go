@@ -460,11 +460,11 @@ guardcore/dynamicrules.go:728
 guardcore/dynamicrules.go:724
 guardcore/dynamicrules.go:729
 guardcore/redos_ambiguous.go:145
-guardcore/redos_arbiter.go:95
-guardcore/redos_arbiter.go:102
-guardcore/redos_arbiter.go:255
-guardcore/redos_arbiter.go:310
-guardcore/redos_arbiter.go:315
+guardcore/redos_arbiter.go:98
+guardcore/redos_arbiter.go:105
+guardcore/redos_arbiter.go:268
+guardcore/redos_arbiter.go:323
+guardcore/redos_arbiter.go:328
 guardcore/redos_atoms.go:25
 guardcore/redos_atoms.go:110
 guardcore/redos_builders.go:29
@@ -563,11 +563,11 @@ guardcore/redos_terminator.go:349
 # leaves a timing-attribution residue this inventory absorbs. Extra
 # entries are inert on the toolchain that does not produce them.
 guardcore/redos_ambiguous.go:144
-guardcore/redos_arbiter.go:101
-guardcore/redos_arbiter.go:254
-guardcore/redos_arbiter.go:309
-guardcore/redos_arbiter.go:312
-guardcore/redos_arbiter.go:94
+guardcore/redos_arbiter.go:104
+guardcore/redos_arbiter.go:267
+guardcore/redos_arbiter.go:322
+guardcore/redos_arbiter.go:325
+guardcore/redos_arbiter.go:97
 guardcore/redos_atoms.go:24
 guardcore/redos_builders.go:101
 guardcore/redos_builders.go:144

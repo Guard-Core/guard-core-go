@@ -5,12 +5,15 @@ package guardcore
 // the compiled engine and extrapolated over growth doublings to the
 // content cap; the reference's killable subprocess becomes a regexp2
 // compile carrying a MatchTimeout (the kill switch) and its process-time
-// samples become wall-clock samples normalized by a measured host load
-// factor.
+// samples become scan-clock samples (per-thread CPU time where the
+// platform has it, scanCPUNow) normalized by a measured host load factor.
+// A starved host therefore does not inflate the samples; the per-probe
+// MatchTimeout and the combined deadline stay wall-clock kill switches.
 
 import (
 	"fmt"
 	"math"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -84,8 +87,8 @@ var (
 	hostLoadFactorValue float64
 )
 
-// referenceScanSeconds measures the best-of-N wall time of the reference
-// scan with this engine on this host.
+// referenceScanSeconds measures the best-of-N scan-clock time of the
+// reference scan with this engine on this host.
 func referenceScanSeconds(samples int) float64 {
 	if samples <= 0 {
 		return 0
@@ -97,16 +100,28 @@ func referenceScanSeconds(samples int) float64 {
 	probe := "/" + strings.Repeat("0", referenceScanProbeLength)
 	best := math.Inf(1)
 	for i := 0; i < samples; i++ {
-		start := time.Now()
-		if _, err := re.FindStringMatch(probe); err != nil {
+		elapsed, err := cpuTimedFind(re, probe)
+		if err != nil {
 			return 0
 		}
-		elapsed := time.Since(start).Seconds()
 		if elapsed < best {
 			best = elapsed
 		}
 	}
 	return best
+}
+
+// cpuTimedFind runs one search and returns the scan-clock seconds it took.
+// With a per-thread CPU clock the goroutine is pinned to its OS thread for
+// the call, so both readings come from the same thread.
+func cpuTimedFind(re *regexp2.Regexp, s string) (float64, error) {
+	if clockIsThreadCPU {
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
+	}
+	start := scanCPUNow()
+	_, err := re.FindStringMatch(s)
+	return scanCPUNow() - start, err
 }
 
 // measureHostLoadFactor mirrors _measure_host_load_factor.
@@ -211,9 +226,7 @@ func timeProbes(compiled *regexp2.Regexp, probes []string, samples int) *probeTi
 	for _, probe := range probes {
 		var samplesForProbe []float64
 		for i := 0; i < samples; i++ {
-			start := time.Now()
-			_, err := compiled.FindStringMatch(probe)
-			elapsed := time.Since(start).Seconds()
+			elapsed, err := cpuTimedFind(compiled, probe)
 			if err != nil && strings.Contains(strings.ToLower(err.Error()), "timeout") {
 				// A MatchTimeout trip means the search demonstrably exceeds
 				// the kill budget: record the timeout as the sample and
