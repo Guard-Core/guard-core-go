@@ -701,6 +701,9 @@ func (c *SecurityConfig) Validate() error {
 	if c.Detection.MaxJSONDepth == 0 {
 		c.Detection.MaxJSONDepth = 32
 	}
+	if c.Detection.ThreatScoreThreshold == 0 {
+		c.Detection.ThreatScoreThreshold = 1.0
+	}
 	// The performance-monitor options clamp inside NewPerformanceMonitor
 	// exactly like the reference constructor; zero values fall back to the
 	// reference defaults at monitor construction.
@@ -754,6 +757,9 @@ func (c *SecurityConfig) validateDetectionKnobs() error {
 	}
 	if s := c.Detection.MaxScanSeconds; s != 0 && !(s >= 0.1 && s <= 60) {
 		return fmt.Errorf("detection_max_scan_seconds: must be within [0.1, 60], got %v", s)
+	}
+	if t := c.Detection.ThreatScoreThreshold; t != 0 && !(t >= 0 && t <= 10) {
+		return fmt.Errorf("detection_threat_score_threshold: must be within [0, 10], got %v", t)
 	}
 	if c.Detection.MaxJSONDepth != 0 && (c.Detection.MaxJSONDepth < 1 || c.Detection.MaxJSONDepth > 1000) {
 		return fmt.Errorf("detection_max_json_depth: must be within [1, 1000], got %d", c.Detection.MaxJSONDepth)
