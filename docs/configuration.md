@@ -165,20 +165,26 @@ cfg.Detection = guardcore.Config{
 }
 ```
 
-## Unsupported (fail-closed) options
+## Dynamic rules
 
-Validation rejects configurations this port does not implement yet, rather
-than silently ignoring them:
+`EnableDynamicRules` lets the SaaS dashboard change protection at runtime
+without a code change: a rule bans the IPs in its `ip_blacklist` (for
+`ip_ban_duration` seconds), unbans the IPs in its `ip_whitelist`, adds its
+`suspicious_patterns` to detection, and replaces `BlockedCountries`,
+`WhitelistCountries`, `RateLimit`, `RateLimitWindow`, `EndpointRateLimits`,
+`BlockCloudProviders`, `BlockedUserAgents`, `EnablePenetrationDetection`,
+`EnableIPBanning`, `EnableRateLimiting`, `EnableRateLimitAutoBan`,
+`AutoBanThreshold`, `AutoBanDuration`, `EmergencyMode` and
+`EmergencyWhitelist`. The rules come from the agent handler, so it needs
+`EnableAgent` and an `AgentHandler`. A rule cannot change any other setting.
 
-- `EnableDynamicRules`
-- `EnableAgent`
+## Behavior rules
 
 `GlobalBehaviorRules` is implemented: rules are validated at config time
 (`validateBehaviorRules`) and drive the in-memory behavior ban through the
 pipeline's behavioral processor.
 
-Each returns an `*UnsupportedFeatureError` from `Validate()`. See
-[Roadmap](roadmap.md) for the full divergence list.
+See [Roadmap](roadmap.md) for the full divergence list.
 
 ## CORS
 

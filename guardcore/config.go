@@ -168,6 +168,17 @@ type SecurityConfig struct {
 	// stream and the agent-synced dynamic rules (spec 12). The agent
 	// handler itself is injected through AgentHandler; without one the
 	// event bus and metrics collector are inert no-ops.
+	// EnableDynamicRules lets the SaaS dashboard change protection at
+	// runtime without a code change: a rule bans the IPs in its
+	// ip_blacklist (for ip_ban_duration seconds), unbans the IPs in its
+	// ip_whitelist, adds its suspicious_patterns to detection, and replaces
+	// BlockedCountries, WhitelistCountries, RateLimit, RateLimitWindow,
+	// EndpointRateLimits, BlockCloudProviders, BlockedUserAgents,
+	// EnablePenetrationDetection, EnableIPBanning, EnableRateLimiting,
+	// EnableRateLimitAutoBan, AutoBanThreshold, AutoBanDuration,
+	// EmergencyMode and EmergencyWhitelist. The rules come from the agent
+	// handler, so it needs EnableAgent and an AgentHandler. A rule cannot
+	// change any other setting.
 	EnableAgent        bool
 	AgentHandler       AgentHandler
 	AgentEnableEvents  bool

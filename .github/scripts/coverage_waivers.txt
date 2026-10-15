@@ -79,12 +79,12 @@ guardcore/composition.go:113
 # config.go
 # validateCORS error branch: it normalizes method/header case and returns
 # nil on every path.
-guardcore/config.go:381
-guardcore/config.go:382
+guardcore/config.go:392
+guardcore/config.go:393
 # coordinate after the CustomRequestCheckName field shifted the block
 # (same proof as above).
-guardcore/config.go:386
-guardcore/config.go:387
+guardcore/config.go:397
+guardcore/config.go:398
 # dynamicrules.go
 # writeAtomicFile write/close guards: a WriteString or Close on a freshly
 # created temp file fails only on ENOSPC/EIO-class conditions, which
@@ -398,7 +398,7 @@ guardcore/composition.go:117
 guardcore/composition.go:121
 # validateCORS is invoked inside Validate() only when CORS is enabled;
 # with CORS disabled the call is skipped by design.
-guardcore/config.go:400
+guardcore/config.go:411
 # metachar-candidate guard and start<0 depth guard: short/attack chains
 # are covered by targeted tests in other runs of the same suite.
 guardcore/ipextraction.go:91
@@ -444,16 +444,16 @@ guardcore/composition.go:229
 guardcore/composition.go:230
 guardcore/composition.go:234
 # config.go: validateCORS error branch (proof above).
-guardcore/config.go:440
-guardcore/config.go:441
+guardcore/config.go:451
+guardcore/config.go:452
 # coordinates after the CustomResponseModifier field shifted the block
 # start (same proof).
-guardcore/config.go:455
-guardcore/config.go:456
+guardcore/config.go:466
+guardcore/config.go:467
 # coordinates after the redis/body-read/country-level/agent-strict knob
 # block shifted the Validate chain (same proof).
-guardcore/config.go:510
-guardcore/config.go:511
+guardcore/config.go:521
+guardcore/config.go:522
 # dynamicrules.go: writeAtomicFile write/close guards (proof above).
 guardcore/dynamicrules.go:723
 guardcore/dynamicrules.go:728
@@ -667,7 +667,7 @@ guardcore/suspatterns_registry.go:283
 # suspatterns_registry.go:115 - the AddPattern engine-compile rejection:
 # every pattern compileRE rejects is rejected earlier by the safety
 # chain's builder stage, which compiles the same engine first.
-guardcore/config.go:443
+guardcore/config.go:454
 guardcore/dynamicrules.go:733
 guardcore/dynamicrules.go:738
 guardcore/suspatterns_registry.go:115
