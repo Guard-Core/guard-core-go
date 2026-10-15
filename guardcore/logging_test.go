@@ -211,6 +211,25 @@ func TestLogActivitySuspiciousPassiveFiresHookAndLogsPassiveShape(t *testing.T) 
 	}
 }
 
+func TestLogActivityPassiveSuspiciousWithoutTriggerKeepsReason(t *testing.T) {
+	var buf bytes.Buffer
+	req := newTestRequest(t, nil)
+	LogActivity(req, LogOptions{
+		Logger:      captureLogger(&buf),
+		LogType:     "suspicious",
+		Reason:      "Rate limit exceeded for IP: 203.0.113.9",
+		Level:       "WARNING",
+		PassiveMode: true,
+	})
+	out := buf.String()
+	if !strings.HasPrefix(out, "[PASSIVE MODE] Suspicious activity detected from") || strings.Contains(out, "Penetration attempt") {
+		t.Fatalf("passive line without trigger must not claim a penetration attempt: %q", out)
+	}
+	if !strings.Contains(out, "Reason: Rate limit exceeded for IP: 203.0.113.9 - Headers:") || strings.Contains(out, "Trigger:") {
+		t.Fatalf("passive line without trigger must carry the reason: %q", out)
+	}
+}
+
 func TestLogActivityGenericShape(t *testing.T) {
 	var buf bytes.Buffer
 	req := newTestRequest(t, nil)
