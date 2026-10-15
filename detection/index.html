@@ -684,8 +684,14 @@ between ordinary cookies do not add up to a semantic hit.</p>
 <td><code>1.0</code></td>
 <td>Score above which content is a threat</td>
 </tr>
+<tr>
+<td><code>MaxScanSeconds</code></td>
+<td><code>10.0</code></td>
+<td>Per-request regex scan time budget in seconds (valid range 0.1 to 60)</td>
+</tr>
 </tbody>
 </table>
+<p><code>MaxScanSeconds</code> caps the regex scan time of one request, summed across every field and every pattern. It counts the CPU time of the scanning thread on linux, darwin and freebsd, so a busy or CPU-starved host does not spend it; on other platforms it counts wall time. Once spent, the remaining patterns and values are not scanned and the request gets a weighted <code>pattern_timeout</code> threat named <code>scan_time_budget_exhausted</code>, which blocks it the same way a per-pattern timeout does, and a one-time warning names the client IP. A bare <code>Detect</code> call outside a request has no budget. Only regex pattern time is counted, not decoding or semantic analysis.</p>
 <h2 id="threat-based-bans">Threat-based bans</h2>
 <p>Detection verdicts feed the ban manager through <code>ThreatBanConfig</code>, keyed by
 category:</p>
