@@ -55,6 +55,9 @@ The nested `guardcore.Config` controls detector internals:
 | `MaxBodyInspectBytes` | `262144` | Body bytes scanned |
 | `SemanticThreshold` | `0.7` | Semantic model threshold |
 | `ThreatScoreThreshold` | `1.0` | Score above which content is a threat |
+| `MaxScanSeconds` | `10.0` | Per-request regex scan time budget in seconds (valid range 0.1 to 60) |
+
+`MaxScanSeconds` caps the regex scan time of one request, summed across every field and every pattern. It counts the CPU time of the scanning thread on linux, darwin and freebsd, so a busy or CPU-starved host does not spend it; on other platforms it counts wall time. Once spent, the remaining patterns and values are not scanned and the request gets a weighted `pattern_timeout` threat named `scan_time_budget_exhausted`, which blocks it the same way a per-pattern timeout does, and a one-time warning names the client IP. A bare `Detect` call outside a request has no budget. Only regex pattern time is counted, not decoding or semantic analysis.
 
 ## Threat-based bans
 

@@ -257,12 +257,12 @@ func TestDetectLDAPOperatorBreakouts(t *testing.T) {
 
 func TestCheckRegexPatternsEnabledCategories(t *testing.T) {
 	// A nil category set keeps every pattern.
-	_, matchedAll, _ := checkRegexPatterns(newScanText("<script>a</script>"), "request_body", nil, viewMain)
+	_, matchedAll, _ := checkRegexPatterns(newScanText("<script>a</script>"), "request_body", nil, viewMain, nil)
 	if len(matchedAll) == 0 {
 		t.Fatal("clean sweeps still match scripts")
 	}
 	// A disabled category set drops its patterns.
-	_, matchedNone, _ := checkRegexPatterns(newScanText("<script>a</script>"), "request_body", map[string]bool{"sqli": true}, viewMain)
+	_, matchedNone, _ := checkRegexPatterns(newScanText("<script>a</script>"), "request_body", map[string]bool{"sqli": true}, viewMain, nil)
 	if len(matchedNone) != 0 {
 		t.Fatalf("disabled categories drop their patterns, got %v", matchedNone)
 	}
@@ -312,7 +312,7 @@ func TestCheckRegexPatternTimeoutThreat(t *testing.T) {
 		contexts: map[string]bool{"request_body": true},
 		category: "custom",
 	})
-	threats, matched, timeouts := checkRegexPatterns(newScanText(strings.Repeat("a", 40)+"!"), "request_body", nil, viewMain)
+	threats, matched, timeouts := checkRegexPatterns(newScanText(strings.Repeat("a", 40)+"!"), "request_body", nil, viewMain, nil)
 	found := false
 	for i, source := range timeouts {
 		if source == "timeout_probe" {

@@ -307,16 +307,16 @@ func (m *SusPatternsManager) DetectPatternMatch(content, ip, context, correlatio
 // the reference's pattern_detected telemetry when the agent handler is
 // attached (the manager detect() flow).
 func (m *SusPatternsManager) Detect(content, ip, context, correlationID string) DetectResult {
-	return m.detect(content, ip, context, correlationID, false)
+	return m.detect(content, ip, context, correlationID, false, nil)
 }
 
 // detect is Detect with the semantic analyzer optionally skipped, for a
 // value from a header listed in ExcludedSemanticDetectionHeaders.
-func (m *SusPatternsManager) detect(content, ip, context, correlationID string, skipSemantic bool) DetectResult {
+func (m *SusPatternsManager) detect(content, ip, context, correlationID string, skipSemantic bool, budget *detectionScanBudget) DetectResult {
 	start := time.Now()
-	result := detectContent(content, ip, context, skipSemantic)
+	result := detectContent(content, ip, context, skipSemantic, budget)
 
-	customThreats := m.scanCustomPatterns(content)
+	customThreats := m.scanCustomPatterns(content, budget)
 	regexCount, semanticCount := 0, 0
 	for _, threat := range append(append([]map[string]any{}, result.Threats...), customThreats...) {
 		if threat["type"] == "semantic" {
@@ -399,7 +399,7 @@ func (m *SusPatternsManager) detect(content, ip, context, correlationID string, 
 // scanCustomPatterns runs the runtime registry over the content (the
 // reference _scan_for_threats consulting compiled_patterns plus
 // compiled_custom_patterns; runtime entries match every context).
-func (m *SusPatternsManager) scanCustomPatterns(content string) []map[string]any {
+func (m *SusPatternsManager) scanCustomPatterns(content string, budget *detectionScanBudget) []map[string]any {
 	m.mu.RLock()
 	entries := make([]susPatternEntry, 0, len(m.compiled)+len(m.compiledCustom))
 	entries = append(entries, m.compiled...)
@@ -408,7 +408,12 @@ func (m *SusPatternsManager) scanCustomPatterns(content string) []map[string]any
 
 	var threats []map[string]any
 	rs := []rune(content)
+	defer budget.beginPass()()
 	for _, entry := range entries {
+		if budget.timeExhausted() {
+			threats = append(threats, budget.timeBudgetThreat())
+			break
+		}
 		match, err := entry.re.FindRunesMatchStartingAt(rs, 0)
 		if err != nil || match == nil {
 			continue

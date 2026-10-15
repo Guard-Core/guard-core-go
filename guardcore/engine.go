@@ -27,6 +27,14 @@ type Config struct {
 	// at the same accounting point as MaxScanValues with the same
 	// fail-open warning.
 	MaxScanChars int
+	// MaxScanSeconds mirrors the reference detection_max_scan_seconds
+	// (default 10.0, [0.1, 60]): the per-request cap on the summed regex
+	// scan time across every value and pattern. It counts CPU time of the
+	// scanning thread where the platform has that clock (linux, darwin,
+	// freebsd) and wall time elsewhere. Once spent, the remaining patterns
+	// and values are skipped and a weighted pattern_timeout threat named
+	// scan_time_budget_exhausted fails the request closed.
+	MaxScanSeconds float64
 	// MaxJSONDepth mirrors the reference detection_max_json_depth
 	// (default 32, [1, 1000]): a JSON container at this depth is
 	// serialized back to text and scanned as one value (still scanned,
@@ -62,6 +70,7 @@ func DefaultConfig() Config {
 		ThreatScoreThreshold:    1.0,
 		MaxScanValues:           512,
 		MaxScanChars:            65536,
+		MaxScanSeconds:          10.0,
 		MaxJSONDepth:            32,
 		AnomalyThreshold:        3.0,
 		SlowPatternThreshold:    0.1,

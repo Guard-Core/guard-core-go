@@ -156,13 +156,13 @@ func calculateThreatScore(regexThreats, semanticThreats []map[string]any) float6
 }
 
 func Detect(content string, ip string, context string) DetectResult {
-	return detectContent(content, ip, context, false)
+	return detectContent(content, ip, context, false, nil)
 }
 
 // detectContent is Detect with the semantic analyzer optionally skipped
 // (the reference _context_header_is_semantic_excluded): the regex passes
 // still run on the value, only the semantic threats are left out.
-func detectContent(content string, ip string, context string, skipSemantic bool) DetectResult {
+func detectContent(content string, ip string, context string, skipSemantic bool, budget *detectionScanBudget) DetectResult {
 	originalLength := len([]rune(content))
 
 	cfg := DefaultConfig()
@@ -174,11 +174,11 @@ func detectContent(content string, ip string, context string, skipSemantic bool)
 
 	var regexThreats []map[string]any
 
-	mainThreats, _, _ := checkRegexPatterns(newScanText(processedContent), context, nil, viewMain)
+	mainThreats, _, _ := checkRegexPatterns(newScanText(processedContent), context, nil, viewMain, budget)
 	regexThreats = append(regexThreats, mainThreats...)
 
 	rawViewContent := pre.preprocessSignalPreserving(content)
-	rawThreats, _, _ := checkRegexPatterns(newScanText(rawViewContent), context, nil, viewRaw)
+	rawThreats, _, _ := checkRegexPatterns(newScanText(rawViewContent), context, nil, viewRaw, budget)
 	// A raw-view sighting of a pattern over text the processed views already
 	// matched is the same evidence and must not inflate the threat score
 	// (guard-core _drop_view_duplicate_threats, applied to the raw pass
@@ -199,7 +199,7 @@ func detectContent(content string, ip string, context string, skipSemantic bool)
 	} else {
 		urlDecodedViewContent, urlDecodedBudgetExhausted = pre.preprocessURLDecodedNewlinePreserving(content)
 	}
-	urlThreats, _, _ := checkRegexPatterns(newScanText(urlDecodedViewContent), context, nil, viewURLDecoded)
+	urlThreats, _, _ := checkRegexPatterns(newScanText(urlDecodedViewContent), context, nil, viewURLDecoded, budget)
 	regexThreats = append(regexThreats, urlThreats...)
 
 	if decodeBudgetExhausted || urlDecodedBudgetExhausted {
@@ -208,7 +208,7 @@ func detectContent(content string, ip string, context string, skipSemantic bool)
 
 	shortBase64View := buildShortBase64AdditiveView(normalizeUnicode, pre.truncateSafely, content)
 	if shortBase64View != "" {
-		sbThreats, _, _ := checkRegexPatterns(newScanText(shortBase64View), context, nil, viewPlain)
+		sbThreats, _, _ := checkRegexPatterns(newScanText(shortBase64View), context, nil, viewPlain, budget)
 		regexThreats = append(regexThreats, sbThreats...)
 	}
 

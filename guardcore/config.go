@@ -695,6 +695,9 @@ func (c *SecurityConfig) Validate() error {
 	if c.Detection.MaxScanChars == 0 {
 		c.Detection.MaxScanChars = 65536
 	}
+	if c.Detection.MaxScanSeconds == 0 {
+		c.Detection.MaxScanSeconds = 10.0
+	}
 	if c.Detection.MaxJSONDepth == 0 {
 		c.Detection.MaxJSONDepth = 32
 	}
@@ -748,6 +751,9 @@ func (c *SecurityConfig) validateDetectionKnobs() error {
 	}
 	if c.Detection.MaxScanChars != 0 && (c.Detection.MaxScanChars < 1024 || c.Detection.MaxScanChars > 262144) {
 		return fmt.Errorf("detection_max_scan_chars: must be within [1024, 262144], got %d", c.Detection.MaxScanChars)
+	}
+	if s := c.Detection.MaxScanSeconds; s != 0 && !(s >= 0.1 && s <= 60) {
+		return fmt.Errorf("detection_max_scan_seconds: must be within [0.1, 60], got %v", s)
 	}
 	if c.Detection.MaxJSONDepth != 0 && (c.Detection.MaxJSONDepth < 1 || c.Detection.MaxJSONDepth > 1000) {
 		return fmt.Errorf("detection_max_json_depth: must be within [1, 1000], got %d", c.Detection.MaxJSONDepth)
