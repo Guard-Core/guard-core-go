@@ -302,7 +302,15 @@ func (e *Engine) Check(req Request) *Response {
 		// _path_excluded_event_cache dedups repeat emissions).
 		e.emitPathExcludedEvent(req)
 	}
-	if routeConfig := e.Routes.Get(state.GuardRouteID); routeConfig != nil && routeConfig.HasBypass("all") && !e.Config.PassiveMode {
+	if !state.ExclusionScoped {
+		if blocked := e.rejectUnresolvableClient(req); blocked != nil {
+			if e.CORS != nil {
+				e.CORS.injectResponseHeaders(blocked, req.Headers())
+			}
+			return blocked
+		}
+	}
+	if routeConfig := e.allChecksBypassRoute(state); routeConfig != nil {
 		// Reference BypassHandler.handle_security_bypass: the all-checks
 		// bypass announces itself before the passthrough.
 		emitBusEvent(e.Config, EventSecurityBypass, req, "all_checks_bypassed",
@@ -336,6 +344,12 @@ func (e *Engine) ProcessResponse(req Request, resp *Response) {
 	if e.behaviorProc == nil || resp == nil {
 		return
 	}
+	// Reference BypassHandler.handle_security_bypass: an all-checks bypass
+	// route calls the real downstream and only applies the modifier, so it
+	// collects no request metrics and runs no return rules.
+	if e.allChecksBypassRoute(req.State()) != nil {
+		return
+	}
 	now := behaviorClock()
 	clientIP := resolveClientIP(req)
 	state := req.State()
@@ -350,6 +364,56 @@ func (e *Engine) ProcessResponse(req Request, resp *Response) {
 		}
 		collector.CollectRequestMetrics(req, responseTime, resp.StatusCode)
 	}
+}
+
+// allChecksBypassRoute returns the route config when the request's route
+// bypasses all checks and passive mode is off (the reference
+// handle_security_bypass condition), nil otherwise.
+func (e *Engine) allChecksBypassRoute(state *RequestState) *RouteConfig {
+	routeConfig := e.Routes.Get(state.GuardRouteID)
+	if routeConfig != nil && routeConfig.HasBypass("all") && !e.Config.PassiveMode {
+		return routeConfig
+	}
+	return nil
+}
+
+// ClientAddressUnresolvedCheckName is the on-block hook check name of the
+// reference UNRESOLVABLE_CLIENT_ADDRESS_CHECK_NAME.
+const ClientAddressUnresolvedCheckName = "client_address_unresolved"
+
+var noClientAddressWarned sync.Once
+
+// rejectUnresolvableClient mirrors the missing-client-address arm of the
+// reference BypassHandler.handle_passthrough: a request with no connection
+// address whose identity cannot be resolved is answered 403 "Client address
+// could not be determined" under fail_secure (after the on-block hook), and
+// continues with identity "unknown" otherwise. A one-time warning is logged.
+func (e *Engine) rejectUnresolvableClient(req Request) *Response {
+	if req.ClientHost() != "" {
+		return nil
+	}
+	ip := extractClientIP(req, e.Config)
+	if ip == "" {
+		ip = UnknownClientIdentity
+	}
+	req.State().ClientIP = ip
+	if ip != UnknownClientIdentity {
+		return nil
+	}
+	rejected := e.Config.FailSecure
+	noClientAddressWarned.Do(func() {
+		outcome := `the pipeline runs with identity "unknown" (fail_secure=False)`
+		if rejected {
+			outcome = "the request is rejected with 403 (fail_secure=True)"
+		}
+		log.Printf(`no client address on the connection; if the app is served over a Unix socket add "unix" to trusted_proxies; %s. This warning is logged once.`, outcome)
+	})
+	if !rejected {
+		return nil
+	}
+	resp := e.CreateErrorResponse(403, "Client address could not be determined")
+	fireBlockHook(e.Config, req, ClientAddressUnresolvedCheckName, "Client address could not be determined", "", false, resp.StatusCode)
+	return resp
 }
 
 // behaviorClock is time.Now as a float Unix timestamp, matching the

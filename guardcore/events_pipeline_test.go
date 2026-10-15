@@ -33,9 +33,10 @@ func TestEngineBlockedRequestEmitsMiddlewareEvent(t *testing.T) {
 		c.BlockedUserAgents = []string{"^badbot"}
 	})
 	req := NewRequestFactory().CreateRequest(RequestOptions{
-		Path:   "/api",
-		Method: "GET",
-		Header: map[string]string{"User-Agent": "badbot/1.0"},
+		ClientHost: "203.0.113.9",
+		Path:       "/api",
+		Method:     "GET",
+		Header:     map[string]string{"User-Agent": "badbot/1.0"},
 	})
 	resp := engine.Check(req)
 	if resp == nil || resp.StatusCode != http.StatusForbidden {
@@ -141,9 +142,10 @@ func TestEngineHTTPSRedirectEmitsEnforced(t *testing.T) {
 		c.EnforceHTTPS = true
 	})
 	req := NewRequestFactory().CreateRequest(RequestOptions{
-		Path:   "/secure",
-		Method: "GET",
-		Scheme: "http",
+		ClientHost: "203.0.113.9",
+		Path:       "/secure",
+		Method:     "GET",
+		Scheme:     "http",
 	})
 	resp := engine.Check(req)
 	if resp == nil || resp.StatusCode != http.StatusMovedPermanently {
@@ -195,8 +197,9 @@ func TestEngineSuspiciousBlockEmitsPenetrationAttempt(t *testing.T) {
 func TestEngineProcessResponseCollectsMetrics(t *testing.T) {
 	engine, agent := newEventTestEngine(t, nil)
 	req := NewRequestFactory().CreateRequest(RequestOptions{
-		Path:   "/metrics",
-		Method: "GET",
+		ClientHost: "203.0.113.9",
+		Path:       "/metrics",
+		Method:     "GET",
 	})
 	if resp := engine.Check(req); resp != nil {
 		t.Fatal("a benign request passes")

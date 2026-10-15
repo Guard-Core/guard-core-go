@@ -81,14 +81,11 @@ func New() (*guardcore.SecurityConfig, error) {
 		c.LogRequestLevel = envOr("LOG_REQUEST_LEVEL", "INFO")
 		c.LogSuspiciousLevel = envOr("LOG_SUSPICIOUS_LEVEL", "WARNING")
 
-		// Agent wiring (comment-level): guard-core-go's only telemetry seam
-		// is OnBlock. The Go agent (guard-agent-go,
-		// https://github.com/Guard-Core/guard-agent-go) mirrors the Python
-		// guard-agent's API: once its engine-event pipeline accepts these
-		// payloads, replace the log line below with the agent client call
-		// and set AGENT_ENDPOINT/AGENT_PROJECT_ID here. EnableAgent stays
-		// false because the engine fails config validation on it (the
-		// feature is not ported yet); do not turn it on.
+		// Agent wiring (comment-level): the engine's own agent pipeline is
+		// enabled with EnableAgent plus an injected AgentHandler (see the
+		// guard-agent-go client, https://github.com/Guard-Core/guard-agent-go,
+		// and set AGENT_ENDPOINT/AGENT_PROJECT_ID here). OnBlock below stays
+		// available for custom block sinks.
 		c.OnBlock = func(req guardcore.Request, payload map[string]any) {
 			log.Printf("guard blocked %s %s from %s via %s: %s",
 				payload["method"], payload["path"], payload["client_ip"],

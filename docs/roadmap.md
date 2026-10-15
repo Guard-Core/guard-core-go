@@ -6,22 +6,6 @@ for the detailed per-milestone notes).
 
 ## Deferred
 
-- **Agent event pipeline** - `EnableAgent` is fail-closed; the `OnBlock` hook
-  and `RateLimitManager.SetAgentHandlerHook` are the seams until
-  [guard-agent-go](https://github.com/Guard-Core/guard-agent-go) integration
-  lands.
-- **Request body scanning** - the pipeline's suspicious-activity check scans
-  the URL path, query parameters, and headers. Request bodies are not fed to
-  the detector yet, so payloads carried solely in a body go unflagged.
-- **Security events** - `ip_banned`, `ip_unbanned`, `rate_limited`,
-  `cloud_blocked`, and middleware lifecycle events are not emitted yet.
-- **GeoIP downloads** - `WhitelistCountries` / `BlockedCountries` and the
-  route-level country rules are enforced by the `ip_security` check over a
-  locally provisioned MMDB file (or an injected `CountryResolver`). Still
-  deferred: the IPInfo token download/refresh lifecycle, the Redis-cached
-  database copy, geographic rate limits, and `country_blocked` events.
-- **Behavioral rules** - `GlobalBehaviorRules` and `EnableDynamicRules` are
-  fail-closed unsupported options.
 - **Redaction gate** - the Python engine's generative log-redaction fuzz
   harness (the CI redaction-gate workflow) is not ported. The config surface
   exists (`LogSensitiveHeaders`, `LogSensitiveParams`,

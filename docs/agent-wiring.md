@@ -1,9 +1,6 @@
 # Agent wiring
 
-guard-core-go does not ship agent telemetry yet: setting `EnableAgent` fails
-config validation (`enable_agent: Guard Agent telemetry is not implemented in
-this port yet`). Until [guard-agent-go](https://github.com/Guard-Core/guard-agent-go)
-integration lands, the engine exposes two deliberate seams you can wire today.
+guard-core-go ships the agent telemetry pipeline: set `EnableAgent` and inject an `AgentHandler` (for example the one from [guard-agent-go](https://github.com/Guard-Core/guard-agent-go)) and the engine streams security events and metrics through it, and `EnableDynamicRules` pulls agent-synced rules. Without an `AgentHandler` the event bus and metrics collector are inert. On top of that the engine exposes two lower-level seams.
 
 ## The OnBlock hook
 
@@ -57,19 +54,4 @@ engine.RateLimit.SetAgentHandlerHook(func() {
 
 ## Forwarding to guard-agent-go
 
-The Go agent mirrors the Python guard-agent's API. Once its engine-event
-pipeline accepts these payloads, forward `OnBlock` events with the payload map
-as-is: the keys match the Python engine's block event fields, so the agent's
-existing consumers keep working. Until then, both example apps
-([simple](https://github.com/Guard-Core/guard-core-go/tree/master/examples/simple_app)
-and
-[advanced](https://github.com/Guard-Core/guard-core-go/tree/master/examples/advanced_app))
-log the payload from `OnBlock` as the placeholder integration.
-
-## What the Python engine has that this port does not (yet)
-
-- `EnableAgent` / agent startup initialization and heartbeat events
-- `ip_banned`, `ip_unbanned`, `rate_limited`, `cloud_blocked` security events
-- Middleware lifecycle events (`request_processed`, `https_violation`, ...)
-
-Track these in the [roadmap](roadmap.md).
+Inject the agent client as `SecurityConfig.AgentHandler` (with `EnableAgent`, `AgentEnableEvents` and `AgentEnableMetrics`) to forward the engine's event and metric stream. `OnBlock` stays available for your own block-event sinks, and its payload keys match the Python engine's block event fields.

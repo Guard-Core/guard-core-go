@@ -69,12 +69,11 @@ func main() {
 			"/docs", "/redoc", "/openapi.json", "/favicon.ico", "/static", "/health",
 		}
 
-		// OnBlock is the telemetry seam of this port. Guard Agent
-		// integration is not implemented in guard-core-go yet (setting
-		// EnableAgent fails config validation), so wire the agent from
-		// here: forward these payloads to guard-agent-go
-		// (https://github.com/Guard-Core/guard-agent-go) once its event
-		// pipeline accepts engine events. The payload carries check_name,
+		// OnBlock is the telemetry seam of this port. The engine's
+		// own agent pipeline is enabled with EnableAgent plus an injected
+		// AgentHandler; to forward block payloads yourself, send them to
+		// guard-agent-go (https://github.com/Guard-Core/guard-agent-go).
+		// The payload carries check_name,
 		// reason, trigger_info, passive_mode, client_ip, path, method, and
 		// status_code.
 		c.OnBlock = func(req guardcore.Request, payload map[string]any) {
