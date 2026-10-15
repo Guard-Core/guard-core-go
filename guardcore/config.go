@@ -855,31 +855,34 @@ func isKnownCheckName(name string) bool {
 	return false
 }
 
+// canonicalizeIPString is the reference _canonicalize_ip: brackets are
+// stripped and an IPv4-mapped IPv6 address without a zone becomes IPv4.
 func canonicalizeIPString(value string) string {
-	addr, err := netip.ParseAddr(value)
-	if err != nil {
-		return value
-	}
-	return addr.String()
+	return CanonicalizeIP(value)
 }
 
+// ipMatchesList mirrors the reference _ip_in_list
+// (guard_core/_utils/access_control.py): a bare entry matches when its
+// canonical form equals the canonical client address, a CIDR entry matches
+// by prefix membership (a zone id never defeats the membership test).
 func ipMatchesList(ip string, entries []string) bool {
-	addr, err := netip.ParseAddr(ip)
+	canonicalIP := CanonicalizeIP(ip)
+	addr, err := netip.ParseAddr(canonicalIP)
 	if err != nil {
 		return false
 	}
 	for _, entry := range entries {
-		if strings.HasSuffix(entry, "/0") || strings.Contains(entry, "/") {
+		if strings.Contains(entry, "/") {
 			prefix, perr := netip.ParsePrefix(entry)
 			if perr != nil {
 				continue
 			}
-			if prefix.Contains(addr.Unmap()) || prefix.Contains(addr) {
+			if prefix.Contains(addr.WithZone("")) {
 				return true
 			}
 			continue
 		}
-		if canonicalizeIPString(entry) == addr.String() {
+		if canonicalIP == CanonicalizeIP(entry) {
 			return true
 		}
 	}

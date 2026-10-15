@@ -401,10 +401,10 @@ func TestExemptIPMatchingMirrorsTheWhitelistMatcher(t *testing.T) {
 		{"exact ipv6 entry", "2001:db8::1", []string{"2001:db8::1"}, true},
 		{"ipv4-mapped entry with same-form client", "::ffff:198.51.100.8", []string{"::ffff:198.51.100.8"}, true},
 		{"ipv4 cidr matches v4-mapped client", "::ffff:198.51.100.9", []string{"198.51.100.0/24"}, true},
-		{"ipv4-mapped cidr matches mapped client", "::ffff:198.51.100.9", []string{"::ffff:198.51.100.0/120"}, true},
+		{"ipv4-mapped cidr does not match the canonical IPv4 identity", "::ffff:198.51.100.9", []string{"::ffff:198.51.100.0/120"}, false},
 		{"ipv6 cidr entry", "2001:db8::1", []string{"2001:db8::/32"}, true},
 		{"unlisted client", otherTestIP, []string{exemptTestIP}, false},
-		{"mapped entry vs plain client follows the matcher", exemptTestIP, []string{"::ffff:" + exemptTestIP}, false},
+		{"mapped entry vs plain client compares canonical text", exemptTestIP, []string{"::ffff:" + exemptTestIP}, true},
 	}
 	for _, tc := range cases {
 		cfg, err := NewSecurityConfig(func(c *SecurityConfig) { c.ExemptIPs = tc.entries })

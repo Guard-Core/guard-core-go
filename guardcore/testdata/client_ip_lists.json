@@ -1,0 +1,786 @@
+[
+{
+"ip": "10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [
+"10.1.1.1"
+],
+"expected": true
+},
+{
+"ip": "10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [
+"10.0.0.0/8"
+],
+"expected": true
+},
+{
+"ip": "10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [
+"::ffff:10.1.1.1"
+],
+"expected": true
+},
+{
+"ip": "10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [
+"::ffff:10.0.0.0/104"
+],
+"expected": false
+},
+{
+"ip": "10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [
+"2001:0DB8:0:0:0:0:0:1"
+],
+"expected": false
+},
+{
+"ip": "10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [
+"2001:db8::/32"
+],
+"expected": false
+},
+{
+"ip": "10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [
+"fe80::1%eth0"
+],
+"expected": false
+},
+{
+"ip": "10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [
+"fe80::/10"
+],
+"expected": false
+},
+{
+"ip": "10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [
+"not-an-ip"
+],
+"expected": false
+},
+{
+"ip": "10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [
+"10.1.1.2",
+"192.168.0.0/16"
+],
+"expected": false
+},
+{
+"ip": "10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [
+"[10.1.1.1]"
+],
+"expected": true
+},
+{
+"ip": "10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [
+"::ffff:10.1.1.1%eth0"
+],
+"expected": false
+},
+{
+"ip": "10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [
+"10.1.1.0/24",
+"2001:db8::1"
+],
+"expected": true
+},
+{
+"ip": "10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [],
+"expected": false
+},
+{
+"ip": "::ffff:10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [
+"10.1.1.1"
+],
+"expected": true
+},
+{
+"ip": "::ffff:10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [
+"10.0.0.0/8"
+],
+"expected": true
+},
+{
+"ip": "::ffff:10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [
+"::ffff:10.1.1.1"
+],
+"expected": true
+},
+{
+"ip": "::ffff:10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [
+"::ffff:10.0.0.0/104"
+],
+"expected": false
+},
+{
+"ip": "::ffff:10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [
+"2001:0DB8:0:0:0:0:0:1"
+],
+"expected": false
+},
+{
+"ip": "::ffff:10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [
+"2001:db8::/32"
+],
+"expected": false
+},
+{
+"ip": "::ffff:10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [
+"fe80::1%eth0"
+],
+"expected": false
+},
+{
+"ip": "::ffff:10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [
+"fe80::/10"
+],
+"expected": false
+},
+{
+"ip": "::ffff:10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [
+"not-an-ip"
+],
+"expected": false
+},
+{
+"ip": "::ffff:10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [
+"10.1.1.2",
+"192.168.0.0/16"
+],
+"expected": false
+},
+{
+"ip": "::ffff:10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [
+"[10.1.1.1]"
+],
+"expected": true
+},
+{
+"ip": "::ffff:10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [
+"::ffff:10.1.1.1%eth0"
+],
+"expected": false
+},
+{
+"ip": "::ffff:10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [
+"10.1.1.0/24",
+"2001:db8::1"
+],
+"expected": true
+},
+{
+"ip": "::ffff:10.1.1.1",
+"canonical": "10.1.1.1",
+"entries": [],
+"expected": false
+},
+{
+"ip": "2001:db8::1",
+"canonical": "2001:db8::1",
+"entries": [
+"10.1.1.1"
+],
+"expected": false
+},
+{
+"ip": "2001:db8::1",
+"canonical": "2001:db8::1",
+"entries": [
+"10.0.0.0/8"
+],
+"expected": false
+},
+{
+"ip": "2001:db8::1",
+"canonical": "2001:db8::1",
+"entries": [
+"::ffff:10.1.1.1"
+],
+"expected": false
+},
+{
+"ip": "2001:db8::1",
+"canonical": "2001:db8::1",
+"entries": [
+"::ffff:10.0.0.0/104"
+],
+"expected": false
+},
+{
+"ip": "2001:db8::1",
+"canonical": "2001:db8::1",
+"entries": [
+"2001:0DB8:0:0:0:0:0:1"
+],
+"expected": true
+},
+{
+"ip": "2001:db8::1",
+"canonical": "2001:db8::1",
+"entries": [
+"2001:db8::/32"
+],
+"expected": true
+},
+{
+"ip": "2001:db8::1",
+"canonical": "2001:db8::1",
+"entries": [
+"fe80::1%eth0"
+],
+"expected": false
+},
+{
+"ip": "2001:db8::1",
+"canonical": "2001:db8::1",
+"entries": [
+"fe80::/10"
+],
+"expected": false
+},
+{
+"ip": "2001:db8::1",
+"canonical": "2001:db8::1",
+"entries": [
+"not-an-ip"
+],
+"expected": false
+},
+{
+"ip": "2001:db8::1",
+"canonical": "2001:db8::1",
+"entries": [
+"10.1.1.2",
+"192.168.0.0/16"
+],
+"expected": false
+},
+{
+"ip": "2001:db8::1",
+"canonical": "2001:db8::1",
+"entries": [
+"[10.1.1.1]"
+],
+"expected": false
+},
+{
+"ip": "2001:db8::1",
+"canonical": "2001:db8::1",
+"entries": [
+"::ffff:10.1.1.1%eth0"
+],
+"expected": false
+},
+{
+"ip": "2001:db8::1",
+"canonical": "2001:db8::1",
+"entries": [
+"10.1.1.0/24",
+"2001:db8::1"
+],
+"expected": true
+},
+{
+"ip": "2001:db8::1",
+"canonical": "2001:db8::1",
+"entries": [],
+"expected": false
+},
+{
+"ip": "fe80::1%eth0",
+"canonical": "fe80::1%eth0",
+"entries": [
+"10.1.1.1"
+],
+"expected": false
+},
+{
+"ip": "fe80::1%eth0",
+"canonical": "fe80::1%eth0",
+"entries": [
+"10.0.0.0/8"
+],
+"expected": false
+},
+{
+"ip": "fe80::1%eth0",
+"canonical": "fe80::1%eth0",
+"entries": [
+"::ffff:10.1.1.1"
+],
+"expected": false
+},
+{
+"ip": "fe80::1%eth0",
+"canonical": "fe80::1%eth0",
+"entries": [
+"::ffff:10.0.0.0/104"
+],
+"expected": false
+},
+{
+"ip": "fe80::1%eth0",
+"canonical": "fe80::1%eth0",
+"entries": [
+"2001:0DB8:0:0:0:0:0:1"
+],
+"expected": false
+},
+{
+"ip": "fe80::1%eth0",
+"canonical": "fe80::1%eth0",
+"entries": [
+"2001:db8::/32"
+],
+"expected": false
+},
+{
+"ip": "fe80::1%eth0",
+"canonical": "fe80::1%eth0",
+"entries": [
+"fe80::1%eth0"
+],
+"expected": true
+},
+{
+"ip": "fe80::1%eth0",
+"canonical": "fe80::1%eth0",
+"entries": [
+"fe80::/10"
+],
+"expected": true
+},
+{
+"ip": "fe80::1%eth0",
+"canonical": "fe80::1%eth0",
+"entries": [
+"not-an-ip"
+],
+"expected": false
+},
+{
+"ip": "fe80::1%eth0",
+"canonical": "fe80::1%eth0",
+"entries": [
+"10.1.1.2",
+"192.168.0.0/16"
+],
+"expected": false
+},
+{
+"ip": "fe80::1%eth0",
+"canonical": "fe80::1%eth0",
+"entries": [
+"[10.1.1.1]"
+],
+"expected": false
+},
+{
+"ip": "fe80::1%eth0",
+"canonical": "fe80::1%eth0",
+"entries": [
+"::ffff:10.1.1.1%eth0"
+],
+"expected": false
+},
+{
+"ip": "fe80::1%eth0",
+"canonical": "fe80::1%eth0",
+"entries": [
+"10.1.1.0/24",
+"2001:db8::1"
+],
+"expected": false
+},
+{
+"ip": "fe80::1%eth0",
+"canonical": "fe80::1%eth0",
+"entries": [],
+"expected": false
+},
+{
+"ip": "::ffff:1.2.3.4%eth0",
+"canonical": "::ffff:1.2.3.4%eth0",
+"entries": [
+"10.1.1.1"
+],
+"expected": false
+},
+{
+"ip": "::ffff:1.2.3.4%eth0",
+"canonical": "::ffff:1.2.3.4%eth0",
+"entries": [
+"10.0.0.0/8"
+],
+"expected": false
+},
+{
+"ip": "::ffff:1.2.3.4%eth0",
+"canonical": "::ffff:1.2.3.4%eth0",
+"entries": [
+"::ffff:10.1.1.1"
+],
+"expected": false
+},
+{
+"ip": "::ffff:1.2.3.4%eth0",
+"canonical": "::ffff:1.2.3.4%eth0",
+"entries": [
+"::ffff:10.0.0.0/104"
+],
+"expected": false
+},
+{
+"ip": "::ffff:1.2.3.4%eth0",
+"canonical": "::ffff:1.2.3.4%eth0",
+"entries": [
+"2001:0DB8:0:0:0:0:0:1"
+],
+"expected": false
+},
+{
+"ip": "::ffff:1.2.3.4%eth0",
+"canonical": "::ffff:1.2.3.4%eth0",
+"entries": [
+"2001:db8::/32"
+],
+"expected": false
+},
+{
+"ip": "::ffff:1.2.3.4%eth0",
+"canonical": "::ffff:1.2.3.4%eth0",
+"entries": [
+"fe80::1%eth0"
+],
+"expected": false
+},
+{
+"ip": "::ffff:1.2.3.4%eth0",
+"canonical": "::ffff:1.2.3.4%eth0",
+"entries": [
+"fe80::/10"
+],
+"expected": false
+},
+{
+"ip": "::ffff:1.2.3.4%eth0",
+"canonical": "::ffff:1.2.3.4%eth0",
+"entries": [
+"not-an-ip"
+],
+"expected": false
+},
+{
+"ip": "::ffff:1.2.3.4%eth0",
+"canonical": "::ffff:1.2.3.4%eth0",
+"entries": [
+"10.1.1.2",
+"192.168.0.0/16"
+],
+"expected": false
+},
+{
+"ip": "::ffff:1.2.3.4%eth0",
+"canonical": "::ffff:1.2.3.4%eth0",
+"entries": [
+"[10.1.1.1]"
+],
+"expected": false
+},
+{
+"ip": "::ffff:1.2.3.4%eth0",
+"canonical": "::ffff:1.2.3.4%eth0",
+"entries": [
+"::ffff:10.1.1.1%eth0"
+],
+"expected": false
+},
+{
+"ip": "::ffff:1.2.3.4%eth0",
+"canonical": "::ffff:1.2.3.4%eth0",
+"entries": [
+"10.1.1.0/24",
+"2001:db8::1"
+],
+"expected": false
+},
+{
+"ip": "::ffff:1.2.3.4%eth0",
+"canonical": "::ffff:1.2.3.4%eth0",
+"entries": [],
+"expected": false
+},
+{
+"ip": "::ffff:0a01:0101",
+"canonical": "10.1.1.1",
+"entries": [
+"10.1.1.1"
+],
+"expected": true
+},
+{
+"ip": "::ffff:0a01:0101",
+"canonical": "10.1.1.1",
+"entries": [
+"10.0.0.0/8"
+],
+"expected": true
+},
+{
+"ip": "::ffff:0a01:0101",
+"canonical": "10.1.1.1",
+"entries": [
+"::ffff:10.1.1.1"
+],
+"expected": true
+},
+{
+"ip": "::ffff:0a01:0101",
+"canonical": "10.1.1.1",
+"entries": [
+"::ffff:10.0.0.0/104"
+],
+"expected": false
+},
+{
+"ip": "::ffff:0a01:0101",
+"canonical": "10.1.1.1",
+"entries": [
+"2001:0DB8:0:0:0:0:0:1"
+],
+"expected": false
+},
+{
+"ip": "::ffff:0a01:0101",
+"canonical": "10.1.1.1",
+"entries": [
+"2001:db8::/32"
+],
+"expected": false
+},
+{
+"ip": "::ffff:0a01:0101",
+"canonical": "10.1.1.1",
+"entries": [
+"fe80::1%eth0"
+],
+"expected": false
+},
+{
+"ip": "::ffff:0a01:0101",
+"canonical": "10.1.1.1",
+"entries": [
+"fe80::/10"
+],
+"expected": false
+},
+{
+"ip": "::ffff:0a01:0101",
+"canonical": "10.1.1.1",
+"entries": [
+"not-an-ip"
+],
+"expected": false
+},
+{
+"ip": "::ffff:0a01:0101",
+"canonical": "10.1.1.1",
+"entries": [
+"10.1.1.2",
+"192.168.0.0/16"
+],
+"expected": false
+},
+{
+"ip": "::ffff:0a01:0101",
+"canonical": "10.1.1.1",
+"entries": [
+"[10.1.1.1]"
+],
+"expected": true
+},
+{
+"ip": "::ffff:0a01:0101",
+"canonical": "10.1.1.1",
+"entries": [
+"::ffff:10.1.1.1%eth0"
+],
+"expected": false
+},
+{
+"ip": "::ffff:0a01:0101",
+"canonical": "10.1.1.1",
+"entries": [
+"10.1.1.0/24",
+"2001:db8::1"
+],
+"expected": true
+},
+{
+"ip": "::ffff:0a01:0101",
+"canonical": "10.1.1.1",
+"entries": [],
+"expected": false
+},
+{
+"ip": "[::ffff:10.1.1.1]",
+"canonical": "10.1.1.1",
+"entries": [
+"10.1.1.1"
+],
+"expected": true
+},
+{
+"ip": "[::ffff:10.1.1.1]",
+"canonical": "10.1.1.1",
+"entries": [
+"10.0.0.0/8"
+],
+"expected": true
+},
+{
+"ip": "[::ffff:10.1.1.1]",
+"canonical": "10.1.1.1",
+"entries": [
+"::ffff:10.1.1.1"
+],
+"expected": true
+},
+{
+"ip": "[::ffff:10.1.1.1]",
+"canonical": "10.1.1.1",
+"entries": [
+"::ffff:10.0.0.0/104"
+],
+"expected": false
+},
+{
+"ip": "[::ffff:10.1.1.1]",
+"canonical": "10.1.1.1",
+"entries": [
+"2001:0DB8:0:0:0:0:0:1"
+],
+"expected": false
+},
+{
+"ip": "[::ffff:10.1.1.1]",
+"canonical": "10.1.1.1",
+"entries": [
+"2001:db8::/32"
+],
+"expected": false
+},
+{
+"ip": "[::ffff:10.1.1.1]",
+"canonical": "10.1.1.1",
+"entries": [
+"fe80::1%eth0"
+],
+"expected": false
+},
+{
+"ip": "[::ffff:10.1.1.1]",
+"canonical": "10.1.1.1",
+"entries": [
+"fe80::/10"
+],
+"expected": false
+},
+{
+"ip": "[::ffff:10.1.1.1]",
+"canonical": "10.1.1.1",
+"entries": [
+"not-an-ip"
+],
+"expected": false
+},
+{
+"ip": "[::ffff:10.1.1.1]",
+"canonical": "10.1.1.1",
+"entries": [
+"10.1.1.2",
+"192.168.0.0/16"
+],
+"expected": false
+},
+{
+"ip": "[::ffff:10.1.1.1]",
+"canonical": "10.1.1.1",
+"entries": [
+"[10.1.1.1]"
+],
+"expected": true
+},
+{
+"ip": "[::ffff:10.1.1.1]",
+"canonical": "10.1.1.1",
+"entries": [
+"::ffff:10.1.1.1%eth0"
+],
+"expected": false
+},
+{
+"ip": "[::ffff:10.1.1.1]",
+"canonical": "10.1.1.1",
+"entries": [
+"10.1.1.0/24",
+"2001:db8::1"
+],
+"expected": true
+},
+{
+"ip": "[::ffff:10.1.1.1]",
+"canonical": "10.1.1.1",
+"entries": [],
+"expected": false
+}
+]

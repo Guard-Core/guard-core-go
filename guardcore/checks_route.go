@@ -90,7 +90,7 @@ func (c *httpsEnforcementCheck) AppliesTo(cfg *SecurityConfig) bool {
 }
 
 func (c *httpsEnforcementCheck) isTrustedProxy(connectingIP string) bool {
-	return ipMatchesList(connectingIP, c.cfg.TrustedProxies)
+	return isTrustedProxy(connectingIP, c.cfg.TrustedProxies)
 }
 
 func (c *httpsEnforcementCheck) isRequestHTTPS(req Request) bool {

@@ -222,18 +222,18 @@ func TestExtractClientIPCIDRTrustedProxy(t *testing.T) {
 	}
 }
 
-// TestExtractClientIPCanonicalization: mapped proxy peers match IPv4
-// CIDR trust entries through the mapped form (the reference's version
-// mismatch raises, the port resolves it sanely), while a bare trust entry
-// matches by exact text like the reference.
+// TestExtractClientIPCanonicalization: a mapped proxy peer is not a member
+// of an IPv4 CIDR trust entry (the reference membership test is false across
+// address families) and a bare trust entry matches by exact text like the
+// reference, so neither trusts the mapped peer; the canonical peer wins.
 func TestExtractClientIPCanonicalization(t *testing.T) {
 	resetForwardedWarnings()
 	engine, _ := newIPExtractionEngine(t, func(c *SecurityConfig) {
 		c.TrustedProxies = []string{"10.0.0.0/8"}
 	})
 	req := xffRequest("/api", "::ffff:10.1.2.3", "203.0.113.5:5678")
-	if ip := extractClientIP(req, engine.Config); ip != "203.0.113.5" {
-		t.Fatalf("mapped CIDR-trusted peer must walk the chain, got %q", ip)
+	if ip := extractClientIP(req, engine.Config); ip != "10.1.2.3" {
+		t.Fatalf("a mapped peer is not trusted by an IPv4 CIDR, got %q", ip)
 	}
 	// A bare entry matches textually only: the mapped spelling of the
 	// same address is NOT trusted (reference _proxy_matches equality).

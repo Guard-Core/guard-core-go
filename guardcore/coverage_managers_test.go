@@ -214,8 +214,8 @@ func TestConfigIPMatching(t *testing.T) {
 	if got := canonicalizeIPString("junk"); got != "junk" {
 		t.Fatalf("junk passes through, got %q", got)
 	}
-	if got := canonicalizeIPString("::ffff:10.1.2.3"); got != "::ffff:10.1.2.3" {
-		t.Fatalf("mapped addresses keep their form, got %q", got)
+	if got := canonicalizeIPString("::ffff:10.1.2.3"); got != "10.1.2.3" {
+		t.Fatalf("mapped addresses canonicalize to IPv4 (reference _canonicalize_ip), got %q", got)
 	}
 	// List matching covers prefixes, zero routes and exact hits.
 	if !ipMatchesList("10.1.2.3", []string{"10.0.0.0/8"}) {
@@ -230,8 +230,8 @@ func TestConfigIPMatching(t *testing.T) {
 	if ipMatchesList("junk", []string{"10.0.0.0/8"}) {
 		t.Fatal("junk ips never match")
 	}
-	if ipMatchesList("::ffff:10.1.2.3", []string{"10.1.2.3"}) {
-		t.Fatal("exact entries compare canonical text")
+	if !ipMatchesList("::ffff:10.1.2.3", []string{"10.1.2.3"}) {
+		t.Fatal("exact entries compare canonical text (reference _ip_in_list)")
 	}
 	if !ipMatchesList("::ffff:c0a8:101", []string{"::ffff:c0a8:101"}) {
 		t.Fatal("entries canonicalize before matching")

@@ -30,8 +30,8 @@ func TestProxyMatchesMalformedCIDR(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if proxyMatches("10.1.2.3", addr, "10.0.0.0/33") {
-		t.Fatal("an unparseable CIDR entry must match nothing")
+	if matched, perr := proxyMatches("10.1.2.3", addr, "10.0.0.0/33"); matched || perr == nil {
+		t.Fatal("an unparseable CIDR entry must match nothing and report the ValueError")
 	}
 	if isTrustedProxy("10.1.2.3", []string{"10.0.0.0/33", "not-an-ip"}) {
 		t.Fatal("malformed trust entries must not trust anything")
