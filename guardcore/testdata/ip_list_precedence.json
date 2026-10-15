@@ -1,0 +1,1334 @@
+[
+ {
+  "whitelist": [],
+  "blacklist": [],
+  "ip": "10.0.0.1",
+  "global": true,
+  "isAllowed": true,
+  "route": null
+ },
+ {
+  "whitelist": [],
+  "blacklist": [],
+  "ip": "10.0.0.2",
+  "global": true,
+  "isAllowed": true,
+  "route": null
+ },
+ {
+  "whitelist": [],
+  "blacklist": [],
+  "ip": "192.168.1.5",
+  "global": true,
+  "isAllowed": true,
+  "route": null
+ },
+ {
+  "whitelist": [],
+  "blacklist": [],
+  "ip": "::ffff:10.0.0.1",
+  "global": true,
+  "isAllowed": true,
+  "route": null
+ },
+ {
+  "whitelist": [],
+  "blacklist": [],
+  "ip": "2001:db8::1",
+  "global": true,
+  "isAllowed": true,
+  "route": null
+ },
+ {
+  "whitelist": [],
+  "blacklist": [],
+  "ip": "unknown",
+  "global": true,
+  "isAllowed": true,
+  "route": null
+ },
+ {
+  "whitelist": [],
+  "blacklist": [
+   "10.0.0.1"
+  ],
+  "ip": "10.0.0.1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [],
+  "blacklist": [
+   "10.0.0.1"
+  ],
+  "ip": "10.0.0.2",
+  "global": true,
+  "isAllowed": true,
+  "route": null
+ },
+ {
+  "whitelist": [],
+  "blacklist": [
+   "10.0.0.1"
+  ],
+  "ip": "192.168.1.5",
+  "global": true,
+  "isAllowed": true,
+  "route": null
+ },
+ {
+  "whitelist": [],
+  "blacklist": [
+   "10.0.0.1"
+  ],
+  "ip": "::ffff:10.0.0.1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [],
+  "blacklist": [
+   "10.0.0.1"
+  ],
+  "ip": "2001:db8::1",
+  "global": true,
+  "isAllowed": true,
+  "route": null
+ },
+ {
+  "whitelist": [],
+  "blacklist": [
+   "10.0.0.1"
+  ],
+  "ip": "unknown",
+  "global": true,
+  "isAllowed": true,
+  "route": null
+ },
+ {
+  "whitelist": [],
+  "blacklist": [
+   "10.0.0.0/8"
+  ],
+  "ip": "10.0.0.1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [],
+  "blacklist": [
+   "10.0.0.0/8"
+  ],
+  "ip": "10.0.0.2",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [],
+  "blacklist": [
+   "10.0.0.0/8"
+  ],
+  "ip": "192.168.1.5",
+  "global": true,
+  "isAllowed": true,
+  "route": null
+ },
+ {
+  "whitelist": [],
+  "blacklist": [
+   "10.0.0.0/8"
+  ],
+  "ip": "::ffff:10.0.0.1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [],
+  "blacklist": [
+   "10.0.0.0/8"
+  ],
+  "ip": "2001:db8::1",
+  "global": true,
+  "isAllowed": true,
+  "route": null
+ },
+ {
+  "whitelist": [],
+  "blacklist": [
+   "10.0.0.0/8"
+  ],
+  "ip": "unknown",
+  "global": true,
+  "isAllowed": true,
+  "route": null
+ },
+ {
+  "whitelist": [],
+  "blacklist": [
+   "192.168.0.0/16"
+  ],
+  "ip": "10.0.0.1",
+  "global": true,
+  "isAllowed": true,
+  "route": null
+ },
+ {
+  "whitelist": [],
+  "blacklist": [
+   "192.168.0.0/16"
+  ],
+  "ip": "10.0.0.2",
+  "global": true,
+  "isAllowed": true,
+  "route": null
+ },
+ {
+  "whitelist": [],
+  "blacklist": [
+   "192.168.0.0/16"
+  ],
+  "ip": "192.168.1.5",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [],
+  "blacklist": [
+   "192.168.0.0/16"
+  ],
+  "ip": "::ffff:10.0.0.1",
+  "global": true,
+  "isAllowed": true,
+  "route": null
+ },
+ {
+  "whitelist": [],
+  "blacklist": [
+   "192.168.0.0/16"
+  ],
+  "ip": "2001:db8::1",
+  "global": true,
+  "isAllowed": true,
+  "route": null
+ },
+ {
+  "whitelist": [],
+  "blacklist": [
+   "192.168.0.0/16"
+  ],
+  "ip": "unknown",
+  "global": true,
+  "isAllowed": true,
+  "route": null
+ },
+ {
+  "whitelist": [],
+  "blacklist": [
+   "10.0.0.2"
+  ],
+  "ip": "10.0.0.1",
+  "global": true,
+  "isAllowed": true,
+  "route": null
+ },
+ {
+  "whitelist": [],
+  "blacklist": [
+   "10.0.0.2"
+  ],
+  "ip": "10.0.0.2",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [],
+  "blacklist": [
+   "10.0.0.2"
+  ],
+  "ip": "192.168.1.5",
+  "global": true,
+  "isAllowed": true,
+  "route": null
+ },
+ {
+  "whitelist": [],
+  "blacklist": [
+   "10.0.0.2"
+  ],
+  "ip": "::ffff:10.0.0.1",
+  "global": true,
+  "isAllowed": true,
+  "route": null
+ },
+ {
+  "whitelist": [],
+  "blacklist": [
+   "10.0.0.2"
+  ],
+  "ip": "2001:db8::1",
+  "global": true,
+  "isAllowed": true,
+  "route": null
+ },
+ {
+  "whitelist": [],
+  "blacklist": [
+   "10.0.0.2"
+  ],
+  "ip": "unknown",
+  "global": true,
+  "isAllowed": true,
+  "route": null
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [],
+  "ip": "10.0.0.1",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [],
+  "ip": "10.0.0.2",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [],
+  "ip": "192.168.1.5",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [],
+  "ip": "::ffff:10.0.0.1",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [],
+  "ip": "2001:db8::1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [],
+  "ip": "unknown",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [
+   "10.0.0.1"
+  ],
+  "ip": "10.0.0.1",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [
+   "10.0.0.1"
+  ],
+  "ip": "10.0.0.2",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [
+   "10.0.0.1"
+  ],
+  "ip": "192.168.1.5",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [
+   "10.0.0.1"
+  ],
+  "ip": "::ffff:10.0.0.1",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [
+   "10.0.0.1"
+  ],
+  "ip": "2001:db8::1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [
+   "10.0.0.1"
+  ],
+  "ip": "unknown",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [
+   "10.0.0.0/8"
+  ],
+  "ip": "10.0.0.1",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [
+   "10.0.0.0/8"
+  ],
+  "ip": "10.0.0.2",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [
+   "10.0.0.0/8"
+  ],
+  "ip": "192.168.1.5",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [
+   "10.0.0.0/8"
+  ],
+  "ip": "::ffff:10.0.0.1",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [
+   "10.0.0.0/8"
+  ],
+  "ip": "2001:db8::1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [
+   "10.0.0.0/8"
+  ],
+  "ip": "unknown",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [
+   "192.168.0.0/16"
+  ],
+  "ip": "10.0.0.1",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [
+   "192.168.0.0/16"
+  ],
+  "ip": "10.0.0.2",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [
+   "192.168.0.0/16"
+  ],
+  "ip": "192.168.1.5",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [
+   "192.168.0.0/16"
+  ],
+  "ip": "::ffff:10.0.0.1",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [
+   "192.168.0.0/16"
+  ],
+  "ip": "2001:db8::1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [
+   "192.168.0.0/16"
+  ],
+  "ip": "unknown",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [
+   "10.0.0.2"
+  ],
+  "ip": "10.0.0.1",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [
+   "10.0.0.2"
+  ],
+  "ip": "10.0.0.2",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [
+   "10.0.0.2"
+  ],
+  "ip": "192.168.1.5",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [
+   "10.0.0.2"
+  ],
+  "ip": "::ffff:10.0.0.1",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [
+   "10.0.0.2"
+  ],
+  "ip": "2001:db8::1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.1"
+  ],
+  "blacklist": [
+   "10.0.0.2"
+  ],
+  "ip": "unknown",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [],
+  "ip": "10.0.0.1",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [],
+  "ip": "10.0.0.2",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [],
+  "ip": "192.168.1.5",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [],
+  "ip": "::ffff:10.0.0.1",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [],
+  "ip": "2001:db8::1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [],
+  "ip": "unknown",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [
+   "10.0.0.1"
+  ],
+  "ip": "10.0.0.1",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [
+   "10.0.0.1"
+  ],
+  "ip": "10.0.0.2",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [
+   "10.0.0.1"
+  ],
+  "ip": "192.168.1.5",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [
+   "10.0.0.1"
+  ],
+  "ip": "::ffff:10.0.0.1",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [
+   "10.0.0.1"
+  ],
+  "ip": "2001:db8::1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [
+   "10.0.0.1"
+  ],
+  "ip": "unknown",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [
+   "10.0.0.0/8"
+  ],
+  "ip": "10.0.0.1",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [
+   "10.0.0.0/8"
+  ],
+  "ip": "10.0.0.2",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [
+   "10.0.0.0/8"
+  ],
+  "ip": "192.168.1.5",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [
+   "10.0.0.0/8"
+  ],
+  "ip": "::ffff:10.0.0.1",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [
+   "10.0.0.0/8"
+  ],
+  "ip": "2001:db8::1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [
+   "10.0.0.0/8"
+  ],
+  "ip": "unknown",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [
+   "192.168.0.0/16"
+  ],
+  "ip": "10.0.0.1",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [
+   "192.168.0.0/16"
+  ],
+  "ip": "10.0.0.2",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [
+   "192.168.0.0/16"
+  ],
+  "ip": "192.168.1.5",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [
+   "192.168.0.0/16"
+  ],
+  "ip": "::ffff:10.0.0.1",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [
+   "192.168.0.0/16"
+  ],
+  "ip": "2001:db8::1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [
+   "192.168.0.0/16"
+  ],
+  "ip": "unknown",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [
+   "10.0.0.2"
+  ],
+  "ip": "10.0.0.1",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [
+   "10.0.0.2"
+  ],
+  "ip": "10.0.0.2",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [
+   "10.0.0.2"
+  ],
+  "ip": "192.168.1.5",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [
+   "10.0.0.2"
+  ],
+  "ip": "::ffff:10.0.0.1",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [
+   "10.0.0.2"
+  ],
+  "ip": "2001:db8::1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "10.0.0.0/24"
+  ],
+  "blacklist": [
+   "10.0.0.2"
+  ],
+  "ip": "unknown",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [],
+  "ip": "10.0.0.1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [],
+  "ip": "10.0.0.2",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [],
+  "ip": "192.168.1.5",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [],
+  "ip": "::ffff:10.0.0.1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [],
+  "ip": "2001:db8::1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [],
+  "ip": "unknown",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [
+   "10.0.0.1"
+  ],
+  "ip": "10.0.0.1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [
+   "10.0.0.1"
+  ],
+  "ip": "10.0.0.2",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [
+   "10.0.0.1"
+  ],
+  "ip": "192.168.1.5",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [
+   "10.0.0.1"
+  ],
+  "ip": "::ffff:10.0.0.1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [
+   "10.0.0.1"
+  ],
+  "ip": "2001:db8::1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [
+   "10.0.0.1"
+  ],
+  "ip": "unknown",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [
+   "10.0.0.0/8"
+  ],
+  "ip": "10.0.0.1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [
+   "10.0.0.0/8"
+  ],
+  "ip": "10.0.0.2",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [
+   "10.0.0.0/8"
+  ],
+  "ip": "192.168.1.5",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [
+   "10.0.0.0/8"
+  ],
+  "ip": "::ffff:10.0.0.1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [
+   "10.0.0.0/8"
+  ],
+  "ip": "2001:db8::1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [
+   "10.0.0.0/8"
+  ],
+  "ip": "unknown",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [
+   "192.168.0.0/16"
+  ],
+  "ip": "10.0.0.1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [
+   "192.168.0.0/16"
+  ],
+  "ip": "10.0.0.2",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [
+   "192.168.0.0/16"
+  ],
+  "ip": "192.168.1.5",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [
+   "192.168.0.0/16"
+  ],
+  "ip": "::ffff:10.0.0.1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [
+   "192.168.0.0/16"
+  ],
+  "ip": "2001:db8::1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [
+   "192.168.0.0/16"
+  ],
+  "ip": "unknown",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [
+   "10.0.0.2"
+  ],
+  "ip": "10.0.0.1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [
+   "10.0.0.2"
+  ],
+  "ip": "10.0.0.2",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [
+   "10.0.0.2"
+  ],
+  "ip": "192.168.1.5",
+  "global": true,
+  "isAllowed": true,
+  "route": true
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [
+   "10.0.0.2"
+  ],
+  "ip": "::ffff:10.0.0.1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [
+   "10.0.0.2"
+  ],
+  "ip": "2001:db8::1",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ },
+ {
+  "whitelist": [
+   "192.168.0.0/16"
+  ],
+  "blacklist": [
+   "10.0.0.2"
+  ],
+  "ip": "unknown",
+  "global": false,
+  "isAllowed": false,
+  "route": false
+ }
+]
