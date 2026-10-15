@@ -528,10 +528,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#unsupported-fail-closed-options" class="md-nav__link">
+  <a href="#dynamic-rules" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Unsupported (fail-closed) options
+        Dynamic rules
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#behavior-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Behavior rules
       
     </span>
   </a>
@@ -858,10 +869,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#unsupported-fail-closed-options" class="md-nav__link">
+  <a href="#dynamic-rules" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Unsupported (fail-closed) options
+        Dynamic rules
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#behavior-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Behavior rules
       
     </span>
   </a>
@@ -1132,6 +1154,12 @@ deny path of its own; an IP on both lists is simply a whitelist match.</p>
 <td>Header names merged into the excluded-header scan: excluded headers skip the <code>ssrf</code> category only when the header is address-carrying or its value parses as an address chain; every other category still scans them</td>
 </tr>
 <tr>
+<td><code>ExcludedSemanticDetectionHeaders</code></td>
+<td><code>map[string]bool</code></td>
+<td>empty</td>
+<td>Opt-in header names (case-insensitive) whose values skip the semantic analyzer only; regex category scanning is unchanged. Use <code>cookie</code> or <code>authorization</code> for apps with JWT sessions. <code>RouteConfig.ExcludedSemanticDetectionHeaders</code> adds to the set</td>
+</tr>
+<tr>
 <td><code>ExcludedDetectionParams</code></td>
 <td><code>map[string]bool</code></td>
 <td>empty</td>
@@ -1364,18 +1392,22 @@ hook implementation. See <code>examples/advanced_app</code> for a worked example
 <span class="w">    </span><span class="nx">ThreatScoreThreshold</span><span class="p">:</span><span class="w">   </span><span class="mf">1.0</span><span class="p">,</span>
 <span class="p">}</span>
 </code></pre></div>
-<h2 id="unsupported-fail-closed-options">Unsupported (fail-closed) options</h2>
-<p>Validation rejects configurations this port does not implement yet, rather
-than silently ignoring them:</p>
-<ul>
-<li><code>EnableDynamicRules</code></li>
-<li><code>EnableAgent</code></li>
-</ul>
+<h2 id="dynamic-rules">Dynamic rules</h2>
+<p><code>EnableDynamicRules</code> lets the SaaS dashboard change protection at runtime
+without a code change: a rule bans the IPs in its <code>ip_blacklist</code> (for
+<code>ip_ban_duration</code> seconds), unbans the IPs in its <code>ip_whitelist</code>, adds its
+<code>suspicious_patterns</code> to detection, and replaces <code>BlockedCountries</code>,
+<code>WhitelistCountries</code>, <code>RateLimit</code>, <code>RateLimitWindow</code>, <code>EndpointRateLimits</code>,
+<code>BlockCloudProviders</code>, <code>BlockedUserAgents</code>, <code>EnablePenetrationDetection</code>,
+<code>EnableIPBanning</code>, <code>EnableRateLimiting</code>, <code>EnableRateLimitAutoBan</code>,
+<code>AutoBanThreshold</code>, <code>AutoBanDuration</code>, <code>EmergencyMode</code> and
+<code>EmergencyWhitelist</code>. The rules come from the agent handler, so it needs
+<code>EnableAgent</code> and an <code>AgentHandler</code>. A rule cannot change any other setting.</p>
+<h2 id="behavior-rules">Behavior rules</h2>
 <p><code>GlobalBehaviorRules</code> is implemented: rules are validated at config time
 (<code>validateBehaviorRules</code>) and drive the in-memory behavior ban through the
 pipeline's behavioral processor.</p>
-<p>Each returns an <code>*UnsupportedFeatureError</code> from <code>Validate()</code>. See
-<a href="../roadmap/">Roadmap</a> for the full divergence list.</p>
+<p>See <a href="../roadmap/">Roadmap</a> for the full divergence list.</p>
 <h2 id="cors">CORS</h2>
 <table>
 <thead>
