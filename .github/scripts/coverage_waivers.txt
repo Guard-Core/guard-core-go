@@ -711,3 +711,8 @@ guardcore/surfaceexports.go:146
 # TestInitializeRedisSkipsKnown (both toolchains report zero uncovered
 # redos/suspatterns statements locally).
 guardcore/suspatterns_registry.go:97
+# dynamicrules.go:767/772 - the writeAtomicFile write/close cleanup guards
+# (same code and proof as the 733/738 entries above), re-anchored after
+# the version overlay grew applyRulesLocked and the pattern-skip helper.
+guardcore/dynamicrules.go:767
+guardcore/dynamicrules.go:772

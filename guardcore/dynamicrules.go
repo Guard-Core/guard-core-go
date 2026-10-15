@@ -241,6 +241,9 @@ type DynamicRuleManager struct {
 
 	// nowFunc is the test seam for the update clock.
 	nowFunc func() float64
+	// applyFault is a test seam run inside the apply step so the
+	// fail-closed restore path can be driven.
+	applyFault func()
 }
 
 // NewDynamicRuleManager wires the manager. Redis may be nil (rules still
@@ -486,12 +489,20 @@ func (m *DynamicRuleManager) applyRulesLocked(rules *DynamicRules) (err error) {
 	m.applying = true
 	defer func() { m.applying = false }()
 
+	// Every version applies over the base config, never over the previous
+	// version's result: previous is the rollback target for a failed
+	// apply, the retained base is restored before applying, and the base
+	// snapshot is the post-restore state (reference _apply_rules).
+	previous := m.captureSnapshot()
+	if m.activeBase != nil {
+		m.restoreSnapshot(m.activeBase)
+	}
 	snapshot := m.captureSnapshot()
 	failed := false
 	func() {
 		defer func() {
 			if r := recover(); r != nil {
-				m.restoreSnapshot(snapshot)
+				m.restoreSnapshot(previous)
 				m.log.Printf("Failed to apply dynamic rules: %v", r)
 				failed = true
 			}
@@ -500,6 +511,9 @@ func (m *DynamicRuleManager) applyRulesLocked(rules *DynamicRules) (err error) {
 		m.applyBlockingRules(rules)
 		m.applyRateLimitRules(rules)
 		m.applyFeatureToggles(rules)
+		if m.applyFault != nil {
+			m.applyFault()
+		}
 		if rules.EmergencyMode {
 			m.activateEmergencyMode(rules.EmergencyWhitelist)
 		}
@@ -601,8 +615,17 @@ func (m *DynamicRuleManager) applyBlockingRules(rules *DynamicRules) {
 		// The reference _apply_pattern_rules: every pattern runs through the
 		// runtime registry's safety-validated add; rejections log with the
 		// same honesty (never silently swallowed).
-		var added []string
+		// Patterns already in the registry (shipped table or earlier
+		// additions) are skipped, as in the reference, so a new version
+		// never duplicates them.
+		known := knownSusPatternSources()
+		var fresh, added []string
 		for _, pattern := range rules.SuspiciousPatterns {
+			if !known[pattern] {
+				fresh = append(fresh, pattern)
+			}
+		}
+		for _, pattern := range fresh {
 			if DefaultSusPatternsManager.AddPattern(pattern, false) {
 				added = append(added, pattern)
 			}
@@ -610,10 +633,21 @@ func (m *DynamicRuleManager) applyBlockingRules(rules *DynamicRules) {
 		if len(added) > 0 {
 			m.log.Printf("Dynamic rule: Added suspicious patterns %v", added)
 		}
-		if rejected := len(rules.SuspiciousPatterns) - len(added); rejected > 0 {
+		if rejected := len(fresh) - len(added); rejected > 0 {
 			m.log.Printf("Dynamic rule: rejected %d suspicious pattern(s) failing the ReDoS validator", rejected)
 		}
 	}
+}
+
+func knownSusPatternSources() map[string]bool {
+	known := make(map[string]bool, len(patternTable))
+	for _, def := range patternTable {
+		known[def.Pattern] = true
+	}
+	for _, pattern := range DefaultSusPatternsManager.GetDefaultPatterns() {
+		known[pattern] = true
+	}
+	return known
 }
 
 func sortedCopy(values []string) []string {
@@ -629,7 +663,7 @@ func (m *DynamicRuleManager) applyRateLimitRules(rules *DynamicRules) {
 		if rules.GlobalRateWindow != nil && *rules.GlobalRateWindow > 0 {
 			m.cfg.RateLimitWindow = *rules.GlobalRateWindow
 		}
-		m.log.Printf("Dynamic rule: Global rate limit %d per %ds", rules.GlobalRateLimit, derefInt(rules.GlobalRateWindow, m.cfg.RateLimitWindow))
+		m.log.Printf("Dynamic rule: Global rate limit %d per %ds", *rules.GlobalRateLimit, derefInt(rules.GlobalRateWindow, m.cfg.RateLimitWindow))
 	}
 	if len(rules.EndpointRateLimits) > 0 {
 		endpoints := make(map[string]RateLimitEntry, len(rules.EndpointRateLimits))
