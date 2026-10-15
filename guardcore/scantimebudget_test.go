@@ -220,3 +220,24 @@ func TestCustomPatternsHonorTheBudget(t *testing.T) {
 		t.Fatalf("an exhausted budget skips the runtime registry and records the budget threat, got %v", threats)
 	}
 }
+
+// The budget threat counts toward the regex anomaly like any weighted
+// regex-side threat (reference _regex_anomaly >= threshold): it flags the
+// request at the engine's fixed 1.0 threshold with its default weight 1.0,
+// and does not flag it when the pattern's weight is overridden below it.
+func TestBudgetThreatIsFlaggedByWeightNotUnconditionally(t *testing.T) {
+	jumpClock(t, 1000)
+	cfg := testConfig(t)
+	cfg.Detection.MaxScanSeconds = 0.1
+	run := func() DetectResult {
+		return DefaultSusPatternsManager.detect("a benign value", "203.0.113.7", "url_path", "", false, newDetectionScanBudget(cfg, "203.0.113.7"))
+	}
+	if !run().IsThreat {
+		t.Fatal("weight 1.0 must flag the request")
+	}
+	weightOverrides[scanTimeBudgetExhaustedPattern] = 0.25
+	t.Cleanup(func() { delete(weightOverrides, scanTimeBudgetExhaustedPattern) })
+	if r := run(); r.IsThreat {
+		t.Fatalf("a sub-threshold weight (summed over the view passes) must not flag the request, got %v", r.Threats)
+	}
+}
