@@ -107,19 +107,17 @@ func (c *ipSecurityCheck) Check(req Request) *Response {
 
 // checkRouteIPAccess mirrors check_route_ip_access (the reference
 // guard_core/core/checks/helpers.py plus its TypeScript port
-// checkRouteIpAccess): the route blacklist is consulted first so its matches
-// are denied before any whitelist verdict can clear them, a configured
-// route whitelist takes over the route verdict (a miss denies, a match
-// passes the route stage), and the route country verdict combines with the
+// checkRouteIpAccess): a configured route whitelist decides the
+// route verdict alone (a miss denies, a match passes the route stage; the
+// route blacklist is consulted only when there is no route whitelist), and the route country verdict combines with the
 // IP verdict: any deny denies, otherwise any allow passes. The global lists
-// are still enforced afterwards by checkGlobal, so a route whitelist match
-// never relaxes the global blacklist or the global whitelist gate; it only
-// clears the identity flags.
+// are skipped by checkGlobal when a route whitelist is configured (the
+// reference skip_ip_lists gate), which also leaves the identity flags unset.
 func (c *ipSecurityCheck) checkRouteIPAccess(req Request, ip string, route *RouteConfig) *Response {
 	ipBlocked := false
-	if len(route.IPBlacklist) > 0 && ipMatchesList(ip, route.IPBlacklist) {
-		ipBlocked = true
-	} else if len(route.IPWhitelist) > 0 && !ipMatchesList(ip, route.IPWhitelist) {
+	if len(route.IPWhitelist) > 0 {
+		ipBlocked = !ipMatchesList(ip, route.IPWhitelist)
+	} else if len(route.IPBlacklist) > 0 && ipMatchesList(ip, route.IPBlacklist) {
 		ipBlocked = true
 	}
 	verdict, country, ruleType := routeCountryAccessDetail(ip, route, c.cfg.GeoIPHandler)
@@ -284,19 +282,24 @@ func (c *ipSecurityCheck) checkGlobal(req Request, ip string, routeOverridesIPLi
 	// flags exactly like the reference skip_ip_lists gate
 	// (_resolve_is_whitelisted/_resolve_is_exempt): both flags stay unset for
 	// the request even when the IP passes.
-	if len(whitelist) > 0 {
-		if !ipMatchesList(ip, whitelist) {
+	// The reference _check_ip_lists_detail: a configured route whitelist skips
+	// the global lists for the request (skip_ip_lists); otherwise a configured
+	// global whitelist decides alone and the blacklist is consulted only when
+	// no whitelist is configured.
+	if !routeOverridesIPLists {
+		if len(whitelist) > 0 {
+			if !ipMatchesList(ip, whitelist) {
+				return c.deny(req, ip, genericListBlockReason(ip))
+			}
+			state.IsWhitelisted = true
+			state.IsExempt = ipMatchesList(ip, c.cfg.ExemptIPs)
+			// A global whitelist match skips the country stage (the reference
+			// sets skip_countries from the whitelist membership), so a
+			// whitelisted IP is never country blocked.
+			skipCountries = true
+		} else if len(blacklist) > 0 && ipMatchesList(ip, blacklist) {
 			return c.deny(req, ip, genericListBlockReason(ip))
 		}
-		state.IsWhitelisted = !routeOverridesIPLists
-		state.IsExempt = !routeOverridesIPLists && ipMatchesList(ip, c.cfg.ExemptIPs)
-		// A global whitelist match skips the country stage (the reference
-		// sets skip_countries from the whitelist membership), so a whitelisted
-		// IP is never country blocked.
-		skipCountries = true
-	}
-	if len(blacklist) > 0 && ipMatchesList(ip, blacklist) {
-		return c.deny(req, ip, genericListBlockReason(ip))
 	}
 	if !skipCountries {
 		if reason, blocked := globalCountryVerdict(c.cfg, ip); blocked {

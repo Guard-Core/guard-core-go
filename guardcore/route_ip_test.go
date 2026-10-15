@@ -5,8 +5,8 @@ package guardcore
 // check_route_ip_access (guard_core/core/checks/helpers.py) and its
 // TypeScript port checkRouteIpAccess
 // (packages/core/src/core/checks/helpers.ts): the route blacklist denies
-// first, a configured route whitelist takes over the route verdict, the
-// global lists still apply afterwards, and a route IPWhitelist clears the
+// only without a route whitelist, a configured route whitelist takes over the
+// route verdict and skips the global lists, and a route IPWhitelist clears the
 // IsWhitelisted/IsExempt identity flags exactly like the reference
 // skip_ip_lists gate (_resolve_is_whitelisted/_resolve_is_exempt in
 // guard_core/core/checks/implementations/ip_security.py).
@@ -105,43 +105,40 @@ func TestRouteIPBlacklistBlocksWhereGlobalPasses(t *testing.T) {
 	}
 }
 
-// The route blacklist wins over the route whitelist when an IP appears in
-// both (the TS port checks ipBlacklist before ipWhitelist).
-func TestRouteIPBlacklistBeatsRouteWhitelist(t *testing.T) {
+// The route whitelist decides alone when an IP appears in both route lists
+// (the reference check_route_ip_access consults the blacklist only without a
+// whitelist).
+func TestRouteIPWhitelistBeatsRouteBlacklist(t *testing.T) {
 	pipeline, _ := newRouteIPTestPipeline(t, routeIPTestRoute, func(rc *RouteConfig) {
 		rc.IPWhitelist = []string{routeIPTestIP}
 		rc.IPBlacklist = []string{routeIPTestIP}
 	}, nil)
 	req := routeIPRequest(t, routeIPTestIP, routeIPTestRoute)
 	resp := pipeline.Execute(req)
-	if resp == nil || resp.StatusCode != 403 {
-		t.Fatalf("IP in both route lists must be denied, got %+v", resp)
+	if resp != nil {
+		t.Fatalf("IP in both route lists must pass (the whitelist decides alone), got %+v", resp)
 	}
 }
 
-// A route whitelist match never relaxes the global lists (the ruled NO):
-// a globally blacklisted IP that the route whitelist allows is still denied
-// by the global stage, and so is an IP the global whitelist would reject.
-func TestRouteIPWhitelistDoesNotRelaxGlobalLists(t *testing.T) {
+// A configured route whitelist skips the global lists for the request (the
+// reference skip_ip_lists gate): an IP the route whitelist allows passes even
+// when the global blacklist lists it or the global whitelist omits it.
+func TestRouteIPWhitelistSkipsGlobalLists(t *testing.T) {
 	pipeline, _ := newRouteIPTestPipeline(t, routeIPTestRoute, func(rc *RouteConfig) {
 		rc.IPWhitelist = []string{routeIPTestIP}
 	}, func(c *SecurityConfig) {
 		c.Blacklist = []string{routeIPTestIP}
 	})
-	req := routeIPRequest(t, routeIPTestIP, routeIPTestRoute)
-	resp := pipeline.Execute(req)
-	if resp == nil || resp.StatusCode != 403 || string(resp.Body) != RestrictionBlockedMsg {
-		t.Fatalf("globally blacklisted IP must stay denied despite the route whitelist match, got %+v", resp)
+	if resp := pipeline.Execute(routeIPRequest(t, routeIPTestIP, routeIPTestRoute)); resp != nil {
+		t.Fatalf("route whitelist match must skip the global blacklist, got %+v", resp)
 	}
 	pipeline, _ = newRouteIPTestPipeline(t, routeIPTestRoute, func(rc *RouteConfig) {
 		rc.IPWhitelist = []string{routeIPTestIP}
 	}, func(c *SecurityConfig) {
 		c.Whitelist = []string{routeIPOtherIP}
 	})
-	req = routeIPRequest(t, routeIPTestIP, routeIPTestRoute)
-	resp = pipeline.Execute(req)
-	if resp == nil || resp.StatusCode != 403 || string(resp.Body) != RestrictionBlockedMsg {
-		t.Fatalf("IP outside the global whitelist must stay denied despite the route whitelist match, got %+v", resp)
+	if resp := pipeline.Execute(routeIPRequest(t, routeIPTestIP, routeIPTestRoute)); resp != nil {
+		t.Fatalf("route whitelist match must skip the global whitelist gate, got %+v", resp)
 	}
 }
 
