@@ -38,6 +38,11 @@ By default every category is enabled. Restrict them with
 names whose values skip the semantic analyzer only, while regex scanning
 still runs on them.
 
+The `Cookie` header is scanned one `name=value` pair at a time (split on
+`;`, spaces around a pair trimmed, empty pairs skipped), each pair through the
+same header path and counted against the scan value budget, so the semicolons
+between ordinary cookies do not add up to a semantic hit.
+
 ## Tuning
 
 The nested `guardcore.Config` controls detector internals:

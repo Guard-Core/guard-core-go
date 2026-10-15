@@ -897,11 +897,21 @@ func detectThreat(req Request, cfg *SecurityConfig, exclusions routeDetectionExc
 	headers := req.Headers()
 	for name := range headers.Map() {
 		if hv, ok := headers.Get(name); ok && hv != "" {
-			v := value{content: hv, context: "header", label: fmt.Sprintf("Header '%s': ", strings.ToLower(name)), skipSemantic: exclusions.semanticHeaders[strings.ToLower(strings.TrimSpace(name))]}
-			if excludedHeaders[strings.ToLower(name)] {
-				v.skipCategories = excludedHeaderSkipCategories(name, hv)
+			lowered := strings.ToLower(name)
+			// The Cookie header scans one name=value pair at a time, each
+			// through the same header path and counted against the value
+			// budget (guard-core #162).
+			pairs := []string{hv}
+			if strings.TrimSpace(lowered) == "cookie" {
+				pairs = splitCookieHeader(hv)
 			}
-			values = append(values, v)
+			for _, pair := range pairs {
+				v := value{content: pair, context: "header", label: fmt.Sprintf("Header '%s': ", lowered), skipSemantic: exclusions.semanticHeaders[strings.TrimSpace(lowered)]}
+				if excludedHeaders[lowered] {
+					v.skipCategories = excludedHeaderSkipCategories(name, pair)
+				}
+				values = append(values, v)
+			}
 		}
 	}
 	// Body surface (guard-core 4.0.4 parity): the capped body is extracted
@@ -956,6 +966,19 @@ func detectThreat(req Request, cfg *SecurityConfig, exclusions routeDetectionExc
 		return categories, v.label + threatMessage(firstThreatOf(result))
 	}
 	return nil, ""
+}
+
+// splitCookieHeader splits a Cookie header on ';' into its name=value pairs
+// (_header_items_to_scan): only spaces around a pair are trimmed, so a CR or
+// LF stays in the scanned value, and empty pairs are skipped.
+func splitCookieHeader(value string) []string {
+	var pairs []string
+	for _, pair := range strings.Split(value, ";") {
+		if pair = strings.Trim(pair, " "); pair != "" {
+			pairs = append(pairs, pair)
+		}
+	}
+	return pairs
 }
 
 // firstThreatOf picks the first threat of the detection result, the one the
