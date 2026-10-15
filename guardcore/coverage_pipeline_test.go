@@ -276,10 +276,7 @@ func TestRegisterViolationsRefusalsContinue(t *testing.T) {
 	}
 }
 
-func TestFirstThreatOfAndMessages(t *testing.T) {
-	if firstThreatOf(DetectResult{}) != nil {
-		t.Fatal("empty results have no first threat")
-	}
+func TestThreatMessages(t *testing.T) {
 	cases := []struct {
 		name   string
 		threat map[string]any

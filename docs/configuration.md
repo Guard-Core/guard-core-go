@@ -162,6 +162,7 @@ cfg.Detection = guardcore.Config{
     MaxBodyInspectBytes:    262144,
     SemanticThreshold:      0.7,
     ThreatScoreThreshold:   1.0,
+    MaxScanSeconds:         10.0,
 }
 ```
 

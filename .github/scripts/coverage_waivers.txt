@@ -129,22 +129,22 @@ guardcore/encodings.go:321
 # engine.go
 # findAllMatches stale-match guard (same regexp2 monotonic guarantee as
 # base64decode.go above).
-guardcore/engine.go:157
-guardcore/engine.go:160
+guardcore/engine.go:166
+guardcore/engine.go:169
 # coordinates after the detection-knob and monitor-option fields grew the
 # Config struct (same proofs as above).
-guardcore/engine.go:201
-guardcore/engine.go:216
-guardcore/engine.go:231
+guardcore/engine.go:210
+guardcore/engine.go:225
+guardcore/engine.go:240
 # findAllMatches zero-advance guard: m.Index >= pos and zero-length matches
 # already advance (m.Length == 0 advances next by one), so next <= pos
 # cannot hold.
-guardcore/engine.go:172
-guardcore/engine.go:173
+guardcore/engine.go:181
+guardcore/engine.go:182
 # findFirstAt post-clamp guard: every caller passes start < t.n, so after
 # clamping ceiling to len(rs), start < ceiling holds.
-guardcore/engine.go:187
-guardcore/engine.go:188
+guardcore/engine.go:196
+guardcore/engine.go:197
 # fileupload.go
 # fileUploadIsDoubleExtension no-dot guard: a benign-terminal match implies
 # a literal '.' in the subject, so lastIndexOfRune('.') cannot return -1.
@@ -197,93 +197,93 @@ guardcore/multipartscan.go:157
 # pipeline.go
 # Execute rebuild-error branch: rebuildIfStale has no error return path
 # (the rebuild function returns checks only), so err != nil is defensive.
-guardcore/pipeline.go:1049
-guardcore/pipeline.go:1050
+guardcore/pipeline.go:1068
+guardcore/pipeline.go:1069
 # coordinate after the identity-violation escalation shifted the Execute
 # block (same proof as above).
-guardcore/pipeline.go:1191
-guardcore/pipeline.go:1192
+guardcore/pipeline.go:1210
+guardcore/pipeline.go:1211
 # handleRebuildError body: the function is only reachable from the
 # defensive Execute branch above (the two toolchains split its blocks
 # differently).
-guardcore/pipeline.go:1127
-guardcore/pipeline.go:1130
-guardcore/pipeline.go:1136
-guardcore/pipeline.go:1140
-guardcore/pipeline.go:1128
-guardcore/pipeline.go:1131
-guardcore/pipeline.go:1133
-guardcore/pipeline.go:1137
-guardcore/pipeline.go:1139
-guardcore/pipeline.go:1141
-guardcore/pipeline.go:1143
+guardcore/pipeline.go:1146
+guardcore/pipeline.go:1149
+guardcore/pipeline.go:1155
+guardcore/pipeline.go:1159
+guardcore/pipeline.go:1147
+guardcore/pipeline.go:1150
+guardcore/pipeline.go:1152
+guardcore/pipeline.go:1156
+guardcore/pipeline.go:1158
+guardcore/pipeline.go:1160
+guardcore/pipeline.go:1162
 # handleRebuildError coordinates after the identity-violation escalation
 # and the shared counts helpers shifted the block starts (same proof).
-guardcore/pipeline.go:1270
-guardcore/pipeline.go:1273
-guardcore/pipeline.go:1275
-guardcore/pipeline.go:1279
-guardcore/pipeline.go:1281
-guardcore/pipeline.go:1283
-guardcore/pipeline.go:1285
-guardcore/pipeline.go:1271
-guardcore/pipeline.go:1274
-guardcore/pipeline.go:1276
-guardcore/pipeline.go:1282
-guardcore/pipeline.go:1284
-# handleRebuildError coordinate after the custom_response_modifier pass in
-# createErrorResponse shifted the block start (same proof).
-guardcore/pipeline.go:1286
-# handleRebuildError coordinates after the websocket detection emission
-# helper shifted the block (same proof).
+guardcore/pipeline.go:1289
+guardcore/pipeline.go:1292
+guardcore/pipeline.go:1294
+guardcore/pipeline.go:1298
+guardcore/pipeline.go:1300
+guardcore/pipeline.go:1302
+guardcore/pipeline.go:1304
 guardcore/pipeline.go:1290
 guardcore/pipeline.go:1293
-guardcore/pipeline.go:1296
-guardcore/pipeline.go:1299
-guardcore/pipeline.go:1302
+guardcore/pipeline.go:1295
+guardcore/pipeline.go:1301
 guardcore/pipeline.go:1303
-guardcore/pipeline.go:1306
+# handleRebuildError coordinate after the custom_response_modifier pass in
+# createErrorResponse shifted the block start (same proof).
+guardcore/pipeline.go:1305
+# handleRebuildError coordinates after the websocket detection emission
+# helper shifted the block (same proof).
+guardcore/pipeline.go:1309
+guardcore/pipeline.go:1312
+guardcore/pipeline.go:1315
+guardcore/pipeline.go:1318
+guardcore/pipeline.go:1321
+guardcore/pipeline.go:1322
+guardcore/pipeline.go:1325
 # coordinates after the country-verdict logging and the scan-budget block
 # grew the pipeline file (same proof).
-guardcore/pipeline.go:1351
-guardcore/pipeline.go:1354
-guardcore/pipeline.go:1357
-guardcore/pipeline.go:1360
-guardcore/pipeline.go:1363
-guardcore/pipeline.go:1364
-guardcore/pipeline.go:1367
+guardcore/pipeline.go:1370
+guardcore/pipeline.go:1373
+guardcore/pipeline.go:1376
+guardcore/pipeline.go:1379
+guardcore/pipeline.go:1382
+guardcore/pipeline.go:1383
+guardcore/pipeline.go:1386
 # go 1.27 splits the same statements one line lower.
-guardcore/pipeline.go:1291
-guardcore/pipeline.go:1294
-guardcore/pipeline.go:1300
-guardcore/pipeline.go:1304
+guardcore/pipeline.go:1310
+guardcore/pipeline.go:1313
+guardcore/pipeline.go:1319
+guardcore/pipeline.go:1323
 # go 1.26 splits the function one line earlier than the local toolchain
-guardcore/pipeline.go:1269
-guardcore/pipeline.go:1272
-guardcore/pipeline.go:1278
-guardcore/pipeline.go:1280
-guardcore/pipeline.go:1277
+guardcore/pipeline.go:1288
+guardcore/pipeline.go:1291
+guardcore/pipeline.go:1297
+guardcore/pipeline.go:1299
+guardcore/pipeline.go:1296
 # buildChecks nil-build fallback: every spec in the table defines build, so
 # spec.build == nil cannot hold.
-guardcore/pipeline.go:1254
-guardcore/pipeline.go:1255
+guardcore/pipeline.go:1273
+guardcore/pipeline.go:1274
 # coordinates after the escalation helpers shifted the buildChecks table
-guardcore/pipeline.go:1396
-guardcore/pipeline.go:1397
+guardcore/pipeline.go:1415
+guardcore/pipeline.go:1416
 # coordinate after the websocket detection emission helper shifted the
 # buildChecks table (same proof).
-guardcore/pipeline.go:1417
+guardcore/pipeline.go:1436
 # coordinates after the country-verdict logging and the scan-budget block
 # grew the pipeline file (same proof).
-guardcore/pipeline.go:1478
+guardcore/pipeline.go:1497
 # go 1.27 splits the same statement one line lower.
-guardcore/pipeline.go:1418
+guardcore/pipeline.go:1437
 # Execute rebuild-error return coordinate after the websocket detection
 # emission helper shifted the Execute block (same proof as the rebuild
 # entries above).
-guardcore/pipeline.go:1212
+guardcore/pipeline.go:1231
 # go 1.27 splits the same statement one line lower.
-guardcore/pipeline.go:1213
+guardcore/pipeline.go:1232
 # redis.go
 # RecordSlidingWindowHit rand guard: crypto/rand.Read cannot fail on the
 # supported platforms, so the error branch is defensive.
@@ -317,11 +317,11 @@ guardcore/registry.go:23
 guardcore/registry.go:24
 # safeFindAll stale-match guard (same regexp2 monotonic guarantee as
 # engine.go above).
-guardcore/registry.go:276
-guardcore/registry.go:279
+guardcore/registry.go:288
+guardcore/registry.go:291
 # safeFindAll zero-advance guard (same proof as engine.go).
-guardcore/registry.go:293
-guardcore/registry.go:294
+guardcore/registry.go:305
+guardcore/registry.go:306
 # semantic.go
 # codeInjectionRisk clamp: the maximum possible score is
 # 0.2 + 0.2 + 0.1 + 0.1 + 0.2 = 0.8 < 1.0, so risk > 1.0 cannot hold.
@@ -350,9 +350,9 @@ guardcore/base64decode.go:355
 guardcore/base64decode.go:356
 guardcore/base64decode.go:369
 guardcore/registry.go:25
-guardcore/registry.go:288
-guardcore/registry.go:289
-guardcore/registry.go:305
+guardcore/registry.go:300
+guardcore/registry.go:301
+guardcore/registry.go:317
 # extractLeadingLiterals: error-recovery returns for malformed internal
 # state; the accepted shapes are pinned by literal_prefilter_test.go.
 guardcore/literal_prefilter.go:58

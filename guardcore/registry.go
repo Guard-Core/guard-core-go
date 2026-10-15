@@ -206,7 +206,7 @@ func iterScanWindowMatches(p *compiledPattern, t scanText) []rmatch {
 	return out
 }
 
-func checkRegexPatterns(t scanText, context string, enabledCategories map[string]bool, mode viewMode) ([]map[string]any, []string, []string) {
+func checkRegexPatterns(t scanText, context string, enabledCategories map[string]bool, mode viewMode, budget *detectionScanBudget) ([]map[string]any, []string, []string) {
 	var threats []map[string]any
 	var matched []string
 	var timeouts []string
@@ -220,6 +220,7 @@ func checkRegexPatterns(t scanText, context string, enabledCategories map[string
 	// Built once per scanned string (O(n)); the density query is O(1) per
 	// match (guard-core 4.0.3 binary noise gate).
 	prefix := buildBinaryPrefix(t)
+	defer budget.beginPass()()
 
 	for _, p := range globalPatterns {
 		if patternExcludedFromView(p.source, mode) {
@@ -230,6 +231,17 @@ func checkRegexPatterns(t scanText, context string, enabledCategories map[string
 		}
 		if enabledCategories != nil && p.category != "custom" && !enabledCategories[p.category] {
 			continue
+		}
+		// The per-request scan time budget is checked between patterns
+		// (the reference _check_regex_patterns): once spent, the rest of
+		// the pass is skipped and one weighted pattern_timeout threat
+		// fails the value closed.
+		if budget.timeExhausted() {
+			threat := budget.timeBudgetThreat()
+			threats = append(threats, threat)
+			matched = append(matched, scanTimeBudgetExhaustedPattern)
+			timeouts = append(timeouts, scanTimeBudgetExhaustedPattern)
+			break
 		}
 		threat, timeoutOccurred := checkRegexPattern(&p, t, validatorContext, prefix)
 		if timeoutOccurred {

@@ -20,7 +20,7 @@ func TestSeedCustomPattern(t *testing.T) {
 		t.Fatalf("seed wrong: %v", customs)
 	}
 	// the seeded pattern participates in the scan
-	threats := m.scanCustomPatterns("a seeded-abc b")
+	threats := m.scanCustomPatterns("a seeded-abc b", nil)
 	if len(threats) != 1 {
 		t.Fatalf("seeded scan wrong: %v", threats)
 	}
@@ -126,7 +126,7 @@ func (errorAgent) SendMetric(metric SecurityMetric) error {
 
 func TestScanCustomPatternsEmptyRegistry(t *testing.T) {
 	resetSusPatternsForTest(t)
-	if threats := DefaultSusPatternsManager.scanCustomPatterns("anything"); len(threats) != 0 {
+	if threats := DefaultSusPatternsManager.scanCustomPatterns("anything", nil); len(threats) != 0 {
 		t.Fatalf("empty registry scanned threats: %v", threats)
 	}
 }
@@ -284,7 +284,7 @@ func TestScanCustomPatternsNonMatch(t *testing.T) {
 	resetSusPatternsForTest(t)
 	m := DefaultSusPatternsManager
 	m.SeedCustomPattern("nomatch-[a-z]+z")
-	if threats := m.scanCustomPatterns("nothing here"); len(threats) != 0 {
+	if threats := m.scanCustomPatterns("nothing here", nil); len(threats) != 0 {
 		t.Fatalf("non-matching content scanned threats: %v", threats)
 	}
 }

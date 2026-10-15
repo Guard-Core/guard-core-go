@@ -945,13 +945,22 @@ func detectThreat(req Request, cfg *SecurityConfig, exclusions routeDetectionExc
 			// body_json_scan._mongo_operator_key_hit.
 			return []string{v.forcedCategory}, fmt.Sprintf("JSON operator key '%s': matched pattern '%s'", v.content, mongoOperatorKeyRE.String())
 		}
-		result := DefaultSusPatternsManager.detect(v.content, resolveClientIP(req), v.context, "", v.skipSemantic)
+		result := DefaultSusPatternsManager.detect(v.content, resolveClientIP(req), v.context, "", v.skipSemantic, budget)
 		if !result.IsThreat {
 			continue
 		}
 		var categories []string
 		seen := map[string]bool{}
 		for _, threat := range result.Threats {
+			if threat["pattern"] == scanTimeBudgetExhaustedPattern {
+				// The spent time budget fails the request closed under
+				// the weighted custom category, whatever the enabled set.
+				if !seen["custom"] {
+					seen["custom"] = true
+					categories = append(categories, "custom")
+				}
+				continue
+			}
 			category, _ := threat["category"].(string)
 			if category == "" || !enabled[category] || v.skipCategories[category] || seen[category] {
 				continue
@@ -963,7 +972,7 @@ func detectThreat(req Request, cfg *SecurityConfig, exclusions routeDetectionExc
 			return nil, ""
 		}
 		sort.Strings(categories)
-		return categories, v.label + threatMessage(firstThreatOf(result))
+		return categories, v.label + threatsMessage(result.Threats)
 	}
 	return nil, ""
 }
@@ -981,13 +990,23 @@ func splitCookieHeader(value string) []string {
 	return pairs
 }
 
-// firstThreatOf picks the first threat of the detection result, the one the
-// reference _check_value_enhanced uses for its trigger message.
-func firstThreatOf(result DetectResult) map[string]any {
-	if len(result.Threats) == 0 {
-		return nil
+// threatsMessage mirrors _build_threats_message: the first threat's
+// message, plus the first pattern_timeout threat's when the first is not
+// one, so a request that tipped the scan time budget names it.
+func threatsMessage(threats []map[string]any) string {
+	if len(threats) == 0 {
+		return threatMessage(nil)
 	}
-	return result.Threats[0]
+	message := threatMessage(threats[0])
+	if threats[0]["type"] == "pattern_timeout" {
+		return message
+	}
+	for _, threat := range threats[1:] {
+		if threat["type"] == "pattern_timeout" {
+			return message + "; " + threatMessage(threat)
+		}
+	}
+	return message
 }
 
 // threatMessage mirrors _build_threat_message
