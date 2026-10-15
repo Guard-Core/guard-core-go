@@ -3,6 +3,41 @@ Release Notes
 
 ___
 
+v4.4.0 (2026-10-15)
+-------------------
+
+The reference-alignment release: a per-request scan time budget, the configured threat score threshold, client identity canonicalization, the reference IP list precedence and the dynamic-rules overlay (v4.4.0)
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+### Added
+
+- **`Detection.MaxScanSeconds`: a per-request cap on regex scan CPU time** (#90). The budget spans every field of one request (URL path, params, headers and body values) and every pattern, and is checked between patterns in each regex view pass and before each runtime registry pattern. Default `10.0`, valid range `0.1` to `60`, zero means the default, NaN and infinities are rejected. Once spent, the remaining patterns and values are not scanned and the request is blocked with a `pattern_timeout` threat named `scan_time_budget_exhausted` (category `custom`, weight 1.0), so padding a request with filler cannot skip detection. The clock is per-thread CPU time (`clock_gettime(CLOCK_THREAD_CPUTIME_ID)` through `golang.org/x/sys/unix` on linux, darwin and freebsd), with a wall-clock fallback elsewhere. `golang.org/x/sys` moves from an indirect to a direct dependency at the same version. A bare `Detect` call outside a request has no budget.
+- **`ExcludedSemanticDetectionHeaders`: an opt-in semantic-only header exclusion** (#88). Header names listed here (case-insensitive, default empty) skip the semantic analyzer only and regex scanning is unchanged. It exists on the global config and on `RouteConfig`, and the route set merges with the global set.
+
+### Fixed
+
+- **`Detection.ThreatScoreThreshold` is honored** (#92). The field was declared but never read, and the engine decided on a hard-coded `1.0`. A request is now flagged when the regex anomaly score reaches the configured threshold or any semantic threat exists. `Validate` rejects values outside `0` to `10`, and zero means the default `1.0` (a literal `0.0` is not expressible in Go because it would flag every request).
+- **Client identity matches the reference** (#99). The identity is canonicalized like the reference: an IPv4-mapped address (`::ffff:a.b.c.d`), brackets and zones no longer defeat an IPv4 blacklist, whitelist, exempt or emergency entry, or a ban stored for the IPv4 form. The resolved identity is stored on every path, including no trusted proxies and a `unix` peer. A mapped peer is no longer trusted by an IPv4 trusted-proxy CIDR, a malformed trusted-proxy CIDR makes the whole scan untrusted, and HTTPS enforcement applies the same raw-address rule.
+- **Unresolved client address, bypass response pass and rate-limit autoban match the reference** (#100). A request with no connection address whose identity stays unresolved is answered 403 `Client address could not be determined` under `FailSecure` (on-block hook check name `client_address_unresolved`) and continues as `unknown` otherwise. `ProcessResponse` returns early on an all-checks bypass route outside passive mode, so it collects no metrics and runs no return rules. Rate-limit violations feed `EnableRateLimitAutoBan` under the shared `rate_limit` category, trying `ThreatBanConfig["rate_limit"]` before the flat threshold.
+- **IP list precedence follows the reference** (#102). A configured global or route whitelist decides alone, and the blacklist is consulted only when no whitelist is configured. A configured route whitelist skips the global lists for the request.
+- **Dynamic rule versions apply over the base config, not over the previous version** (#96). The retained base snapshot is restored before each new version or different rule is applied, a failed apply rolls back to the previous state, and expiry is unchanged. Emergency mode no longer compounds the `AutoBanThreshold` reduction per version, and `suspicious_patterns` the registry already holds are skipped. The global rate limit log line no longer prints a pointer address.
+- **Passive-mode suspicious logs keep the reason, and the Cookie header is scanned one `name=value` pair at a time** (#88). A passive line without a trigger reads `Suspicious activity detected` with its reason instead of the penetration wording. Only spaces around a pair are trimmed, empty pairs are skipped, and each pair counts against the value budget, so an ordinary logged-in cookie header no longer scores as command separators while a payload inside one cookie is still detected.
+- **A data race in `BoundBodyRead` and a load-dependent reach-probe verdict** (#94). The slot channel is kept in a local instead of being re-read from the package variable, and the reach-probe samples and load factor are timed on the scan CPU clock, so a busy host no longer flips a safe pattern to unsafe.
+
+### Changed
+
+- **Behavior to know before upgrading.** A request that spends `Detection.MaxScanSeconds` of regex CPU time is now blocked with a `pattern_timeout` threat instead of being scanned to the end. A set `Detection.ThreatScoreThreshold` now changes verdicts. Adapters that hand the engine a request with an empty remote address now get a 403 under `FailSecure`, so set the remote address in the adapter. IPv4 list entries now match clients that connect as `::ffff:a.b.c.d`, and an IPv4 CIDR no longer trusts a mapped peer as a proxy. A route whitelist now overrides the route blacklist and skips the global lists, and a global whitelist now overrides the global blacklist, so a deployment that relied on the blacklist beating the whitelist must move the entry. A dynamic rule version no longer carries over the previous version's changes, so a field a version does not set returns to the base value. A passive-mode log match on the old penetration wording needs updating.
+
+### Docs
+
+- The configuration and detection pages document the new options, the threshold semantics and the Cookie behavior, and no longer call dynamic rules, agent telemetry, CORS, country lists or global behavior rules unported (#88, #90, #92, #100).
+
+### Chore
+
+- The weekly lint runs on Go 1.26.x, the sponsor button points at the maintainer's Sponsors page, and the mkdocs `site_url` and README docs links point at the live site root (#82, #84, #85, #86).
+
+___
+
 v4.3.3 (2026-10-12)
 -------------------
 
