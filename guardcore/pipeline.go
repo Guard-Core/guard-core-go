@@ -568,6 +568,8 @@ func countFor(store *suspiciousCountStore, ip, category string) int {
 type rateLimitCheck struct {
 	cfg     *SecurityConfig
 	manager *RateLimitManager
+	ban     *IPBanManager
+	counts  *suspiciousCountStore
 }
 
 func (c *rateLimitCheck) CheckName() string             { return "rate_limit" }
@@ -602,11 +604,64 @@ func (c *rateLimitCheck) Check(req Request) *Response {
 		firePassiveBlockHook(cfg, req, "rate_limit", reason, "")
 		return nil
 	}
+	c.recordAutoban(req, ip, outcome)
 	resp := createErrorResponse(cfg, 429, "Too many requests")
 	// The reference pins Retry-After on the 429 body from the tier window
 	// that tripped (guard_core/handlers/ratelimit_handler.py).
 	resp.SetHeader("Retry-After", outcome.RetryAfter())
 	return resp
+}
+
+// recordAutoban mirrors _record_rate_limit_autoban over _try_threshold_ban
+// with the ("rate_limit",) category: with enable_rate_limit_auto_ban an
+// active-mode violation counts under the shared "rate_limit" pseudo-category,
+// then threat_ban_config["rate_limit"] is tried before the flat
+// auto_ban_threshold over the IP's total across categories.
+func (c *rateLimitCheck) recordAutoban(req Request, ip string, outcome *RateLimitOutcome) {
+	if !c.cfg.EnableRateLimitAutoBan || c.counts == nil {
+		return
+	}
+	recordCategories(c.counts, ip, []string{"rate_limit"})
+	if !c.cfg.EnableIPBanning || c.ban == nil {
+		return
+	}
+	var (
+		duration int
+		reason   string
+		logLine  string
+	)
+	triggerInfo := "Global rate limit exceeded"
+	switch outcome.Tier {
+	case "endpoint":
+		triggerInfo = fmt.Sprintf("Endpoint-specific rate limit exceeded: %d requests per %ds for %s", outcome.Limit, outcome.Window, redactEndpointForDisplay(req.URLPath(), c.cfg))
+	case "route":
+		triggerInfo = fmt.Sprintf("Route-specific rate limit exceeded: %d requests per %ds", outcome.Limit, outcome.Window)
+	case "geo":
+		country := outcome.Country
+		if country == "" {
+			country = "unknown"
+		}
+		triggerInfo = fmt.Sprintf("Geo rate limit exceeded for %s: %d requests per %ds", country, outcome.Limit, outcome.Window)
+	}
+	if entry, ok := c.cfg.ThreatBanConfig["rate_limit"]; ok && countFor(c.counts, ip, "rate_limit") >= entry.Threshold {
+		duration, reason = entry.Duration, "rate_limit_exceeded:rate_limit"
+		logLine = fmt.Sprintf("IP banned due to rate_limit threshold: %s - %s", ip, triggerInfo)
+	} else if totalCountFor(c.counts, ip) >= c.cfg.AutoBanThreshold {
+		duration, reason = c.cfg.AutoBanDuration, "rate_limit_exceeded"
+		logLine = fmt.Sprintf("IP banned due to suspicious activity: %s - %s", ip, triggerInfo)
+	} else {
+		return
+	}
+	applied, err := c.ban.Ban(ip, duration, reason)
+	if err != nil {
+		emitBusEvent(c.cfg, EventIPBanFailed, req, "ban_not_applied",
+			fmt.Sprintf("Escalation ban failed for %s: %v", ip, err),
+			map[string]any{"ip_address": ip})
+		return
+	}
+	if applied {
+		logActivityReason(req, c.cfg, logLine, c.CheckName())
+	}
 }
 
 // emitRateLimitEvent mirrors the reference rate-limit event sites: every
@@ -1474,7 +1529,7 @@ func buildChecks(cfg *SecurityConfig, ban *IPBanManager, rateLimit *RateLimitMan
 			return &userAgentCheck{cfg: cfg, routes: routeConfigs}
 		}},
 		{"rate_limit", true, func(cfg *SecurityConfig) bool { return cfg.EnableRateLimiting || len(cfg.EndpointRateLimits) > 0 }, func(cfg *SecurityConfig) SecurityCheck {
-			return &rateLimitCheck{cfg: cfg, manager: rateLimit}
+			return &rateLimitCheck{cfg: cfg, manager: rateLimit, ban: ban, counts: counts}
 		}},
 		{"suspicious_activity", false, func(cfg *SecurityConfig) bool {
 			// Reference SuspiciousActivityCheck.applies_to: the global flag
