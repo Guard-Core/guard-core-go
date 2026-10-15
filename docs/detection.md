@@ -34,7 +34,9 @@ cms_probing, recon, proto_pollution, code_injection, deserialization
 By default every category is enabled. Restrict them with
 `EnabledDetectionCategories`; exclude noisy sources with
 `ExcludedDetectionHeaders`, `ExcludedDetectionParams`, and
-`ExcludedDetectionBodyFields`.
+`ExcludedDetectionBodyFields`. `ExcludedSemanticDetectionHeaders` is an opt-in set of header
+names whose values skip the semantic analyzer only, while regex scanning
+still runs on them.
 
 ## Tuning
 

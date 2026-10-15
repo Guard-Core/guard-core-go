@@ -124,11 +124,18 @@ type SecurityConfig struct {
 	RateLimitWindow    int
 	EndpointRateLimits map[string]RateLimitEntry
 
-	EnablePenetrationDetection  bool
-	EnabledDetectionCategories  []string
-	ExcludedDetectionHeaders    map[string]bool
-	ExcludedDetectionParams     map[string]bool
-	ExcludedDetectionBodyFields map[string]bool
+	EnablePenetrationDetection bool
+	EnabledDetectionCategories []string
+	ExcludedDetectionHeaders   map[string]bool
+	// ExcludedSemanticDetectionHeaders mirrors the reference
+	// excluded_semantic_detection_headers (opt-in, default empty): header
+	// names whose values skip the semantic analyzer only, matched
+	// case-insensitively. Regex category scanning of these headers is
+	// unchanged. Useful for JWT session cookies that score near the
+	// semantic threshold (for example cookie, authorization).
+	ExcludedSemanticDetectionHeaders map[string]bool
+	ExcludedDetectionParams          map[string]bool
+	ExcludedDetectionBodyFields      map[string]bool
 	// DetectionScanBody mirrors the reference detection_scan_body
 	// SecurityConfig field (default true; nil is the default): when false
 	// the body surface is not scanned at all. A route's DetectionScanBody
@@ -351,6 +358,7 @@ func DefaultSecurityConfig() *SecurityConfig {
 		EnablePenetrationDetection:          true,
 		EnabledDetectionCategories:          categories,
 		ExcludedDetectionHeaders:            map[string]bool{},
+		ExcludedSemanticDetectionHeaders:    map[string]bool{},
 		ExcludedDetectionParams:             map[string]bool{},
 		ExcludedDetectionBodyFields:         map[string]bool{},
 		DetectionBinaryMinRunLength:         DefaultDetectionBinaryMinRunLength,

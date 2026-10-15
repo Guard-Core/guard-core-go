@@ -65,9 +65,13 @@ type RouteConfig struct {
 	// exception: it always merges the hardcoded defaults with the config
 	// set and the route set). Entries are matched lowercased like the
 	// reference.
-	ExcludedDetectionHeaders    map[string]bool
-	ExcludedDetectionParams     map[string]bool
-	ExcludedDetectionBodyFields map[string]bool
+	ExcludedDetectionHeaders map[string]bool
+	// ExcludedSemanticDetectionHeaders adds header names whose values skip
+	// the semantic analyzer only (regex scanning is unchanged); it merges
+	// with the global set, never replaces it.
+	ExcludedSemanticDetectionHeaders map[string]bool
+	ExcludedDetectionParams          map[string]bool
+	ExcludedDetectionBodyFields      map[string]bool
 	// EnabledDetectionCategories, when non-nil, replaces the global enabled
 	// category set for this route (an empty slice disables every category,
 	// like the reference's empty frozenset).

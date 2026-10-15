@@ -875,6 +875,7 @@ func detectThreat(req Request, cfg *SecurityConfig, exclusions routeDetectionExc
 		label          string
 		forcedCategory string
 		skipCategories map[string]bool
+		skipSemantic   bool
 	}
 	var values []value
 	if path := req.URLPath(); path != "" {
@@ -896,7 +897,7 @@ func detectThreat(req Request, cfg *SecurityConfig, exclusions routeDetectionExc
 	headers := req.Headers()
 	for name := range headers.Map() {
 		if hv, ok := headers.Get(name); ok && hv != "" {
-			v := value{content: hv, context: "header", label: fmt.Sprintf("Header '%s': ", strings.ToLower(name))}
+			v := value{content: hv, context: "header", label: fmt.Sprintf("Header '%s': ", strings.ToLower(name)), skipSemantic: exclusions.semanticHeaders[strings.ToLower(strings.TrimSpace(name))]}
 			if excludedHeaders[strings.ToLower(name)] {
 				v.skipCategories = excludedHeaderSkipCategories(name, hv)
 			}
@@ -934,7 +935,7 @@ func detectThreat(req Request, cfg *SecurityConfig, exclusions routeDetectionExc
 			// body_json_scan._mongo_operator_key_hit.
 			return []string{v.forcedCategory}, fmt.Sprintf("JSON operator key '%s': matched pattern '%s'", v.content, mongoOperatorKeyRE.String())
 		}
-		result := DefaultSusPatternsManager.Detect(v.content, resolveClientIP(req), v.context, "")
+		result := DefaultSusPatternsManager.detect(v.content, resolveClientIP(req), v.context, "", v.skipSemantic)
 		if !result.IsThreat {
 			continue
 		}

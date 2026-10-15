@@ -156,6 +156,13 @@ func calculateThreatScore(regexThreats, semanticThreats []map[string]any) float6
 }
 
 func Detect(content string, ip string, context string) DetectResult {
+	return detectContent(content, ip, context, false)
+}
+
+// detectContent is Detect with the semantic analyzer optionally skipped
+// (the reference _context_header_is_semantic_excluded): the regex passes
+// still run on the value, only the semantic threats are left out.
+func detectContent(content string, ip string, context string, skipSemantic bool) DetectResult {
 	originalLength := len([]rune(content))
 
 	cfg := DefaultConfig()
@@ -205,7 +212,10 @@ func Detect(content string, ip string, context string) DetectResult {
 		regexThreats = append(regexThreats, sbThreats...)
 	}
 
-	semanticThreats, _, _ := checkSemanticThreats(processedContent, content)
+	var semanticThreats []map[string]any
+	if !skipSemantic {
+		semanticThreats, _, _ = checkSemanticThreats(processedContent, content)
+	}
 
 	threats := append(append([]map[string]any{}, regexThreats...), semanticThreats...)
 	isThreat := regexAnomaly(regexThreats) >= 1.0 || len(semanticThreats) > 0
