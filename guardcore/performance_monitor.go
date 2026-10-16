@@ -527,10 +527,13 @@ func (m *PerformanceMonitor) sendAnomalyEvent(anomaly *Anomaly, agent AnomalyEve
 // exported BuildCallbackErrorEventData via sinks that observe callback
 // failures.
 func (m *PerformanceMonitor) notifyCallbacks(anomaly Anomaly, agent AnomalyEventSender, correlationID string) {
-	safe := SanitizeAnomalyData(anomaly)
 	m.mu.Lock()
 	callbacks := append([]func(map[string]any){}, m.anomalyCallbacks...)
 	m.mu.Unlock()
+	if len(callbacks) == 0 {
+		return
+	}
+	safe := SanitizeAnomalyData(anomaly)
 	for _, callback := range callbacks {
 		runAnomalyCallback(callback, safe, agent, correlationID)
 	}

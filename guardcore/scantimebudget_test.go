@@ -8,16 +8,23 @@ import (
 )
 
 // jumpClock is a fake scan clock that advances by step on every read, so a
-// small cap is spent without burning real CPU.
+// small cap is spent without burning real CPU. The wall clock the slice
+// boundary reads advances by step too, so every pattern check crosses a
+// slice and charges the CPU clock (the per-pattern check itself reads only
+// the wall clock; see TestCPUClockIsReadPerPassNotPerPattern).
 func jumpClock(t *testing.T, step float64) {
 	t.Helper()
-	prev := scanCPUNow
-	now := 0.0
+	prevCPU, prevWall := scanCPUNow, scanWallNow
+	cpu, wall := 0.0, 0.0
 	scanCPUNow = func() float64 {
-		now += step
-		return now
+		cpu += step
+		return cpu
 	}
-	t.Cleanup(func() { scanCPUNow = prev })
+	scanWallNow = func() float64 {
+		wall += step
+		return wall
+	}
+	t.Cleanup(func() { scanCPUNow, scanWallNow = prevCPU, prevWall })
 }
 
 func TestScanSecondsDefaultAndRange(t *testing.T) {
@@ -239,5 +246,63 @@ func TestBudgetThreatIsFlaggedByWeightNotUnconditionally(t *testing.T) {
 	t.Cleanup(func() { delete(weightOverrides, scanTimeBudgetExhaustedPattern) })
 	if r := run(); r.IsThreat {
 		t.Fatalf("a sub-threshold weight (summed over the view passes) must not flag the request, got %v", r.Threats)
+	}
+}
+
+// The CPU clock is read when a pass opens, at slice boundaries and when it
+// closes, not once per pattern: a pass over many patterns inside one slice
+// reads it twice, and a stalled pattern adds one read per elapsed slice.
+func TestCPUClockIsReadPerPassNotPerPattern(t *testing.T) {
+	prevCPU, prevWall := scanCPUNow, scanWallNow
+	t.Cleanup(func() { scanCPUNow, scanWallNow = prevCPU, prevWall })
+	cpuReads, wall := 0, 0.0
+	scanCPUNow = func() float64 { cpuReads++; return 0 }
+	scanWallNow = func() float64 { return wall }
+	budget := newDetectionScanBudget(nil, "203.0.113.7")
+	end := budget.beginPass()
+	for i := 0; i < 1000; i++ {
+		if budget.timeExhausted() {
+			t.Fatal("a zero CPU clock never exhausts the budget")
+		}
+		wall += 0.00001 // 10 us per pattern: 1000 patterns span 5 slices
+	}
+	end()
+	if cpuReads < 2 || cpuReads > 10 {
+		t.Fatalf("1000 patterns over ~5 slices must read the CPU clock a few times, got %d reads", cpuReads)
+	}
+	cpuReads = 0
+	end = budget.beginPass()
+	for i := 0; i < 1000; i++ {
+		budget.timeExhausted()
+	}
+	end()
+	if cpuReads != 2 {
+		t.Fatalf("a pass inside one slice reads the CPU clock only at open and close, got %d reads", cpuReads)
+	}
+}
+
+// A long pass stops within about one slice of the cap: the budget is
+// checked against the charged time, which lags the true spend by at most one
+// slice plus one pattern.
+func TestLongPassStopsWithinOneSliceOfTheBudget(t *testing.T) {
+	prevCPU, prevWall := scanCPUNow, scanWallNow
+	t.Cleanup(func() { scanCPUNow, scanWallNow = prevCPU, prevWall })
+	now := 0.0 // one fake clock drives both: each pattern costs 0.5 ms
+	scanCPUNow = func() float64 { return now }
+	scanWallNow = func() float64 { return now }
+	budget := newDetectionScanBudget(nil, "203.0.113.7")
+	budget.scanSeconds = 0.0105
+	end := budget.beginPass()
+	defer end()
+	patterns := 0
+	for !budget.timeExhausted() {
+		patterns++
+		now += 0.0005
+		if patterns > 1000 {
+			t.Fatal("the budget never stopped the pass")
+		}
+	}
+	if overshoot := now - budget.scanSeconds; overshoot < 0 || overshoot > scanSliceSeconds+0.0005 {
+		t.Fatalf("stopped %.4fs past the cap, want within one slice plus one pattern", overshoot)
 	}
 }
