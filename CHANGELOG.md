@@ -3,6 +3,15 @@ Release Notes
 
 ___
 
+Unreleased
+----------
+
+### Fixed
+
+- **The spec-DEBUG logs no longer print by default.** The no-rules, no-geolocation and loopback-exempt country verdicts (spec 02), the short-circuit `Request blocked by <check>` line (spec 03, still silenced per check by `muted_check_logs`) and the untrusted-proxy spoof line for private and loopback peers were written unconditionally on every request. They are now emitted with `log/slog` at debug level, matching the reference's DEBUG semantics, so they are hidden at the default level. Call `slog.SetLogLoggerLevel(slog.LevelDebug)` to see them. The blocked-by line now carries `check`, `path` and `method` as slog attributes.
+
+___
+
 v4.4.0 (2026-10-15)
 -------------------
 

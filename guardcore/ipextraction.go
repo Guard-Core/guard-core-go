@@ -2,6 +2,7 @@ package guardcore
 
 import (
 	"log"
+	"log/slog"
 	"net/netip"
 	"strings"
 	"sync"
@@ -269,7 +270,7 @@ func handleUntrustedProxy(cfg *SecurityConfig, req Request, connectingIP, canoni
 		message := "Potential IP spoof attempt: X-Forwarded-For header " +
 			displayForwardedFor + " received from untrusted IP " + connectingIP
 		if isPrivateOrLoopback(connectingIP) {
-			log.Printf("[debug] %s", sanitizeForLog(message))
+			slog.Debug(sanitizeForLog(message))
 		} else {
 			log.Printf("[warning] %s", sanitizeForLog(message))
 		}
