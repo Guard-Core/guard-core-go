@@ -24,17 +24,27 @@ type detectionScanBudget struct {
 	depthWarned bool
 
 	// The time budget (detection_max_scan_seconds): spent is the summed
-	// scan-clock time of every finished pass, passStart the clock reading
-	// when the current pass began.
+	// scan-clock time charged so far, passMark the scan-clock reading at
+	// the last charge. The CPU clock is read when a pass opens, at each
+	// scanSliceSeconds wall-clock boundary (sliceStart, request scoped so it
+	// spans passes) and when the pass closes, never once per pattern; the
+	// per-pattern check reads only the cheap monotonic wall clock.
 	clock       func() float64
+	wall        func() float64
 	scanSeconds float64
 	spent       float64
-	passStart   float64
+	passMark    float64
+	sliceStart  float64
 	timeWarned  bool
 }
 
+// scanSliceSeconds is the wall-clock slice between CPU charges, the same
+// 2 ms the reference yields the event loop on (_EVENT_LOOP_SLICE_SECONDS).
+const scanSliceSeconds = 0.002
+
 func newDetectionScanBudget(cfg *SecurityConfig, clientIP string) *detectionScanBudget {
-	b := &detectionScanBudget{cfg: cfg, clientIP: clientIP, clock: scanCPUNow, scanSeconds: 10.0}
+	b := &detectionScanBudget{cfg: cfg, clientIP: clientIP, clock: scanCPUNow, wall: scanWallNow, scanSeconds: 10.0}
+	b.sliceStart = b.wall()
 	if cfg != nil && cfg.Detection.MaxScanSeconds > 0 {
 		b.scanSeconds = cfg.Detection.MaxScanSeconds
 	}
@@ -42,11 +52,11 @@ func newDetectionScanBudget(cfg *SecurityConfig, clientIP string) *detectionScan
 }
 
 // beginPass starts timing one regex pass (a view scan or the runtime
-// registry scan) and returns the function that ends it, adding the pass to
-// the spent total. Only regex work runs inside a pass, so decoding and
-// semantic analysis are not counted, like the reference. With a per-thread
-// CPU clock the goroutine is pinned to its OS thread for the pass so both
-// readings come from the same thread.
+// registry scan) and returns the function that ends it with a final
+// charge. Only regex work runs inside a pass, so decoding and semantic
+// analysis are not counted, like the reference. With a per-thread CPU
+// clock the goroutine is pinned to its OS thread for the pass so every
+// reading comes from the same thread.
 func (b *detectionScanBudget) beginPass() func() {
 	if b == nil {
 		return func() {}
@@ -54,22 +64,35 @@ func (b *detectionScanBudget) beginPass() func() {
 	if clockIsThreadCPU {
 		runtime.LockOSThread()
 	}
-	b.passStart = b.clock()
+	b.passMark = b.clock()
 	return func() {
-		b.spent += b.clock() - b.passStart
+		b.charge()
 		if clockIsThreadCPU {
 			runtime.UnlockOSThread()
 		}
 	}
 }
 
-// timeExhausted mirrors _scan_time_budget_exhausted: true once the time
-// spent in finished passes plus the running pass reaches the cap.
+// charge adds the scan-clock time since the last charge to spent.
+func (b *detectionScanBudget) charge() {
+	now := b.clock()
+	b.spent += now - b.passMark
+	b.passMark = now
+}
+
+// timeExhausted mirrors _scan_time_budget_exhausted: true once the charged
+// time reaches the cap. It reads only the monotonic wall clock, and charges
+// the CPU clock when a slice has elapsed, so the lag behind the true spend
+// is at most one slice plus one pattern.
 func (b *detectionScanBudget) timeExhausted() bool {
 	if b == nil {
 		return false
 	}
-	return b.spent+(b.clock()-b.passStart) >= b.scanSeconds
+	if now := b.wall(); now-b.sliceStart >= scanSliceSeconds {
+		b.charge()
+		b.sliceStart = now
+	}
+	return b.spent >= b.scanSeconds
 }
 
 // timeBudgetThreat mirrors _scan_time_budget_exhausted_threat plus the

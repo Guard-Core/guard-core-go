@@ -9,6 +9,10 @@ import "time"
 // drive it.
 var scanCPUNow = platformScanClock
 
+// scanWallNow is the cheap monotonic clock the per-pattern check and the
+// slice boundary read; a variable so tests can drive it.
+var scanWallNow = wallClockSeconds
+
 var scanClockEpoch = time.Now()
 
 // wallClockSeconds is the fallback scan clock: seconds on the monotonic
