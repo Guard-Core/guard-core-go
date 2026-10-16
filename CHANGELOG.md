@@ -3,12 +3,24 @@ Release Notes
 
 ___
 
-Unreleased
-----------
+v4.4.1 (2026-10-16)
+-------------------
+
+The scan budget CPU cost and quiet spec DEBUG logs release (v4.4.1)
+-------------------------------------------------------------------
 
 ### Fixed
 
-- **The spec-DEBUG logs no longer print by default.** The no-rules, no-geolocation and loopback-exempt country verdicts (spec 02), the short-circuit `Request blocked by <check>` line (spec 03, still silenced per check by `muted_check_logs`) and the untrusted-proxy spoof line for private and loopback peers were written unconditionally on every request. They are now emitted with `log/slog` at debug level, matching the reference's DEBUG semantics, so they are hidden at the default level. Call `slog.SetLogLoggerLevel(slog.LevelDebug)` to see them. The blocked-by line now carries `check`, `path` and `method` as slog attributes.
+- **The scan time budget no longer reads the CPU clock on every pattern check** (#112, #113). `timeExhausted` read the thread CPU clock once per pattern. It now reads only the monotonic wall clock per pattern, and charges the CPU clock at 2 ms slice boundaries and when a pass closes. The slice lives on the request budget, so it spans passes, and the budget lag is at most one slice plus one pattern. The performance monitor also skips the sanitized anomaly copy when no callback is registered. Measured detection CPU on a ~1 KB JSON-like value plus 10 short headers: 5.60 ms to 5.43 ms.
+- **The spec-DEBUG logs no longer print by default** (#110, #111). The no-rules, no-geolocation and loopback-exempt country verdicts (spec 02), the short-circuit `Request blocked by <check>` line (spec 03, still silenced per check by `muted_check_logs`) and the untrusted-proxy spoof line for private and loopback peers were written unconditionally on every request. They are now emitted with `log/slog` at debug level, matching the reference's DEBUG semantics, so they are hidden at the default level. Call `slog.SetLogLoggerLevel(slog.LevelDebug)` to see them. The blocked-by line now carries `check`, `path` and `method` as slog attributes.
+
+### Docs
+
+- The docs state Go 1.26 and the v4 module path (#109).
+
+### Chore
+
+- The release gate requires the push CI of the tagged commit instead of re-running the checks (#107).
 
 ___
 
