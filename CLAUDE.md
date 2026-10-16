@@ -54,7 +54,7 @@ There is nothing to `go run`: the module builds a library consumed by adapter re
 
 ## Development Commands
 
-No Makefile exists in this repo. Every command below is either run verbatim by CI (`.github/workflows/ci.yml`, `code-ql.yml`, `scheduled-lint.yml`, `release.yml`) or is a standard `go` command verified against this layout.
+No Makefile exists in this repo. Every command below is either run verbatim by CI (`.github/workflows/ci.yml`, `code-ql.yml`, `scheduled-lint.yml`) or is a standard `go` command verified against this layout.
 
 | Command | What it does | Verified in |
 |---|---|---|
@@ -66,9 +66,9 @@ No Makefile exists in this repo. Every command below is either run verbatim by C
 | `go test ./conformance/` | Only the fixture corpus conformance suite | derived from `go test ./...` package list |
 | `REDIS_HOST=127.0.0.1 go test -tags integration ./...` | Integration tests against Redis; tests skip when `REDIS_HOST` is unset | `.github/workflows/ci.yml` ("go test (integration, redis)"), env `REDIS_HOST: 127.0.0.1` |
 | `go test -tags interop ./guardcore -run TestInteropRunner` | Cross-implementation Redis interop harness; requires `INTEROP_PHASE` and `REDIS_HOST` env | build tag in `guardcore/interop_runner_test.go` |
-| `go install golang.org/x/vuln/cmd/govulncheck@latest && govulncheck ./...` | Vulnerability scan of the module and its deps | `.github/workflows/ci.yml`, `release.yml`, `scheduled-lint.yml` |
+| `go install golang.org/x/vuln/cmd/govulncheck@latest && govulncheck ./...` | Vulnerability scan of the module and its deps | `.github/workflows/ci.yml`, `scheduled-lint.yml` |
 
-CI (`.github/workflows/ci.yml`) runs on every push and PR with a Go matrix of `1.25.x` and `1.26.x`, a `redis:7-alpine` service sidecar on port 6379, and the steps: gofmt check, `go vet ./...`, `go test ./...`, then `go test -tags integration ./...` with `REDIS_HOST=127.0.0.1`. A separate `govulncheck` job uses the `stable` toolchain. Additional workflows: CodeQL Go analysis (`code-ql.yml`, push/PR plus weekly cron), scheduled weekly vet + govulncheck (`scheduled-lint.yml`, cron `0 4 * * 1`), and a release gate (`release.yml`) on `v*` tags that reruns the full test matrix, govulncheck, and verifies the tag resolves as a module with `go list -m github.com/rennf93/guard-core-go@<tag>` via `GOPROXY=direct`.
+CI (`.github/workflows/ci.yml`) runs on every push and PR with a Go matrix of `1.25.x` and `1.26.x`, a `redis:7-alpine` service sidecar on port 6379, and the steps: gofmt check, `go vet ./...`, `go test ./...`, then `go test -tags integration ./...` with `REDIS_HOST=127.0.0.1`. A separate `govulncheck` job uses the `stable` toolchain. Additional workflows: CodeQL Go analysis (`code-ql.yml`, push/PR plus weekly cron), scheduled weekly vet + govulncheck (`scheduled-lint.yml`, cron `0 4 * * 1`), and a release gate (`release.yml`) on `v*` tags (or run by hand with a `tag` input) that requires the push runs of `ci.yml`, `live-smoke.yml` and `ecosystem-gate.yml` on the tagged commit to have succeeded (nothing is re-run at the tag) and verifies the tag resolves as a module with `go list -m github.com/rennf93/guard-core-go@<tag>` via `GOPROXY=direct`.
 
 ## Project Structure
 
@@ -86,7 +86,7 @@ guard-core-go/
       ci.yml           gofmt, vet, unit tests, Redis integration tests, govulncheck
       code-ql.yml      CodeQL Go analysis
       scheduled-lint.yml  weekly vet + govulncheck
-      release.yml      full gate at v* tags plus module-consumable check
+      release.yml      v* tag gate: requires green CI on the tagged commit, plus module-consumable check
   guardcore/           the single library package (package guardcore)
   conformance/         conformance test package and fixture corpus
   adapters/            empty placeholder directory, not tracked by git

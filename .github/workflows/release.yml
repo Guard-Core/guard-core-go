@@ -1,90 +1,114 @@
 name: Release Gate
 
+# A pushed v* tag is the release for guard-core-go (there is no publish step).
+# This workflow only confirms that the tagged commit is good. Nothing is
+# linted or tested here: the tagged commit must already have passed the push
+# workflows listed in REQUIRED_WORKFLOWS below (ci.yml, live-smoke.yml, ecosystem-gate.yml). A release
+# can therefore never fail on a check its pull request did not run.
+#
+# govulncheck is not repeated here: it is a job of ci.yml, which runs it on
+# the same commit against the same go.mod, so a vulnerable dependency set
+# already fails ci.yml above. The module-proxy check below stays because it
+# can only run once the tag exists.
+#
+# Re-check: run this workflow by hand (Actions > Release Gate > Run workflow)
+# with the tag, for example v4.4.0. It checks out that tag, so a fixed
+# workflow on the default branch can re-check an existing tag.
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to check, for example v4.4.0'
+        required: true
 
 permissions: {}
 
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
 env:
-  GOTOOLCHAIN: auto
+  REQUIRED_WORKFLOWS: >-
+    .github/workflows/ci.yml
+    .github/workflows/live-smoke.yml
+    .github/workflows/ecosystem-gate.yml
 
 jobs:
-  test:
-    name: Test at tag (go ${{ matrix.go }})
+  verify:
+    name: Tagged commit passed CI
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        go: ['1.26.x']
-    services:
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 10
+      actions: read
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
     steps:
-      - name: Checkout tag
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version: ${{ matrix.go }}
-
-      - name: gofmt check
+      - name: Resolve the tag
+        id: tag
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          unformatted=$(gofmt -l .)
-          if [ -n "$unformatted" ]; then
-            echo "gofmt needed on:"
-            echo "$unformatted"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            tag="$INPUT_TAG"
+          else
+            tag="$REF_NAME"
+          fi
+          if ! printf '%s' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::tag '$tag' is not of the form v1.2.3"
             exit 1
           fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
-      - name: go vet
-        run: go vet ./...
-
-      - name: go test (unit)
-        run: go test ./...
-
-      - name: go test (integration, redis)
-        env:
-          REDIS_HOST: 127.0.0.1
-        run: go test -tags integration ./...
-
-  govulncheck:
-    name: govulncheck at tag
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout tag
+      - name: Checkout the tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: refs/tags/${{ steps.tag.outputs.tag }}
           persist-credentials: false
 
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version: 'stable'
-
-      - name: Run govulncheck
+      # The newest push run of each required workflow on the tagged commit
+      # must have succeeded. A tag pushed right after a merge waits for them
+      # (up to an hour) instead of failing.
+      - name: Require green CI on the tagged commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./...
+          sha=$(git rev-parse HEAD)
+          for _ in $(seq 1 60); do
+            runs=$(gh api "repos/$REPO/actions/runs?head_sha=$sha&event=push&per_page=100" \
+              --jq '[.workflow_runs | group_by(.path)[] | max_by(.run_number) | {path, status, conclusion}]')
+            waiting=0
+            for wf in $REQUIRED_WORKFLOWS; do
+              run=$(jq -c --arg p "$wf" '.[] | select(.path == $p)' <<< "$runs")
+              if [ -z "$run" ]; then
+                echo "$wf: no push run on $sha yet"; waiting=1; continue
+              fi
+              status=$(jq -r .status <<< "$run"); conclusion=$(jq -r .conclusion <<< "$run")
+              if [ "$status" != "completed" ]; then
+                echo "$wf: $status"; waiting=1
+              elif [ "$conclusion" != "success" ]; then
+                echo "::error::$wf concluded $conclusion on $sha; fix the default branch and release a new tag"
+                exit 1
+              else
+                echo "ok: $wf success on $sha"
+              fi
+            done
+            [ "$waiting" = "0" ] && exit 0
+            sleep 60
+          done
+          echo "::error::required workflows did not finish on $sha within an hour"
+          exit 1
 
+  # Can only run once the tag exists: a consumer must be able to resolve the
+  # module at this tag straight from the VCS (no proxy cache).
   module-consumable:
     name: Module tag consumable
-    needs: [test, govulncheck]
+    needs: verify
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -97,7 +121,7 @@ jobs:
       - name: Verify module tag resolves
         env:
           MODULE: github.com/rennf93/guard-core-go/v4
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ needs.verify.outputs.tag }}
         run: |
           cd "$(mktemp -d)"
           go mod init consumable-check
