@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/netip"
 	"sort"
 	"strings"
@@ -371,11 +372,11 @@ func globalCountryVerdict(cfg *SecurityConfig, ip string) (string, bool) {
 func logCountryCheckResult(cfg *SecurityConfig, resultType, ip, country string) {
 	switch resultType {
 	case "no_rules":
-		log.Printf("No countries blocked or whitelisted %s - No countries blocked or whitelisted", ip)
+		slog.Debug(fmt.Sprintf("No countries blocked or whitelisted %s - No countries blocked or whitelisted", ip))
 	case "no_geolocation":
-		log.Printf("IP not geolocated %s - IP geolocation failed", ip)
+		slog.Debug(fmt.Sprintf("IP not geolocated %s - IP geolocation failed", ip))
 	case "loopback_exempt":
-		log.Printf("Loopback IP exempt from country allowlist check %s", ip)
+		slog.Debug(fmt.Sprintf("Loopback IP exempt from country allowlist check %s", ip))
 	case "blocked":
 		if cfg == nil || cfg.LogSuspiciousLevel == "" {
 			return
@@ -1400,7 +1401,8 @@ func (p *SecurityCheckPipeline) Execute(req Request) *Response {
 			continue
 		}
 		if !muted[check.CheckName()] {
-			p.logger.Printf("Request blocked by %s (path=%s method=%s)", check.CheckName(), req.URLPath(), req.Method())
+			slog.Debug(fmt.Sprintf("Request blocked by %s", check.CheckName()),
+				"check", check.CheckName(), "path", req.URLPath(), "method", req.Method())
 		}
 		cfg := p.config
 		var reason, triggerInfo string
