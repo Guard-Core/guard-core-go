@@ -3,7 +3,7 @@ Guidance for AI agents (including Claude Code) working in this repository.
 
 ## Project Overview
 
-guard-core-go is the Go core engine library of the guard-core API security ecosystem. It is a library, not an application: there is no `package main`, no binary, and nothing to `go run`. The module path is `github.com/rennf93/guard-core-go` (go.mod `go` directive: `1.25.0`). The README is intentionally minimal (two lines); this file, the code, and CI are the real documentation.
+guard-core-go is the Go core engine library of the guard-core API security ecosystem. It is a library, not an application: there is no `package main`, no binary, and nothing to `go run`. The module path is `github.com/rennf93/guard-core-go/v4` (go.mod `go` directive: `1.26.0`). The README is intentionally minimal (two lines); this file, the code, and CI are the real documentation.
 
 The single library package lives in `guardcore/` at the repo root. Its exported surface is:
 
@@ -40,7 +40,7 @@ The architecture is a strict core/adapter split. These rules are backed by the a
 
 ## Quick Start
 
-Prerequisites: Go 1.25 or newer (go.mod requires `1.25.0`; CI tests `1.25.x` and `1.26.x` with `GOTOOLCHAIN=auto`). For integration tests, a reachable Redis 7 instance. There is no Makefile; commands are plain `go` commands plus the exact steps CI runs.
+Prerequisites: Go 1.26 or newer (go.mod requires `1.26.0`; CI tests `1.26.x` with `GOTOOLCHAIN=auto`). For integration tests, a reachable Redis 7 instance. There is no Makefile; commands are plain `go` commands plus the exact steps CI runs.
 
 ```
 git clone https://github.com/Guard-Core/guard-core-go
@@ -68,7 +68,7 @@ No Makefile exists in this repo. Every command below is either run verbatim by C
 | `go test -tags interop ./guardcore -run TestInteropRunner` | Cross-implementation Redis interop harness; requires `INTEROP_PHASE` and `REDIS_HOST` env | build tag in `guardcore/interop_runner_test.go` |
 | `go install golang.org/x/vuln/cmd/govulncheck@latest && govulncheck ./...` | Vulnerability scan of the module and its deps | `.github/workflows/ci.yml`, `scheduled-lint.yml` |
 
-CI (`.github/workflows/ci.yml`) runs on every push and PR with a Go matrix of `1.25.x` and `1.26.x`, a `redis:7-alpine` service sidecar on port 6379, and the steps: gofmt check, `go vet ./...`, `go test ./...`, then `go test -tags integration ./...` with `REDIS_HOST=127.0.0.1`. A separate `govulncheck` job uses the `stable` toolchain. Additional workflows: CodeQL Go analysis (`code-ql.yml`, push/PR plus weekly cron), scheduled weekly vet + govulncheck (`scheduled-lint.yml`, cron `0 4 * * 1`), and a release gate (`release.yml`) on `v*` tags (or run by hand with a `tag` input) that requires the push runs of `ci.yml`, `live-smoke.yml` and `ecosystem-gate.yml` on the tagged commit to have succeeded (nothing is re-run at the tag) and verifies the tag resolves as a module with `go list -m github.com/rennf93/guard-core-go@<tag>` via `GOPROXY=direct`.
+CI (`.github/workflows/ci.yml`) runs on every push and PR on Go `1.26.x`, a `redis:7-alpine` service sidecar on port 6379, and the steps: gofmt check, `go vet ./...`, `go test ./...`, then `go test -tags integration ./...` with `REDIS_HOST=127.0.0.1`. A separate `govulncheck` job uses the `stable` toolchain. Additional workflows: CodeQL Go analysis (`code-ql.yml`, push/PR plus weekly cron), scheduled weekly vet + govulncheck (`scheduled-lint.yml`, cron `0 4 * * 1`), and a release gate (`release.yml`) on `v*` tags (or run by hand with a `tag` input) that requires the push runs of `ci.yml`, `live-smoke.yml` and `ecosystem-gate.yml` on the tagged commit to have succeeded (nothing is re-run at the tag) and verifies the tag resolves as a module with `go list -m github.com/rennf93/guard-core-go@<tag>` via `GOPROXY=direct`.
 
 ## Project Structure
 
@@ -78,7 +78,7 @@ guard-core-go/
   CLAUDE.md            byte-identical copy of AGENTS.md
   README.md            minimal (title and one-line description only)
   LICENSE              MIT
-  go.mod / go.sum      module github.com/rennf93/guard-core-go/v4, go 1.25.0
+  go.mod / go.sum      module github.com/rennf93/guard-core-go/v4, go 1.26.0
   .gitignore           Go artifacts plus KNOWN_GAPS.md (kept local, never distributed)
   .github/
     dependabot.yml     weekly gomod and github-actions updates (grouped)
@@ -111,7 +111,7 @@ Key files in `conformance/`:
 
 ## Technology Stack
 
-- Language: Go, module `github.com/rennf93/guard-core-go/v4`, go directive `1.25.0`; CI matrix `1.25.x` and `1.26.x`, `GOTOOLCHAIN=auto`.
+- Language: Go, module `github.com/rennf93/guard-core-go/v4`, go directive `1.26.0`; CI on `1.26.x`, `GOTOOLCHAIN=auto`.
 - Direct dependencies (go.mod):
   - `github.com/dlclark/regexp2 v1.12.0`: .NET-style regex engine used for all detection patterns; provides `MatchTimeout` used as a ReDoS defense (`Config.CompilerTimeout`, default 2000ms).
   - `github.com/redis/go-redis/v9 v9.7.3`: Redis client for bans, rate limiting (Lua scripts via `ScriptLoad`/`EvalSha`), and cloud range caches.
