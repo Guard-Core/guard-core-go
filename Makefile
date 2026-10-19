@@ -1,4 +1,4 @@
-GO_IMAGE = golang:1.25-alpine
+GO_IMAGE = golang:1.26-alpine
 REDIS_HOST ?= 127.0.0.1
 
 .PHONY: install
